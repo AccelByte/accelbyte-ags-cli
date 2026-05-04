@@ -173,71 +173,66 @@ impl ExecutionContext {
             access_token_source,
             access_token_expiry,
             access_token_warnings,
-        ) =
-            if input.is_dry_run {
-                let (url, source) = auth::credentials::resolve_base_url(&profile)
-                    .map(|(url, source)| {
-                        let mapped = match source {
-                            auth::credentials::CredentialSource::Environment => {
-                                BaseUrlSource::Environment
-                            }
-                            auth::credentials::CredentialSource::Configuration => {
-                                BaseUrlSource::Configuration
-                            }
-                            auth::credentials::CredentialSource::Keystore => {
-                                BaseUrlSource::Keystore
-                            }
-                        };
-                        (url, mapped)
-                    })
-                    .unwrap_or(("https://<base-url>".to_string(), BaseUrlSource::Default));
-                (
-                    url,
-                    source,
-                    "dry-run-token".to_string(),
-                    AccessTokenSource::DryRun,
-                    None,
-                    vec![],
-                )
-            } else {
-                let (url, source) = auth::credentials::resolve_base_url(&profile)
-                    .map(|(url, source)| {
-                        let mapped = match source {
-                            auth::credentials::CredentialSource::Environment => {
-                                BaseUrlSource::Environment
-                            }
-                            auth::credentials::CredentialSource::Configuration => {
-                                BaseUrlSource::Configuration
-                            }
-                            auth::credentials::CredentialSource::Keystore => {
-                                BaseUrlSource::Keystore
-                            }
-                        };
-                        (url, mapped)
-                    })
-                    .ok_or_else(|| RuntimeError::from(auth::errors::AuthError::BaseUrlMissing))?;
+        ) = if input.is_dry_run {
+            let (url, source) = auth::credentials::resolve_base_url(&profile)
+                .map(|(url, source)| {
+                    let mapped = match source {
+                        auth::credentials::CredentialSource::Environment => {
+                            BaseUrlSource::Environment
+                        }
+                        auth::credentials::CredentialSource::Configuration => {
+                            BaseUrlSource::Configuration
+                        }
+                        auth::credentials::CredentialSource::Keystore => BaseUrlSource::Keystore,
+                    };
+                    (url, mapped)
+                })
+                .unwrap_or(("https://<base-url>".to_string(), BaseUrlSource::Default));
+            (
+                url,
+                source,
+                "dry-run-token".to_string(),
+                AccessTokenSource::DryRun,
+                None,
+                vec![],
+            )
+        } else {
+            let (url, source) = auth::credentials::resolve_base_url(&profile)
+                .map(|(url, source)| {
+                    let mapped = match source {
+                        auth::credentials::CredentialSource::Environment => {
+                            BaseUrlSource::Environment
+                        }
+                        auth::credentials::CredentialSource::Configuration => {
+                            BaseUrlSource::Configuration
+                        }
+                        auth::credentials::CredentialSource::Keystore => BaseUrlSource::Keystore,
+                    };
+                    (url, mapped)
+                })
+                .ok_or_else(|| RuntimeError::from(auth::errors::AuthError::BaseUrlMissing))?;
 
-                let resolution = auth::session::resolve_access_token(http, &profile).await?;
-                let token_source = match resolution.source {
-                    auth::session::TokenSource::Environment => AccessTokenSource::Environment,
-                    auth::session::TokenSource::Stored => AccessTokenSource::Stored,
-                    auth::session::TokenSource::Refreshed => AccessTokenSource::Refreshed,
-                    auth::session::TokenSource::ClientCredentials => {
-                        AccessTokenSource::ClientCredentials
-                    }
-                };
-                let expiry = resolution
-                    .expires_in_secs
-                    .map(crate::support::format_duration);
-                (
-                    url,
-                    source,
-                    resolution.token,
-                    token_source,
-                    expiry,
-                    resolution.warnings,
-                )
+            let resolution = auth::session::resolve_access_token(http, &profile).await?;
+            let token_source = match resolution.source {
+                auth::session::TokenSource::Environment => AccessTokenSource::Environment,
+                auth::session::TokenSource::Stored => AccessTokenSource::Stored,
+                auth::session::TokenSource::Refreshed => AccessTokenSource::Refreshed,
+                auth::session::TokenSource::ClientCredentials => {
+                    AccessTokenSource::ClientCredentials
+                }
             };
+            let expiry = resolution
+                .expires_in_secs
+                .map(crate::support::format_duration);
+            (
+                url,
+                source,
+                resolution.token,
+                token_source,
+                expiry,
+                resolution.warnings,
+            )
+        };
 
         // Namespace resolution: input override -> env -> profile config.
         // Namespace is optional — missing namespace is not an error at this layer.

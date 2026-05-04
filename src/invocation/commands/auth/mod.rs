@@ -320,9 +320,7 @@ async fn await_callback(
 
     let spinner_message = |remaining: u64| -> String {
         if remaining == 0 {
-            format!(
-                "Listening on http://127.0.0.1:{callback_port} for browser callback... waiting"
-            )
+            format!("Listening on http://127.0.0.1:{callback_port} for browser callback... waiting")
         } else {
             format!(
                 "Listening on http://127.0.0.1:{callback_port} for browser callback... {remaining}s remaining"

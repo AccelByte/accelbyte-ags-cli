@@ -166,7 +166,7 @@ pub(crate) async fn read_response_body(
         message: "Response body is not valid UTF-8.".to_string(),
         details: None,
         hint: None,
-            trace: None,
+        trace: None,
     })
 }
 
@@ -193,8 +193,7 @@ pub(crate) async fn read_response_body_tagged(
     // no meaningful media type. Classifying them as Binary would route them
     // through the binary-output path and suppress the success summary and the
     // verbose request/response trace.
-    let is_text_body =
-        bytes.is_empty() || status >= 400 || is_text_content_type(&content_type);
+    let is_text_body = bytes.is_empty() || status >= 400 || is_text_content_type(&content_type);
 
     if is_text_body {
         return match String::from_utf8(bytes) {

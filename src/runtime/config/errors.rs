@@ -9,6 +9,6 @@ pub(crate) fn internal_error(message: impl Into<String>) -> RuntimeError {
         message: message.into(),
         details: None,
         hint: None,
-            trace: None,
+        trace: None,
     }
 }

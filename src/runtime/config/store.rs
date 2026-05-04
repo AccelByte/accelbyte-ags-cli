@@ -392,7 +392,7 @@ pub fn validate_profile_name(name: &str) -> Result<String, RuntimeError> {
             message: "Profile name cannot be empty.".to_string(),
             details: None,
             hint: Some("Use a name like 'default', 'staging', or 'prod-us'.".to_string()),
-                    trace: None,
+            trace: None,
         });
     }
     let valid = normalised
@@ -452,7 +452,7 @@ pub fn resolve_profile_name(flag: Option<&str>) -> Result<String, RuntimeError> 
             "Run 'ags profile create <name>' and 'ags profile use <name>' to get started."
                 .to_string(),
         ),
-            trace: None,
+        trace: None,
     })
 }
 
