@@ -413,7 +413,7 @@ pub(super) fn lookup(error_code: i64) -> Option<ErrorMapping> {
             suggestion: Some("Verify the entitlement ID and retry."),
             tip: None,
         }),
-        31142 | 31143 | 31144 => Some(ErrorMapping {
+        31142..=31144 => Some(ErrorMapping {
             message: "Entitlement not found.",
             reason: Some("No entitlement matches the supplied lookup key."),
             suggestion: Some("Verify the appId, SKU, or itemId and retry."),
@@ -1057,7 +1057,7 @@ pub(super) fn lookup(error_code: i64) -> Option<ErrorMapping> {
             suggestion: Some("Verify the transaction ID and product ID."),
             tip: None,
         }),
-        39142 | 39143 | 39144 | 39145 | 39146 | 39147 | 39148 => Some(ErrorMapping {
+        39142..=39148 => Some(ErrorMapping {
             message: "Platform IAP config not found in this namespace.",
             reason: Some("The platform's IAP configuration is missing."),
             suggestion: Some("Configure the platform IAP for this namespace."),
