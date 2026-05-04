@@ -25,11 +25,18 @@ impl CmdOutput {
 }
 
 /// Spawn the `ags` binary with the given args and return its output.
+///
+/// Uses a unique `AGS_HOME` per call so tests don't share profile state
+/// with each other or with the host machine's real config.
 fn cli(args: &[&str]) -> CmdOutput {
+    let unique_dir = std::env::temp_dir()
+        .join(format!("ags-test-{}", std::process::id()))
+        .join(format!("{:?}", std::thread::current().id()));
     let inner = Command::cargo_bin("ags")
         .unwrap()
         .args(args)
         .env("AGS_NO_KEYCHAIN", "1")
+        .env("AGS_HOME", unique_dir)
         .output()
         .expect("failed to execute ags binary");
     CmdOutput { inner }
