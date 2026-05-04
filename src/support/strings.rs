@@ -224,7 +224,7 @@ pub fn encode_url_path_segment(value: &str, param_name: &str) -> Result<String, 
             message: "Invalid parameter value: path traversal ('..') is not allowed.".to_string(),
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         });
     }
     if value.contains('?') {
@@ -233,7 +233,7 @@ pub fn encode_url_path_segment(value: &str, param_name: &str) -> Result<String, 
             message: "Invalid parameter value: '?' is not allowed.".to_string(),
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         });
     }
     if value.contains('#') {
@@ -242,7 +242,7 @@ pub fn encode_url_path_segment(value: &str, param_name: &str) -> Result<String, 
             message: "Invalid parameter value: '#' is not allowed.".to_string(),
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         });
     }
     if value.bytes().any(|b| b < 0x20 || b == 0x7f) {
@@ -251,7 +251,7 @@ pub fn encode_url_path_segment(value: &str, param_name: &str) -> Result<String, 
             message: "Invalid parameter value: control characters are not allowed.".to_string(),
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         });
     }
 

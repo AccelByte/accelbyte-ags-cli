@@ -248,16 +248,15 @@ pub(crate) async fn execute_operation(
         // the raw body as `errorMessage` so classify still produces the right
         // status-based message + suggestion (instead of falling back to a
         // bare "HTTP N error." with an empty Detail line).
-        let error_object = serde_json::from_str::<serde_json::Value>(&body_text).unwrap_or_else(
-            |_| {
+        let error_object =
+            serde_json::from_str::<serde_json::Value>(&body_text).unwrap_or_else(|_| {
                 let cleaned = strip_terminal_control_sequences(&body_text);
                 if cleaned.is_empty() {
                     serde_json::Value::Null
                 } else {
                     serde_json::json!({ "errorMessage": cleaned })
                 }
-            },
-        );
+            });
         let mut runtime_error = crate::runtime::dispatch::classify::classify_to_runtime_error(
             status,
             &error_object,
@@ -305,14 +304,14 @@ fn map_cli_error_to_runtime_error(err: crate::errors::CliError) -> RuntimeError 
             message,
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         },
         other => RuntimeError {
             kind: RuntimeErrorKind::Internal,
             message: other.to_string(),
             details: None,
             hint: None,
-                    trace: None,
+            trace: None,
         },
     }
 }

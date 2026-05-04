@@ -84,7 +84,7 @@ fn lock_from_path(path: &std::path::Path) -> Result<FileLock, RuntimeError> {
         message: e.to_string(),
         details: None,
         hint: None,
-            trace: None,
+        trace: None,
     })
 }
 
