@@ -1,0 +1,19 @@
+---
+source: tests/snapshot/help_text.rs
+expression: stdout
+---
+Profile management
+
+Usage:
+  profile <COMMAND>
+
+Commands:
+  list    List all profiles
+  create  Create a new profile
+  use     Set the active profile
+  show    Show profile configuration
+  delete  Delete a profile and its stored configuration and credentials
+  rename  Rename a profile
+
+Options:
+  -h, --help  Print help

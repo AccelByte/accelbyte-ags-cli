@@ -1,0 +1,70 @@
+---
+source: tests/snapshot/describe.rs
+expression: "&json"
+---
+{
+  "data": {
+    "command": "iam roles list",
+    "default_scope": "admin",
+    "scopes": {
+      "admin": {
+        "contracts": {
+          "v3": {
+            "http_method": "GET",
+            "parameters": "[parameters]",
+            "path_template": "[path_template]",
+            "permissions": "[permissions]",
+            "request_body": "[request_body]",
+            "response": "[response]",
+            "response_content_type": "application/json",
+            "x_operation_id": "iam/admin/roles/v3/list"
+          },
+          "v4": {
+            "http_method": "GET",
+            "parameters": "[parameters]",
+            "path_template": "[path_template]",
+            "permissions": "[permissions]",
+            "request_body": "[request_body]",
+            "response": "[response]",
+            "response_content_type": "application/json",
+            "x_operation_id": "iam/admin/roles/v4/list"
+          }
+        },
+        "default_version": "v4",
+        "supported_versions": [
+          "v3",
+          "v4"
+        ]
+      },
+      "public": {
+        "contracts": {
+          "v3": {
+            "http_method": "GET",
+            "parameters": "[parameters]",
+            "path_template": "[path_template]",
+            "permissions": "[permissions]",
+            "request_body": "[request_body]",
+            "response": "[response]",
+            "response_content_type": "application/json",
+            "x_operation_id": "iam/public/roles/v3/list"
+          }
+        },
+        "default_version": "v3",
+        "supported_versions": [
+          "v3"
+        ]
+      }
+    }
+  },
+  "generated_by": {
+    "cli": "ags",
+    "version": "[version]"
+  },
+  "kind": "command",
+  "path": [
+    "iam",
+    "roles",
+    "list"
+  ],
+  "schema_version": "1"
+}

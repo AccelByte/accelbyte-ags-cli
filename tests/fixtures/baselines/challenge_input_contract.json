@@ -1,0 +1,1074 @@
+{
+  "assignment-plugins": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/plugins/assignment",
+      "permissions": [],
+      "summary": "Creates an assignment plugin",
+      "x_operation_id": "challenge/admin/assignment-plugins/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/plugins/assignment",
+      "permissions": [],
+      "summary": "Deletes the assignment plugin",
+      "x_operation_id": "challenge/admin/assignment-plugins/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/plugins/assignment",
+      "permissions": [],
+      "summary": "Retrieves the assignment plugin",
+      "x_operation_id": "challenge/admin/assignment-plugins/v1/get"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/plugins/assignment",
+      "permissions": [],
+      "summary": "Updates the assignment plugin",
+      "x_operation_id": "challenge/admin/assignment-plugins/v1/update"
+    }
+  ],
+  "challenges": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges",
+      "permissions": [],
+      "summary": "Creates a new challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}",
+      "permissions": [],
+      "summary": "Deletes a challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-tied",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/tied",
+      "permissions": [],
+      "summary": "Deletes a tied challenge and all related data",
+      "x_operation_id": "challenge/admin/challenges/v1/delete-tied"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}",
+      "permissions": [],
+      "summary": "Retrieves a challenge by code",
+      "x_operation_id": "challenge/admin/challenges/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges",
+      "permissions": [],
+      "summary": "Lists challenges in the namespace",
+      "x_operation_id": "challenge/admin/challenges/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/challenges",
+      "permissions": [],
+      "summary": "Lists challenges in the namespace",
+      "x_operation_id": "challenge/public/challenges/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-active",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/users/{userId}",
+      "permissions": [],
+      "summary": "Lists a user's active challenges",
+      "x_operation_id": "challenge/admin/challenges/v1/list-active"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-periods",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/periods",
+      "permissions": [],
+      "summary": "Lists rotation periods of a challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/list-periods"
+    },
+    {
+      "http_method": "POST",
+      "method": "randomize",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/randomize",
+      "permissions": [],
+      "summary": "Triggers goal randomization for a challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/randomize"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}",
+      "permissions": [],
+      "summary": "Updates a challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-tied-schedule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/tied/schedule",
+      "permissions": [],
+      "summary": "Updates the schedule of a tied challenge",
+      "x_operation_id": "challenge/admin/challenges/v1/update-tied-schedule"
+    }
+  ],
+  "goals": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals",
+      "permissions": [],
+      "summary": "Creates a new goal",
+      "x_operation_id": "challenge/admin/goals/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals/{code}",
+      "permissions": [],
+      "summary": "Deletes a goal",
+      "x_operation_id": "challenge/admin/goals/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals/{code}",
+      "permissions": [],
+      "summary": "Retrieves a goal",
+      "x_operation_id": "challenge/admin/goals/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals",
+      "permissions": [],
+      "summary": "Lists goals of a challenge",
+      "x_operation_id": "challenge/admin/goals/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/challenges/{challengeCode}/goals",
+      "permissions": [],
+      "summary": "Lists goals of a challenge",
+      "x_operation_id": "challenge/public/goals/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals/{code}",
+      "permissions": [],
+      "summary": "Updates a goal",
+      "x_operation_id": "challenge/admin/goals/v1/update"
+    }
+  ],
+  "progress": [
+    {
+      "http_method": "POST",
+      "method": "claim-my-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/rewards/claim",
+      "permissions": [],
+      "summary": "Claims the current user's rewards",
+      "x_operation_id": "challenge/public/progress/v1/claim-my-rewards"
+    },
+    {
+      "http_method": "POST",
+      "method": "claim-my-rewards-by-challenge-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/challenges/{challengeCode}/rewards/claim",
+      "permissions": [],
+      "summary": "Claims the current user's rewards by goal code",
+      "x_operation_id": "challenge/public/progress/v1/claim-my-rewards-by-challenge-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "claim-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/users/{userId}/rewards/claim",
+      "permissions": [],
+      "summary": "Claims rewards for a user",
+      "x_operation_id": "challenge/admin/progress/v1/claim-rewards"
+    },
+    {
+      "http_method": "POST",
+      "method": "claim-rewards-by-challenge-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/users/{userId}/challenges/{challengeCode}/rewards/claim",
+      "permissions": [],
+      "summary": "Claims rewards for a user by goal code",
+      "x_operation_id": "challenge/admin/progress/v1/claim-rewards-by-challenge-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "claim-rewards-by-user-ids",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/users/rewards/claim",
+      "permissions": [],
+      "summary": "Claims rewards for a group of users",
+      "x_operation_id": "challenge/admin/progress/v1/claim-rewards-by-user-ids"
+    },
+    {
+      "http_method": "POST",
+      "method": "evaluate",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "challengeCode",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/progress/evaluate",
+      "permissions": [],
+      "summary": "Triggers progression evaluation for users",
+      "x_operation_id": "challenge/admin/progress/v1/evaluate"
+    },
+    {
+      "http_method": "POST",
+      "method": "evaluate",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "challengeCode",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/progress/evaluate",
+      "permissions": [],
+      "summary": "Triggers progression evaluation for the current user",
+      "x_operation_id": "challenge/public/progress/v1/evaluate"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "dateTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "goalCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/users/{userId}/progress/{challengeCode}",
+      "permissions": [],
+      "summary": "Lists a user's goal progressions",
+      "x_operation_id": "challenge/admin/progress/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "dateTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "goalCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/progress/{challengeCode}",
+      "permissions": [],
+      "summary": "Lists the current user's goal progressions",
+      "x_operation_id": "challenge/public/progress/v1/list-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "challengeCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "goalProgressionId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/rewards",
+      "permissions": [],
+      "summary": "Lists the current user's earned rewards",
+      "x_operation_id": "challenge/public/progress/v1/list-my-rewards"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-past",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "index",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "goalCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/users/me/progress/{challengeCode}/index/{index}",
+      "permissions": [],
+      "summary": "Lists the current user's progressions in a previous rotation",
+      "x_operation_id": "challenge/public/progress/v1/list-past"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "challengeCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "goalProgressionId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/users/{userId}/rewards",
+      "permissions": [],
+      "summary": "Lists a user's earned rewards",
+      "x_operation_id": "challenge/admin/progress/v1/list-user-rewards"
+    }
+  ],
+  "schedules": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "dateTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/schedules",
+      "permissions": [],
+      "summary": "Lists schedules for a challenge",
+      "x_operation_id": "challenge/admin/schedules/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "dateTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/challenges/{challengeCode}/schedules",
+      "permissions": [],
+      "summary": "Lists schedules for a challenge",
+      "x_operation_id": "challenge/public/schedules/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-by-goal",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/{challengeCode}/goals/{code}/schedules",
+      "permissions": [],
+      "summary": "Lists schedules for a goal",
+      "x_operation_id": "challenge/admin/schedules/v1/list-by-goal"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-by-goal",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "challengeCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/challenge/v1/public/namespaces/{namespace}/challenges/{challengeCode}/goals/{code}/schedules",
+      "permissions": [],
+      "summary": "Lists schedules for a goal",
+      "x_operation_id": "challenge/public/schedules/v1/list-by-goal"
+    }
+  ],
+  "utilities": [
+    {
+      "http_method": "GET",
+      "method": "list-item-references",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "itemId",
+          "required": true
+        }
+      ],
+      "path": "/challenge/v1/admin/namespaces/{namespace}/challenges/item/references",
+      "permissions": [],
+      "summary": "Retrieves challenge references for an ecommerce item",
+      "x_operation_id": "challenge/admin/utilities/v1/list-item-references"
+    }
+  ]
+}

@@ -1,0 +1,4037 @@
+{
+  "channels": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels",
+      "permissions": [],
+      "summary": "Creates a channel in the namespace",
+      "x_operation_id": "ugc/admin/channels/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels",
+      "permissions": [],
+      "summary": "Creates a channel for a user",
+      "x_operation_id": "ugc/public/channels/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Deletes a channel from the namespace",
+      "x_operation_id": "ugc/admin/channels/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Deletes a channel for a user",
+      "x_operation_id": "ugc/public/channels/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Deletes a channel for a user",
+      "x_operation_id": "ugc/admin/channels/v1/delete-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels",
+      "permissions": [],
+      "summary": "Lists channels in the namespace",
+      "x_operation_id": "ugc/admin/channels/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels",
+      "permissions": [],
+      "summary": "Lists channels for a user",
+      "x_operation_id": "ugc/public/channels/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels",
+      "permissions": [],
+      "summary": "Lists channels for a user",
+      "x_operation_id": "ugc/admin/channels/v1/list-user"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Updates a channel in the namespace",
+      "x_operation_id": "ugc/admin/channels/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Updates a user's channel",
+      "x_operation_id": "ugc/public/channels/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}",
+      "permissions": [],
+      "summary": "Updates a user's channel",
+      "x_operation_id": "ugc/admin/channels/v1/update-user"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/configs",
+      "permissions": [],
+      "summary": "Retrieves configuration settings paginated",
+      "x_operation_id": "ugc/admin/config/v2/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/configs/{key}",
+      "permissions": [],
+      "summary": "Updates a configuration value",
+      "x_operation_id": "ugc/admin/config/v2/update"
+    }
+  ],
+  "content": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by ID",
+      "x_operation_id": "ugc/admin/content/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by ID",
+      "x_operation_id": "ugc/admin/content/v2/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by ID",
+      "x_operation_id": "ugc/public/content/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by ID",
+      "x_operation_id": "ugc/public/content/v2/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/sharecodes/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by share code",
+      "x_operation_id": "ugc/admin/content/v1/bulk-get-by-share-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/sharecodes/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by share code",
+      "x_operation_id": "ugc/admin/content/v2/bulk-get-by-share-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/sharecodes/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by share code",
+      "x_operation_id": "ugc/public/content/v1/bulk-get-by-share-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/sharecodes/bulk",
+      "permissions": [],
+      "summary": "Retrieves content entries by share code",
+      "x_operation_id": "ugc/public/content/v2/bulk-get-by-share-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "copy",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}/copy",
+      "permissions": [],
+      "summary": "Copies a content entry to another channel",
+      "x_operation_id": "ugc/admin/content/v2/copy"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents",
+      "permissions": [],
+      "summary": "Creates official content in a channel",
+      "x_operation_id": "ugc/admin/content/v2/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents",
+      "permissions": [],
+      "summary": "Creates content in a user's channel",
+      "x_operation_id": "ugc/public/content/v2/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-s3",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3",
+      "permissions": [],
+      "summary": "Uploads UGC content to S3 for a user's channel",
+      "x_operation_id": "ugc/public/content/v1/create-s3"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a content entry from a channel",
+      "x_operation_id": "ugc/admin/content/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a content entry for a user",
+      "x_operation_id": "ugc/public/content/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a content entry",
+      "x_operation_id": "ugc/public/content/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Deletes a content entry by sharecode",
+      "x_operation_id": "ugc/admin/content/v1/delete-by-share-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Deletes an official content entry by sharecode",
+      "x_operation_id": "ugc/admin/content/v2/delete-by-share-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Deletes a content entry by sharecode",
+      "x_operation_id": "ugc/public/content/v1/delete-by-share-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Deletes content by sharecode",
+      "x_operation_id": "ugc/public/content/v2/delete-by-share-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-screenshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "screenshotId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/screenshots/{screenshotId}",
+      "permissions": [],
+      "summary": "Deletes a screenshot from a content entry",
+      "x_operation_id": "ugc/admin/content/v1/delete-screenshot"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-screenshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "screenshotId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}/screenshots/{screenshotId}",
+      "permissions": [],
+      "summary": "Deletes a screenshot from a content entry",
+      "x_operation_id": "ugc/admin/content/v2/delete-screenshot"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-screenshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "screenshotId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots/{screenshotId}",
+      "permissions": [],
+      "summary": "Deletes a screenshot from a content entry",
+      "x_operation_id": "ugc/public/content/v1/delete-screenshot"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-screenshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "screenshotId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots/{screenshotId}",
+      "permissions": [],
+      "summary": "Deletes a screenshot from a content entry",
+      "x_operation_id": "ugc/public/content/v2/delete-screenshot"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a content entry by ID",
+      "x_operation_id": "ugc/admin/content/v1/delete-user"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a user content entry",
+      "x_operation_id": "ugc/admin/content/v2/delete-user"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-file-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}/contents/s3",
+      "permissions": [],
+      "summary": "Uploads UGC content to S3 for a channel",
+      "x_operation_id": "ugc/admin/content/v1/generate-file-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-screenshot-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Uploads screenshots for a content entry",
+      "x_operation_id": "ugc/admin/content/v1/generate-screenshot-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-screenshot-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Uploads screenshots for an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/generate-screenshot-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-screenshot-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Creates screenshot upload URLs for a content entry",
+      "x_operation_id": "ugc/public/content/v2/generate-screenshot-upload-url"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}/uploadUrl",
+      "permissions": [],
+      "summary": "Generates an upload URL for an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/generate-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Uploads screenshots for a content entry",
+      "x_operation_id": "ugc/public/content/v1/generate-upload-url"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/uploadUrl",
+      "permissions": [],
+      "summary": "Generates an upload URL for a content entry",
+      "x_operation_id": "ugc/public/content/v2/generate-upload-url"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "generate-user-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/uploadUrl",
+      "permissions": [],
+      "summary": "Generates an upload URL for a user content entry",
+      "x_operation_id": "ugc/admin/content/v2/generate-user-upload-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by ID",
+      "x_operation_id": "ugc/admin/content/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by ID",
+      "x_operation_id": "ugc/admin/content/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by ID",
+      "x_operation_id": "ugc/public/content/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by ID",
+      "x_operation_id": "ugc/public/content/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by its sharecode",
+      "x_operation_id": "ugc/admin/content/v1/get-by-share-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Retrieves content by sharecode",
+      "x_operation_id": "ugc/admin/content/v2/get-by-share-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Retrieves a content entry by its sharecode",
+      "x_operation_id": "ugc/public/content/v1/get-by-share-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Retrieves content by sharecode",
+      "x_operation_id": "ugc/public/content/v2/get-by-share-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-preview",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/preview",
+      "permissions": [],
+      "summary": "Retrieves the preview for a content entry",
+      "x_operation_id": "ugc/admin/content/v1/get-preview"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-preview",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/{contentId}/preview",
+      "permissions": [],
+      "summary": "Retrieves the preview for a content entry",
+      "x_operation_id": "ugc/public/content/v1/get-preview"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/contents",
+      "permissions": [],
+      "summary": "Lists content created by a user",
+      "x_operation_id": "ugc/public/content/v1/get-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/contents",
+      "permissions": [],
+      "summary": "Lists content created by a user",
+      "x_operation_id": "ugc/public/content/v2/get-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents",
+      "permissions": [],
+      "summary": "Lists user-generated contents in a namespace",
+      "x_operation_id": "ugc/admin/content/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isOfficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents",
+      "permissions": [],
+      "summary": "Lists official content in the namespace",
+      "x_operation_id": "ugc/admin/content/v2/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "creator",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "ishidden",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isofficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subtype",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents",
+      "permissions": [],
+      "summary": "Searches contents in a namespace",
+      "x_operation_id": "ugc/public/content/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isOfficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents",
+      "permissions": [],
+      "summary": "Lists public content in the namespace",
+      "x_operation_id": "ugc/public/content/v2/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-channel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents",
+      "permissions": [],
+      "summary": "Lists official content in a channel",
+      "x_operation_id": "ugc/admin/content/v2/list-channel"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-channel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "creator",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "ishidden",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isofficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subtype",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/channels/{channelId}/contents",
+      "permissions": [],
+      "summary": "Searches contents within a channel",
+      "x_operation_id": "ugc/public/content/v1/list-channel"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-channel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/channels/{channelId}/contents",
+      "permissions": [],
+      "summary": "Lists content in a channel",
+      "x_operation_id": "ugc/public/content/v2/list-channel"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/contents",
+      "permissions": [],
+      "summary": "Lists user-generated contents for a specific user",
+      "x_operation_id": "ugc/admin/content/v1/list-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/contents",
+      "permissions": [],
+      "summary": "Lists content created by a user",
+      "x_operation_id": "ugc/admin/content/v2/list-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-versions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/versions",
+      "permissions": [],
+      "summary": "Lists file versions for a content entry",
+      "x_operation_id": "ugc/admin/content/v1/list-versions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-versions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}/versions",
+      "permissions": [],
+      "summary": "Lists file versions for a content entry",
+      "x_operation_id": "ugc/admin/content/v2/list-versions"
+    },
+    {
+      "http_method": "PUT",
+      "method": "rollback",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "versionId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/rollback/{versionId}",
+      "permissions": [],
+      "summary": "Restores a content entry to a previous file version",
+      "x_operation_id": "ugc/admin/content/v1/rollback"
+    },
+    {
+      "http_method": "PUT",
+      "method": "rollback",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "versionId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}/rollback/{versionId}",
+      "permissions": [],
+      "summary": "Restores a content entry to a specific file version",
+      "x_operation_id": "ugc/admin/content/v2/rollback"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "creator",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "ishidden",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isofficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subtype",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/search",
+      "permissions": [],
+      "summary": "Searches contents in a namespace",
+      "x_operation_id": "ugc/admin/content/v1/search"
+    },
+    {
+      "http_method": "GET",
+      "method": "search-channel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "creator",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "ishidden",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isofficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subtype",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}/contents/search",
+      "permissions": [],
+      "summary": "Searches contents within a channel",
+      "x_operation_id": "ugc/admin/content/v1/search-channel"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Updates an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Updates a content entry",
+      "x_operation_id": "ugc/public/content/v2/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Updates official content in S3 by sharecode",
+      "x_operation_id": "ugc/admin/content/v2/update-by-share-code"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 by sharecode",
+      "x_operation_id": "ugc/public/content/v1/update-by-share-code"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 by sharecode",
+      "x_operation_id": "ugc/public/content/v2/update-by-share-code"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-file",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/channels/{channelId}/contents/s3/{contentId}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 for a channel",
+      "x_operation_id": "ugc/admin/content/v1/update-file"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-file",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/{contentId}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 for a user's channel",
+      "x_operation_id": "ugc/public/content/v1/update-file"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-file-by-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "shareCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/sharecodes/{shareCode}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 by sharecode",
+      "x_operation_id": "ugc/admin/content/v1/update-file-by-share-code"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-file-location",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/channels/{channelId}/contents/{contentId}/fileLocation",
+      "permissions": [],
+      "summary": "Updates the file location for an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/update-file-location"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-file-location",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/fileLocation",
+      "permissions": [],
+      "summary": "Updates the file location for a content entry",
+      "x_operation_id": "ugc/public/content/v2/update-file-location"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-file-location-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/fileLocation",
+      "permissions": [],
+      "summary": "Updates the file location for a user content entry",
+      "x_operation_id": "ugc/admin/content/v2/update-file-location-user"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-file-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/s3/{contentId}",
+      "permissions": [],
+      "summary": "Updates UGC content in S3 for a user's channel",
+      "x_operation_id": "ugc/admin/content/v1/update-file-user"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-screenshots",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Updates screenshots for a content entry",
+      "x_operation_id": "ugc/admin/content/v1/update-screenshots"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-screenshots",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Updates screenshots for an official content entry",
+      "x_operation_id": "ugc/admin/content/v2/update-screenshots"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-screenshots",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Updates screenshots for a content entry",
+      "x_operation_id": "ugc/public/content/v1/update-screenshots"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-screenshots",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/contents/{contentId}/screenshots",
+      "permissions": [],
+      "summary": "Updates screenshots for a content entry",
+      "x_operation_id": "ugc/public/content/v2/update-screenshots"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/sharecode",
+      "permissions": [],
+      "summary": "Updates the sharecode for a content entry",
+      "x_operation_id": "ugc/public/content/v1/update-share-code"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-share-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}/sharecode",
+      "permissions": [],
+      "summary": "Updates the sharecode for a content entry",
+      "x_operation_id": "ugc/public/content/v2/update-share-code"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "channelId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/channels/{channelId}/contents/{contentId}",
+      "permissions": [],
+      "summary": "Updates a user content entry",
+      "x_operation_id": "ugc/admin/content/v2/update-user"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-visibility",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/contents/{contentId}/hide",
+      "permissions": [],
+      "summary": "Updates the hidden status of a user's content",
+      "x_operation_id": "ugc/admin/content/v1/update-visibility"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-visibility",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/contents/{contentId}/hide",
+      "permissions": [],
+      "summary": "Sets the visibility of a user content entry",
+      "x_operation_id": "ugc/admin/content/v2/update-visibility"
+    }
+  ],
+  "creators": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves stats for a creator including likes, followers, and following counts",
+      "x_operation_id": "ugc/public/creators/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Searches for creators in a namespace",
+      "x_operation_id": "ugc/public/creators/v1/search"
+    }
+  ],
+  "engagements": [
+    {
+      "http_method": "PUT",
+      "method": "follow",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/follow",
+      "permissions": [],
+      "summary": "Updates the follow status for a user",
+      "x_operation_id": "ugc/public/engagements/v1/follow"
+    },
+    {
+      "http_method": "PUT",
+      "method": "like",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/{contentId}/like",
+      "permissions": [],
+      "summary": "Updates the like status for a content entry",
+      "x_operation_id": "ugc/public/engagements/v1/like"
+    },
+    {
+      "http_method": "PUT",
+      "method": "like",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/{contentId}/like",
+      "permissions": [],
+      "summary": "Updates the like status for a content entry",
+      "x_operation_id": "ugc/public/engagements/v2/like"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content-followed",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/followed",
+      "permissions": [],
+      "summary": "Lists contents from followed creators",
+      "x_operation_id": "ugc/public/engagements/v1/list-content-followed"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-creators-followed",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/followed",
+      "permissions": [],
+      "summary": "Lists followed creators",
+      "x_operation_id": "ugc/public/engagements/v1/list-creators-followed"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-downloaders",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/{contentId}/downloader",
+      "permissions": [],
+      "summary": "Lists users who downloaded a content entry",
+      "x_operation_id": "ugc/public/engagements/v2/list-downloaders"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-followed",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/following",
+      "permissions": [],
+      "summary": "Lists users followed by a user",
+      "x_operation_id": "ugc/public/engagements/v1/list-followed"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-followers",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/followers",
+      "permissions": [],
+      "summary": "Lists followers of a user",
+      "x_operation_id": "ugc/public/engagements/v1/list-followers"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-liked",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isofficial",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortby",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "subtype",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "type",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/liked",
+      "permissions": [],
+      "summary": "Lists liked contents",
+      "x_operation_id": "ugc/public/engagements/v1/list-liked"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-likers",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/{contentId}/like",
+      "permissions": [],
+      "summary": "Lists users who have liked a content entry",
+      "x_operation_id": "ugc/public/engagements/v2/list-likers"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-download-count",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/contents/{contentId}/downloadcount",
+      "permissions": [],
+      "summary": "Adds a unique download count to a content entry",
+      "x_operation_id": "ugc/public/engagements/v1/set-download-count"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-download-count",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/contents/{contentId}/downloadcount",
+      "permissions": [],
+      "summary": "Adds a download count to a content entry",
+      "x_operation_id": "ugc/public/engagements/v2/set-download-count"
+    }
+  ],
+  "groups": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Creates a group in the namespace",
+      "x_operation_id": "ugc/admin/groups/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups",
+      "permissions": [],
+      "summary": "Creates a content group for a user",
+      "x_operation_id": "ugc/public/groups/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a group by ID",
+      "x_operation_id": "ugc/admin/groups/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a content group for a user",
+      "x_operation_id": "ugc/public/groups/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a group for a user",
+      "x_operation_id": "ugc/admin/groups/v1/delete-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves a specific user group by ID",
+      "x_operation_id": "ugc/admin/groups/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves a content group for a user",
+      "x_operation_id": "ugc/public/groups/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves a specific group for a user",
+      "x_operation_id": "ugc/admin/groups/v1/get-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Lists all user groups in a namespace",
+      "x_operation_id": "ugc/admin/groups/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups",
+      "permissions": [],
+      "summary": "Lists all groups for a user",
+      "x_operation_id": "ugc/public/groups/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists contents belonging to a group (legacy)",
+      "x_operation_id": "ugc/admin/groups/v1/list-content"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists content in a group",
+      "x_operation_id": "ugc/admin/groups/v2/list-content"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists content in a group (legacy)",
+      "x_operation_id": "ugc/public/groups/v1/list-content"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists content entries belonging to a group",
+      "x_operation_id": "ugc/public/groups/v2/list-content"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-content-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists content in a group for a user",
+      "x_operation_id": "ugc/admin/groups/v2/list-content-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-contents-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}/contents",
+      "permissions": [],
+      "summary": "Lists contents belonging to a group for a user (legacy)",
+      "x_operation_id": "ugc/admin/groups/v1/list-contents-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/groups",
+      "permissions": [],
+      "summary": "Lists all groups for a user",
+      "x_operation_id": "ugc/admin/groups/v1/list-user"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Updates a group by replacing its name and contents",
+      "x_operation_id": "ugc/admin/groups/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Updates a content group for a user",
+      "x_operation_id": "ugc/public/groups/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Updates a group for a user",
+      "x_operation_id": "ugc/admin/groups/v1/update-user"
+    }
+  ],
+  "staging": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/staging-contents/{contentId}",
+      "permissions": [],
+      "summary": "Deletes a user staging content entry by ID",
+      "x_operation_id": "ugc/public/staging/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/staging-contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a staging content entry by ID",
+      "x_operation_id": "ugc/public/staging/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/staging-contents",
+      "permissions": [],
+      "summary": "Lists staging content for a user",
+      "x_operation_id": "ugc/public/staging/v2/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/public/namespaces/{namespace}/users/{userId}/staging-contents/{contentId}",
+      "permissions": [],
+      "summary": "Updates a staging content entry",
+      "x_operation_id": "ugc/public/staging/v2/update"
+    }
+  ],
+  "staging-content": [
+    {
+      "http_method": "POST",
+      "method": "approve",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/staging-contents/{contentId}/approve",
+      "permissions": [],
+      "summary": "Approves or rejects a staging content entry",
+      "x_operation_id": "ugc/admin/staging-content/v2/approve"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "contentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/staging-contents/{contentId}",
+      "permissions": [],
+      "summary": "Retrieves a staging content entry by ID",
+      "x_operation_id": "ugc/admin/staging-content/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/staging-contents",
+      "permissions": [],
+      "summary": "Lists staging content pending approval",
+      "x_operation_id": "ugc/admin/staging-content/v2/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v2/admin/namespaces/{namespace}/users/{userId}/staging-contents",
+      "permissions": [],
+      "summary": "Lists staging content for a user pending approval",
+      "x_operation_id": "ugc/admin/staging-content/v2/list-user"
+    }
+  ],
+  "tags": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Creates a tag in the namespace",
+      "x_operation_id": "ugc/admin/tags/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tagId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/tags/{tagId}",
+      "permissions": [],
+      "summary": "Deletes a tag by ID",
+      "x_operation_id": "ugc/admin/tags/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists available tags in a namespace",
+      "x_operation_id": "ugc/admin/tags/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists available tags in a namespace",
+      "x_operation_id": "ugc/public/tags/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tagId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/tags/{tagId}",
+      "permissions": [],
+      "summary": "Updates an existing tag",
+      "x_operation_id": "ugc/admin/tags/v1/update"
+    }
+  ],
+  "types": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/types",
+      "permissions": [],
+      "summary": "Creates a type and subtype in the namespace",
+      "x_operation_id": "ugc/admin/types/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "typeId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/types/{typeId}",
+      "permissions": [],
+      "summary": "Deletes a type by ID",
+      "x_operation_id": "ugc/admin/types/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/types",
+      "permissions": [],
+      "summary": "Lists available content types in a namespace",
+      "x_operation_id": "ugc/admin/types/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/ugc/v1/public/namespaces/{namespace}/types",
+      "permissions": [],
+      "summary": "Lists available content types in a namespace",
+      "x_operation_id": "ugc/public/types/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "typeId",
+          "required": true
+        }
+      ],
+      "path": "/ugc/v1/admin/namespaces/{namespace}/types/{typeId}",
+      "permissions": [],
+      "summary": "Updates a type and its subtypes",
+      "x_operation_id": "ugc/admin/types/v1/update"
+    }
+  ]
+}

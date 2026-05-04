@@ -1,0 +1,14 @@
+---
+source: tests/snapshot/help_text.rs
+expression: stdout
+---
+Create a new profile
+
+Usage:
+  profile create <name>
+
+Arguments:
+  <name>  Profile name
+
+Options:
+  -h, --help  Print help

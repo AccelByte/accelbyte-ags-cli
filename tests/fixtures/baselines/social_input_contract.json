@@ -1,0 +1,1882 @@
+{
+  "global-stat-values": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/globalstatitems/{statCode}",
+      "permissions": [],
+      "summary": "Retrieves a global stat item by stat code",
+      "x_operation_id": "social/admin/global-stat-values/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/globalstatitems/{statCode}",
+      "permissions": [],
+      "summary": "Retrieves a global stat item by stat code",
+      "x_operation_id": "social/public/global-stat-values/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/globalstatitems",
+      "permissions": [],
+      "summary": "Lists global stat items",
+      "x_operation_id": "social/admin/global-stat-values/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/globalstatitems",
+      "permissions": [],
+      "summary": "Lists global stat items",
+      "x_operation_id": "social/public/global-stat-values/v1/list"
+    }
+  ],
+  "stat-cycles": [
+    {
+      "http_method": "POST",
+      "method": "bulk-add",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}/stats/add/bulk",
+      "permissions": [],
+      "summary": "Adds a stat cycle to stats in bulk",
+      "x_operation_id": "social/admin/stat-cycles/v1/bulk-add"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/bulk",
+      "permissions": [],
+      "summary": "Retrieves stat cycles in bulk",
+      "x_operation_id": "social/admin/stat-cycles/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statCycles/bulk",
+      "permissions": [],
+      "summary": "Retrieves stat cycles in bulk",
+      "x_operation_id": "social/public/stat-cycles/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles",
+      "permissions": [],
+      "summary": "Creates a stat cycle",
+      "x_operation_id": "social/admin/stat-cycles/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}",
+      "permissions": [],
+      "summary": "Deletes stat cycle",
+      "x_operation_id": "social/admin/stat-cycles/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/export",
+      "permissions": [],
+      "summary": "Exports all stat cycle configurations",
+      "x_operation_id": "social/admin/stat-cycles/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statCycles/{cycleId}",
+      "permissions": [],
+      "summary": "Retrieves a stat cycle",
+      "x_operation_id": "social/public/stat-cycles/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}",
+      "permissions": [],
+      "summary": "Retrieves a stat cycle",
+      "x_operation_id": "social/admin/stat-cycles/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "replaceExisting",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/import",
+      "permissions": [],
+      "summary": "Imports stat cycle configurations",
+      "x_operation_id": "social/admin/stat-cycles/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "cycleType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles",
+      "permissions": [],
+      "summary": "Lists stat cycles",
+      "x_operation_id": "social/admin/stat-cycles/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "cycleType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statCycles",
+      "permissions": [],
+      "summary": "Lists stat cycles",
+      "x_operation_id": "social/public/stat-cycles/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "stop",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}/stop",
+      "permissions": [],
+      "summary": "Stops a stat cycle",
+      "x_operation_id": "social/admin/stat-cycles/v1/stop"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}",
+      "permissions": [],
+      "summary": "Updates a stat cycle",
+      "x_operation_id": "social/admin/stat-cycles/v1/update"
+    }
+  ],
+  "stat-definitions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats",
+      "permissions": [],
+      "summary": "Creates a stat",
+      "x_operation_id": "social/admin/stat-definitions/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/stats",
+      "permissions": [],
+      "summary": "Creates a stat",
+      "x_operation_id": "social/public/stat-definitions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/{statCode}",
+      "permissions": [],
+      "summary": "Deletes stat",
+      "x_operation_id": "social/admin/stat-definitions/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-tied",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/{statCode}/tied",
+      "permissions": [],
+      "summary": "Deletes tied stat",
+      "x_operation_id": "social/admin/stat-definitions/v1/delete-tied"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/export",
+      "permissions": [],
+      "summary": "Exports all stat configurations",
+      "x_operation_id": "social/admin/stat-definitions/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/{statCode}",
+      "permissions": [],
+      "summary": "Retrieves a stat by stat code",
+      "x_operation_id": "social/admin/stat-definitions/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "replaceExisting",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/import",
+      "permissions": [],
+      "summary": "Imports stat configurations",
+      "x_operation_id": "social/admin/stat-definitions/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "cycleIds",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isGlobal",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isPublic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats",
+      "permissions": [],
+      "summary": "Lists stats",
+      "x_operation_id": "social/admin/stat-definitions/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isGlobal",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isPublic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/search",
+      "permissions": [],
+      "summary": "Searches stats by keyword",
+      "x_operation_id": "social/admin/stat-definitions/v1/search"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/{statCode}",
+      "permissions": [],
+      "summary": "Updates a stat",
+      "x_operation_id": "social/admin/stat-definitions/v1/update"
+    }
+  ],
+  "user-stat-cycles": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isPublic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statCycles/{cycleId}/statCycleitems",
+      "permissions": [],
+      "summary": "Lists a user's stat cycle items for a stat cycle",
+      "x_operation_id": "social/admin/user-stat-cycles/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statCycles/{cycleId}/statCycleitems",
+      "permissions": [],
+      "summary": "Lists a user's stat cycle items for a cycle",
+      "x_operation_id": "social/public/user-stat-cycles/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/me/statCycles/{cycleId}/statCycleitems",
+      "permissions": [],
+      "summary": "Lists the current user's stat cycle items for a cycle",
+      "x_operation_id": "social/public/user-stat-cycles/v1/list-my"
+    }
+  ],
+  "user-stat-values": [
+    {
+      "http_method": "POST",
+      "method": "bulk-create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statitems/bulk",
+      "permissions": [],
+      "summary": "Creates stat items for a user in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-create"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems/bulk",
+      "permissions": [],
+      "summary": "Creates stat items for a user in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-create"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/statitems/value/bulk/getOrDefault",
+      "permissions": [],
+      "summary": "Retrieves a user's stat item values in bulk by stat code",
+      "x_operation_id": "social/admin/user-stat-values/v2/bulk-get"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Lists a user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-get"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/public/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Lists a user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v2/bulk-get"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get-by-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statitems/value/bulk/getOrDefault",
+      "permissions": [],
+      "summary": "Retrieves stat item values for users, returning defaults for missing items",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-get-by-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get-by-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/statitems/value/bulk/getOrDefault",
+      "permissions": [],
+      "summary": "Retrieves stat item values for users in bulk by stat code",
+      "x_operation_id": "social/admin/user-stat-values/v2/bulk-get-by-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statitems/bulk",
+      "permissions": [],
+      "summary": "Retrieves stat item values for users in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-get-for-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statitems/bulk",
+      "permissions": [],
+      "summary": "Retrieves stat item values for users in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-get-for-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "bulk-get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/me/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Lists the current user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-get-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statitems/value/reset/bulk",
+      "permissions": [],
+      "summary": "Resets a user's stat item values to defaults in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/statitems/value/reset/bulk",
+      "permissions": [],
+      "summary": "Resets a user's stat item values to defaults in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v2/bulk-reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems/value/reset/bulk",
+      "permissions": [],
+      "summary": "Resets a user's stat item values to defaults in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-reset-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statitems/value/reset/bulk",
+      "permissions": [],
+      "summary": "Resets stat item values to defaults for users in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-reset-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-reset-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statitems/value/reset/bulk",
+      "permissions": [],
+      "summary": "Resets stat item values for users in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-reset-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Replaces a user's stat item values in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-set"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Replaces a user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-set"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-set-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Replaces stat item values for users in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-set-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-set-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Replaces stat item values for users in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-set-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates a user's stat item values in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v2/bulk-update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/public/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates a user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v2/bulk-update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-update-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates stat item values for users in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-update-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates stat item values for users in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v2/bulk-update-for-users"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-update-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates stat item values for users in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-update-for-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update-for-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v2/public/namespaces/{namespace}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates stat item values for users in bulk",
+      "x_operation_id": "social/public/user-stat-values/v2/bulk-update-for-users"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates a user's stat item values in bulk",
+      "x_operation_id": "social/admin/user-stat-values/v1/bulk-update-user"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Updates a user's stat item values in bulk",
+      "x_operation_id": "social/public/user-stat-values/v1/bulk-update-user"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Creates a stat item for a user",
+      "x_operation_id": "social/admin/user-stat-values/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Creates a stat item for a user",
+      "x_operation_id": "social/public/user-stat-values/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Deletes a user's stat items",
+      "x_operation_id": "social/admin/user-stat-values/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Deletes stat items for a user",
+      "x_operation_id": "social/admin/user-stat-values/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Deletes a user's stat item",
+      "x_operation_id": "social/public/user-stat-values/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/stats/{statCode}/statitems",
+      "permissions": [],
+      "summary": "Retrieves stat item values for users by stat code",
+      "x_operation_id": "social/admin/user-stat-values/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isPublic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/statitems",
+      "permissions": [],
+      "summary": "Lists a user's stat items",
+      "x_operation_id": "social/admin/user-stat-values/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/statitems/value/bulk",
+      "permissions": [],
+      "summary": "Lists a user's stat item values (legacy)",
+      "x_operation_id": "social/admin/user-stat-values/v2/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/statitems",
+      "permissions": [],
+      "summary": "Lists a user's stat items",
+      "x_operation_id": "social/public/user-stat-values/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/me/statitems",
+      "permissions": [],
+      "summary": "Lists the current user's stat items",
+      "x_operation_id": "social/public/user-stat-values/v1/list-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value/reset",
+      "permissions": [],
+      "summary": "Resets a user's stat item value to its default",
+      "x_operation_id": "social/admin/user-stat-values/v1/reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value/reset",
+      "permissions": [],
+      "summary": "Resets a user's stat item to its default value",
+      "x_operation_id": "social/public/user-stat-values/v1/reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value",
+      "permissions": [],
+      "summary": "Replaces a user's stat item value",
+      "x_operation_id": "social/public/user-stat-values/v1/set"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value",
+      "permissions": [],
+      "summary": "Updates a user's stat item value",
+      "x_operation_id": "social/admin/user-stat-values/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/admin/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value",
+      "permissions": [],
+      "summary": "Updates a user's stat item value",
+      "x_operation_id": "social/admin/user-stat-values/v2/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value",
+      "permissions": [],
+      "summary": "Updates a user's stat item value",
+      "x_operation_id": "social/public/user-stat-values/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "additionalKey",
+          "required": false
+        }
+      ],
+      "path": "/social/v2/public/namespaces/{namespace}/users/{userId}/stats/{statCode}/statitems/value",
+      "permissions": [],
+      "summary": "Updates a user's stat item value",
+      "x_operation_id": "social/public/user-stat-values/v2/update"
+    }
+  ]
+}

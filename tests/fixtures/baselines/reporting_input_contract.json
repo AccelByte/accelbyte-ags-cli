@@ -1,0 +1,776 @@
+{
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/configurations",
+      "permissions": [],
+      "summary": "Retrieves the reporting configuration for a namespace",
+      "x_operation_id": "reporting/admin/config/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "upsert",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/configurations",
+      "permissions": [],
+      "summary": "Creates or updates the reporting configuration for a namespace",
+      "x_operation_id": "reporting/admin/config/v1/upsert"
+    }
+  ],
+  "extensions": [
+    {
+      "http_method": "POST",
+      "method": "create-action",
+      "parameters": [],
+      "path": "/reporting/v1/admin/extensionActions",
+      "permissions": [],
+      "summary": "Creates an auto moderation action",
+      "x_operation_id": "reporting/admin/extensions/v1/create-action"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-category",
+      "parameters": [],
+      "path": "/reporting/v1/admin/extensionCategories",
+      "permissions": [],
+      "summary": "Creates an extension category",
+      "x_operation_id": "reporting/admin/extensions/v1/create-category"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-actions",
+      "parameters": [],
+      "path": "/reporting/v1/admin/extensionActions",
+      "permissions": [],
+      "summary": "Retrieves all auto moderation actions",
+      "x_operation_id": "reporting/admin/extensions/v1/list-actions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-categories",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/extensionCategories",
+      "permissions": [],
+      "summary": "Retrieves all extension categories",
+      "x_operation_id": "reporting/admin/extensions/v1/list-categories"
+    }
+  ],
+  "reasons": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons",
+      "permissions": [],
+      "summary": "Creates a report reason",
+      "x_operation_id": "reporting/admin/reasons/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasonGroups",
+      "permissions": [],
+      "summary": "Creates a reason group",
+      "x_operation_id": "reporting/admin/reasons/v1/create-group"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "reasonId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons/{reasonId}",
+      "permissions": [],
+      "summary": "Deletes a report reason",
+      "x_operation_id": "reporting/admin/reasons/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasonGroups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a reason group",
+      "x_operation_id": "reporting/admin/reasons/v1/delete-group"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "reasonId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons/{reasonId}",
+      "permissions": [],
+      "summary": "Retrieves a single report reason",
+      "x_operation_id": "reporting/admin/reasons/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasonGroups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves a reason group by ID",
+      "x_operation_id": "reporting/admin/reasons/v1/get-group"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "group",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "title",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons",
+      "permissions": [],
+      "summary": "Lists reasons in a namespace",
+      "x_operation_id": "reporting/admin/reasons/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "group",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "title",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/public/namespaces/{namespace}/reasons",
+      "permissions": [],
+      "summary": "Lists reasons for a namespace",
+      "x_operation_id": "reporting/public/reasons/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons/all",
+      "permissions": [],
+      "summary": "Retrieves all reasons without pagination",
+      "x_operation_id": "reporting/admin/reasons/v1/list-all"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-groups",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasonGroups",
+      "permissions": [],
+      "summary": "Lists reason groups in a namespace",
+      "x_operation_id": "reporting/admin/reasons/v1/list-groups"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-groups",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/public/namespaces/{namespace}/reasonGroups",
+      "permissions": [],
+      "summary": "Lists reason groups for a namespace",
+      "x_operation_id": "reporting/public/reasons/v1/list-groups"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-unused",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "extensionCategory",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons/unused",
+      "permissions": [],
+      "summary": "Lists reasons not used by any moderation rule",
+      "x_operation_id": "reporting/admin/reasons/v1/list-unused"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "reasonId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasons/{reasonId}",
+      "permissions": [],
+      "summary": "Updates a report reason",
+      "x_operation_id": "reporting/admin/reasons/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reasonGroups/{groupId}",
+      "permissions": [],
+      "summary": "Updates a reason group",
+      "x_operation_id": "reporting/admin/reasons/v1/update-group"
+    }
+  ],
+  "reports": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reports",
+      "permissions": [],
+      "summary": "Submits a report as an admin",
+      "x_operation_id": "reporting/admin/reports/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/public/namespaces/{namespace}/reports",
+      "permissions": [],
+      "summary": "Submits a report",
+      "x_operation_id": "reporting/public/reports/v1/create"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "reportedUserId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/reports",
+      "permissions": [],
+      "summary": "Lists submitted reports for a namespace",
+      "x_operation_id": "reporting/admin/reports/v1/list"
+    }
+  ],
+  "rules": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rule",
+      "permissions": [],
+      "summary": "Creates an auto moderation rule",
+      "x_operation_id": "reporting/admin/rules/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rule/{ruleId}",
+      "permissions": [],
+      "summary": "Deletes an auto moderation rule",
+      "x_operation_id": "reporting/admin/rules/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rules/{ruleId}",
+      "permissions": [],
+      "summary": "Retrieves an auto moderation rule",
+      "x_operation_id": "reporting/admin/rules/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "extensionCategory",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rules",
+      "permissions": [],
+      "summary": "Lists auto moderation rules for a namespace",
+      "x_operation_id": "reporting/admin/rules/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rule/{ruleId}",
+      "permissions": [],
+      "summary": "Updates an auto moderation rule",
+      "x_operation_id": "reporting/admin/rules/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/rule/{ruleId}/status",
+      "permissions": [],
+      "summary": "Enables or disables an auto moderation rule",
+      "x_operation_id": "reporting/admin/rules/v1/update-status"
+    }
+  ],
+  "tickets": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets/{ticketId}",
+      "permissions": [],
+      "summary": "Deletes a report ticket",
+      "x_operation_id": "reporting/admin/tickets/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets/{ticketId}",
+      "permissions": [],
+      "summary": "Retrieves a single report ticket",
+      "x_operation_id": "reporting/admin/tickets/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-statistics",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "extensionCategory",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets/statistic",
+      "permissions": [],
+      "summary": "Retrieves ticket statistics",
+      "x_operation_id": "reporting/admin/tickets/v1/get-statistics"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "extensionCategory",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "reportedUserId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets",
+      "permissions": [],
+      "summary": "Lists report tickets for a namespace",
+      "x_operation_id": "reporting/admin/tickets/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-reports",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets/{ticketId}/reports",
+      "permissions": [],
+      "summary": "Lists reports for a ticket",
+      "x_operation_id": "reporting/admin/tickets/v1/list-reports"
+    },
+    {
+      "http_method": "POST",
+      "method": "update-resolution",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketId",
+          "required": true
+        }
+      ],
+      "path": "/reporting/v1/admin/namespaces/{namespace}/tickets/{ticketId}/resolutions",
+      "permissions": [],
+      "summary": "Updates a ticket's resolution status",
+      "x_operation_id": "reporting/admin/tickets/v1/update-resolution"
+    }
+  ]
+}

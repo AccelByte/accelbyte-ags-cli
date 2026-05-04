@@ -1,0 +1,39 @@
+# Build artefacts
+/target
+
+# OS / editor cruft
+**/.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.rs.bk
+.idea/
+.vscode/
+
+# Python caches (defensive — no Python in the tracked tree today)
+**/__pycache__/
+**/.pytest_cache/
+
+# Secrets — never commit
+.env
+.env.*
+.envrc
+*.pem
+*.key
+
+# Coverage / profiling
+*.profraw
+*.profdata
+lcov.info
+
+# Claude Code workspace — only settings.json and the qa-test skill are tracked
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/qa-test/
+
+# Docs — only the reference folder is tracked
+docs/*
+!docs/reference/

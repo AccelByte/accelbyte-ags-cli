@@ -1,0 +1,1660 @@
+{
+  "global-rankings": [
+    {
+      "http_method": "GET",
+      "method": "get-snapshot-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "leaderboardCodes",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "slug",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/archived",
+      "permissions": [],
+      "summary": "Retrieves signed download URLs for archived all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/get-snapshot-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-snapshot-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "leaderboardCodes",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "slug",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/archived",
+      "permissions": [],
+      "summary": "Retrieves signed download URLs for archived all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/get-snapshot-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/alltime",
+      "permissions": [],
+      "summary": "Retrieves all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/list-all-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/alltime",
+      "permissions": [],
+      "summary": "Retrieves all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v3/list-all-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/alltime",
+      "permissions": [],
+      "summary": "Retrieves all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/list-all-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v2/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/alltime",
+      "permissions": [],
+      "summary": "Retrieves all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v2/list-all-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/alltime",
+      "permissions": [],
+      "summary": "Retrieves all-time leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v3/list-all-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-cycle",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/cycles/{cycleId}",
+      "permissions": [],
+      "summary": "Retrieves ranking data for a leaderboard cycle",
+      "x_operation_id": "leaderboard/admin/global-rankings/v3/list-cycle"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-cycle",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/cycles/{cycleId}",
+      "permissions": [],
+      "summary": "Retrieves ranking data for a leaderboard cycle",
+      "x_operation_id": "leaderboard/public/global-rankings/v3/list-cycle"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-month",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/month",
+      "permissions": [],
+      "summary": "Retrieves current-month leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/list-month"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-month",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/month",
+      "permissions": [],
+      "summary": "Retrieves current-month leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/list-month"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-season",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/season",
+      "permissions": [],
+      "summary": "Retrieves current-season leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/list-season"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-season",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/season",
+      "permissions": [],
+      "summary": "Retrieves current-season leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/list-season"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-today",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/today",
+      "permissions": [],
+      "summary": "Retrieves today's leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/list-today"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-today",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/today",
+      "permissions": [],
+      "summary": "Retrieves today's leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/list-today"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-week",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/week",
+      "permissions": [],
+      "summary": "Retrieves current-week leaderboard ranking data",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/list-week"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-week",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/week",
+      "permissions": [],
+      "summary": "Retrieves current-week leaderboard ranking data",
+      "x_operation_id": "leaderboard/public/global-rankings/v1/list-week"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/reset",
+      "permissions": [],
+      "summary": "Deletes all user rankings for a leaderboard",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/reset"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/reset",
+      "permissions": [],
+      "summary": "Deletes all user rankings for a leaderboard",
+      "x_operation_id": "leaderboard/admin/global-rankings/v3/reset"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-cycle",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/cycles/{cycleId}/reset",
+      "permissions": [],
+      "summary": "Deletes all user rankings for a leaderboard cycle",
+      "x_operation_id": "leaderboard/admin/global-rankings/v3/reset-cycle"
+    },
+    {
+      "http_method": "POST",
+      "method": "snapshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/archived",
+      "permissions": [],
+      "summary": "Creates ranking data archives for the specified leaderboards",
+      "x_operation_id": "leaderboard/admin/global-rankings/v1/snapshot"
+    }
+  ],
+  "leaderboards": [
+    {
+      "http_method": "POST",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/delete",
+      "permissions": [],
+      "summary": "Deletes leaderboard configurations in bulk",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/bulk-delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/delete",
+      "permissions": [],
+      "summary": "Deletes leaderboard configurations in bulk",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/bulk-delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Creates a new leaderboard configuration",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Creates a new leaderboard configuration",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Creates a new leaderboard configuration",
+      "x_operation_id": "leaderboard/public/leaderboards/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Deletes a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Deletes a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-permanent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/hard",
+      "permissions": [],
+      "summary": "Deletes a leaderboard configuration and all its data permanently",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/delete-permanent"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-permanent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/hard",
+      "permissions": [],
+      "summary": "Deletes a leaderboard configuration and all its data permanently",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/delete-permanent"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Retrieves a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Retrieves a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isArchived",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Lists all leaderboard configurations in a namespace",
+      "x_operation_id": "leaderboard/public/leaderboards/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v2/public/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Lists all leaderboard configurations in a namespace",
+      "x_operation_id": "leaderboard/public/leaderboards/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Retrieves a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/public/leaderboards/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isArchived",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Lists all leaderboard configurations in a namespace",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Lists all leaderboard configurations in a namespace",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards",
+      "permissions": [],
+      "summary": "Lists all leaderboard configurations in a namespace",
+      "x_operation_id": "leaderboard/public/leaderboards/v3/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Updates a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}",
+      "permissions": [],
+      "summary": "Updates a leaderboard configuration by its code",
+      "x_operation_id": "leaderboard/admin/leaderboards/v3/update"
+    }
+  ],
+  "user-rankings": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/bulk",
+      "permissions": [],
+      "summary": "Retrieves rankings for a set of users in a leaderboard",
+      "x_operation_id": "leaderboard/public/user-rankings/v3/bulk-get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves a user's ranking in a leaderboard",
+      "x_operation_id": "leaderboard/admin/user-rankings/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves a user's ranking in a leaderboard",
+      "x_operation_id": "leaderboard/admin/user-rankings/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves a user's ranking in a leaderboard",
+      "x_operation_id": "leaderboard/public/user-rankings/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves a user's ranking in a leaderboard",
+      "x_operation_id": "leaderboard/public/user-rankings/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/users/{userId}/leaderboards",
+      "permissions": [],
+      "summary": "Retrieves a user's rankings across leaderboards",
+      "x_operation_id": "leaderboard/admin/user-rankings/v1/list-all"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "previousVersion",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/users/{userId}/leaderboards",
+      "permissions": [],
+      "summary": "Retrieves a user's rankings across leaderboards",
+      "x_operation_id": "leaderboard/admin/user-rankings/v3/list-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's ranking from a leaderboard",
+      "x_operation_id": "leaderboard/admin/user-rankings/v1/reset"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's ranking from a leaderboard",
+      "x_operation_id": "leaderboard/admin/user-rankings/v3/reset"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/public/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's ranking from a leaderboard",
+      "x_operation_id": "leaderboard/public/user-rankings/v1/reset"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "leaderboardCode",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's rankings across all leaderboards",
+      "x_operation_id": "leaderboard/admin/user-rankings/v1/reset-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "leaderboardCode",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's rankings across all leaderboards",
+      "x_operation_id": "leaderboard/admin/user-rankings/v3/reset-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-cycle",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/cycles/{cycleId}/users/{userId}",
+      "permissions": [],
+      "summary": "Deletes a user's ranking for a leaderboard cycle",
+      "x_operation_id": "leaderboard/admin/user-rankings/v3/reset-cycle"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-points",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v1/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}",
+      "permissions": [],
+      "summary": "Updates a user's point total in a leaderboard",
+      "x_operation_id": "leaderboard/admin/user-rankings/v1/update-points"
+    }
+  ],
+  "visibility": [
+    {
+      "http_method": "GET",
+      "method": "get-user-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v2/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Retrieves a user's visibility status on a leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v2/get-user-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Retrieves a user's visibility status on a leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v3/get-user-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-hidden",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v2/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/hidden",
+      "permissions": [],
+      "summary": "Retrieves hidden users on a leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v2/list-hidden"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-hidden",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/hidden",
+      "permissions": [],
+      "summary": "Retrieves hidden users on a leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v3/list-hidden"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-user-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v2/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Sets a user's visibility status on a specific leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v2/set-user-status"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-user-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "leaderboardCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/leaderboards/{leaderboardCode}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Sets a user's visibility status on a specific leaderboard",
+      "x_operation_id": "leaderboard/admin/visibility/v3/set-user-status"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-user-status-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v2/admin/namespaces/{namespace}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Sets a user's visibility status across all leaderboards",
+      "x_operation_id": "leaderboard/admin/visibility/v2/set-user-status-all"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-user-status-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/leaderboard/v3/admin/namespaces/{namespace}/users/{userId}/visibility",
+      "permissions": [],
+      "summary": "Sets a user's visibility status across all leaderboards",
+      "x_operation_id": "leaderboard/admin/visibility/v3/set-user-status-all"
+    }
+  ]
+}

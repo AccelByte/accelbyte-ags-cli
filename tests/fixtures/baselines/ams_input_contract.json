@@ -1,0 +1,1069 @@
+{
+  "account": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/account",
+      "permissions": [],
+      "summary": "Creates a new AMS account",
+      "x_operation_id": "ams/admin/account/v1/create"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/account",
+      "permissions": [],
+      "summary": "Retrieves the account associated with the namespace",
+      "x_operation_id": "ams/admin/account/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/namespaces/{namespace}/account",
+      "permissions": [],
+      "summary": "Retrieves the account associated with the namespace",
+      "x_operation_id": "ams/public/account/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-link-token",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/account/link",
+      "permissions": [],
+      "summary": "Retrieves an account link token",
+      "x_operation_id": "ams/admin/account/v1/get-link-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "link",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/account/link",
+      "permissions": [],
+      "summary": "Links an account to a namespace",
+      "x_operation_id": "ams/admin/account/v1/link"
+    }
+  ],
+  "artifacts": [
+    {
+      "http_method": "DELETE",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "artifactType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fleetId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "uploadedBefore",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/artifacts",
+      "permissions": [],
+      "summary": "Deletes artifacts in bulk that match any of the provided criteria",
+      "x_operation_id": "ams/admin/artifacts/v1/bulk-delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "artifactID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/artifacts/{artifactID}",
+      "permissions": [],
+      "summary": "Deletes a specified artifact",
+      "x_operation_id": "ams/admin/artifacts/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "artifactType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fleetID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "imageID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "maxSize",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "minSize",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "region",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "serverId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/artifacts",
+      "permissions": [],
+      "summary": "Retrieves all artifacts that match the provided criteria",
+      "x_operation_id": "ams/admin/artifacts/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-download-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "artifactID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/artifacts/{artifactID}/url",
+      "permissions": [],
+      "summary": "Retrieves a signed URL for a specific artifact",
+      "x_operation_id": "ams/admin/artifacts/v1/get-download-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-fleet-sampling-rules",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}/artifacts-sampling-rules",
+      "permissions": [],
+      "summary": "Returns the sampling rules for a fleet",
+      "x_operation_id": "ams/admin/artifacts/v1/get-fleet-sampling-rules"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-usage",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/artifacts/usage",
+      "permissions": [],
+      "summary": "Retrieves artifact storage usage for the namespace",
+      "x_operation_id": "ams/admin/artifacts/v1/get-usage"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-fleet-sampling-rules",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}/artifacts-sampling-rules",
+      "permissions": [],
+      "summary": "Sets sampling rules for a fleet",
+      "x_operation_id": "ams/admin/artifacts/v1/set-fleet-sampling-rules"
+    }
+  ],
+  "dedicated-servers": [
+    {
+      "http_method": "PUT",
+      "method": "claim-by-fleet-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/namespaces/{namespace}/fleets/{fleetID}/claim",
+      "permissions": [],
+      "summary": "Claims a dedicated server from a fleet",
+      "x_operation_id": "ams/public/dedicated-servers/v1/claim-by-fleet-id"
+    },
+    {
+      "http_method": "PUT",
+      "method": "claim-by-keys",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/namespaces/{namespace}/servers/claim",
+      "permissions": [],
+      "summary": "Claims a dedicated server",
+      "x_operation_id": "ams/public/dedicated-servers/v1/claim-by-keys"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-connection-info",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "serverID",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/servers/{serverID}/connectioninfo",
+      "permissions": [],
+      "summary": "Retrieves dedicated server connection info",
+      "x_operation_id": "ams/admin/dedicated-servers/v1/get-connection-info"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "serverID",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/servers/{serverID}/history",
+      "permissions": [],
+      "summary": "Retrieves dedicated server history",
+      "x_operation_id": "ams/admin/dedicated-servers/v1/get-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-history-by-fleet-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "reason",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "region",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "serverId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}/servers/history",
+      "permissions": [],
+      "summary": "Retrieves history records for a dedicated server in a fleet",
+      "x_operation_id": "ams/admin/dedicated-servers/v1/get-history-by-fleet-id"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-info",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "serverID",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/servers/{serverID}",
+      "permissions": [],
+      "summary": "Retrieves dedicated server details",
+      "x_operation_id": "ams/admin/dedicated-servers/v1/get-info"
+    }
+  ],
+  "dev-server-config": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/development/server-configurations",
+      "permissions": [],
+      "summary": "Creates a new development server configuration",
+      "x_operation_id": "ams/admin/dev-server-config/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "developmentServerConfigID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/development/server-configurations/{developmentServerConfigID}",
+      "permissions": [],
+      "summary": "Deletes a development server configuration",
+      "x_operation_id": "ams/admin/dev-server-config/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "developmentServerConfigID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/development/server-configurations/{developmentServerConfigID}",
+      "permissions": [],
+      "summary": "Retrieves a development server configuration",
+      "x_operation_id": "ams/admin/dev-server-config/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "imageId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/development/server-configurations",
+      "permissions": [],
+      "summary": "Lists development server configurations with pagination",
+      "x_operation_id": "ams/admin/dev-server-config/v1/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "developmentServerConfigID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/development/server-configurations/{developmentServerConfigID}",
+      "permissions": [],
+      "summary": "Updates a development server configuration",
+      "x_operation_id": "ams/admin/dev-server-config/v1/update"
+    }
+  ],
+  "fleet-commander": [
+    {
+      "http_method": "GET",
+      "method": "check-auth",
+      "parameters": [],
+      "path": "/ams/auth",
+      "permissions": [],
+      "summary": "Checks if fleet commander can auth with AMS",
+      "x_operation_id": "ams/public/fleet-commander/v1/check-auth"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-version",
+      "parameters": [],
+      "path": "/ams/version",
+      "permissions": [],
+      "summary": "Retrieves version info",
+      "x_operation_id": "ams/public/fleet-commander/v1/get-version"
+    }
+  ],
+  "fleets": [
+    {
+      "http_method": "DELETE",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets",
+      "permissions": [],
+      "summary": "Deletes one or more fleets",
+      "x_operation_id": "ams/admin/fleets/v1/bulk-delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets",
+      "permissions": [],
+      "summary": "Creates a fleet",
+      "x_operation_id": "ams/admin/fleets/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}",
+      "permissions": [],
+      "summary": "Deletes a fleet",
+      "x_operation_id": "ams/admin/fleets/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}",
+      "permissions": [],
+      "summary": "Retrieves a fleet",
+      "x_operation_id": "ams/admin/fleets/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-dedicated-server",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "region",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "serverId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}/servers",
+      "permissions": [],
+      "summary": "Retrieves server details and counts for a fleet",
+      "x_operation_id": "ams/admin/fleets/v1/get-dedicated-server"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "active",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "region",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets",
+      "permissions": [],
+      "summary": "Lists all fleets in a namespace",
+      "x_operation_id": "ams/admin/fleets/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "fleetID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/fleets/{fleetID}",
+      "permissions": [],
+      "summary": "Updates a fleet",
+      "x_operation_id": "ams/admin/fleets/v1/update"
+    }
+  ],
+  "images": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "imageID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images/{imageID}",
+      "permissions": [],
+      "summary": "Retrieves image details",
+      "x_operation_id": "ams/admin/images/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-storage",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images-storage",
+      "permissions": [],
+      "summary": "Retrieves current usage for image storage",
+      "x_operation_id": "ams/admin/images/v1/get-storage"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "count",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "inUse",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isProtected",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortDirection",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tag",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "targetArchitecture",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images",
+      "permissions": [],
+      "summary": "Retrieves a list of existing images",
+      "x_operation_id": "ams/admin/images/v1/list"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "mark-for-deletion",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "imageID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images/{imageID}",
+      "permissions": [],
+      "summary": "Marks the image for deletion",
+      "x_operation_id": "ams/admin/images/v1/mark-for-deletion"
+    },
+    {
+      "http_method": "POST",
+      "method": "unmark-for-deletion",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "imageID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images/{imageID}/restore",
+      "permissions": [],
+      "summary": "Returns an image to active use",
+      "x_operation_id": "ams/admin/images/v1/unmark-for-deletion"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "imageID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/images/{imageID}",
+      "permissions": [],
+      "summary": "Updates an image",
+      "x_operation_id": "ams/admin/images/v1/update"
+    }
+  ],
+  "info": [
+    {
+      "http_method": "GET",
+      "method": "get-upload-url",
+      "parameters": [],
+      "path": "/ams/v1/upload-url",
+      "permissions": [],
+      "summary": "Retrieves an upload URL for an image",
+      "x_operation_id": "ams/public/info/v1/get-upload-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-regions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/regions",
+      "permissions": [],
+      "summary": "Retrieves available AMS regions",
+      "x_operation_id": "ams/admin/info/v1/list-regions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-supported-insstances",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/supported-instances",
+      "permissions": [],
+      "summary": "Retrieves available instance types for the current account",
+      "x_operation_id": "ams/admin/info/v1/list-supported-insstances"
+    }
+  ],
+  "qos": [
+    {
+      "http_method": "GET",
+      "method": "list-regions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/qos",
+      "permissions": [],
+      "summary": "Retrieves available AMS QoS regions",
+      "x_operation_id": "ams/admin/qos/v1/list-regions"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-region",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "region",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/admin/namespaces/{namespace}/qos/{region}",
+      "permissions": [],
+      "summary": "Updates a QoS region status",
+      "x_operation_id": "ams/admin/qos/v1/update-region"
+    }
+  ],
+  "watchdogs": [
+    {
+      "http_method": "GET",
+      "method": "connect",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "watchdogID",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/namespaces/{namespace}/watchdogs/{watchdogID}/connect",
+      "permissions": [],
+      "summary": "Connects a watchdog",
+      "x_operation_id": "ams/public/watchdogs/v1/connect"
+    },
+    {
+      "http_method": "GET",
+      "method": "connect-local",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "watchdogID",
+          "required": true
+        }
+      ],
+      "path": "/ams/v1/namespaces/{namespace}/local/{watchdogID}/connect",
+      "permissions": [],
+      "summary": "Connects a local watchdog",
+      "x_operation_id": "ams/public/watchdogs/v1/connect-local"
+    }
+  ]
+}

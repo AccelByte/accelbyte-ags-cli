@@ -1,0 +1,79 @@
+{
+  "queue": [
+    {
+      "http_method": "DELETE",
+      "method": "cancel-ticket",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/login-queue/v1/namespaces/{namespace}/ticket",
+      "permissions": [],
+      "summary": "Cancels a login queue ticket",
+      "x_operation_id": "login-queue/public/queue/v1/cancel-ticket"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-config",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/login-queue/v1/admin/namespaces/{namespace}/config",
+      "permissions": [],
+      "summary": "Retrieves login queue configuration",
+      "x_operation_id": "login-queue/admin/queue/v1/get-config"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/login-queue/v1/admin/namespaces/{namespace}/status",
+      "permissions": [],
+      "summary": "Retrieves login queue status",
+      "x_operation_id": "login-queue/admin/queue/v1/get-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "refresh-ticket",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/login-queue/v1/namespaces/{namespace}/ticket",
+      "permissions": [],
+      "summary": "Refreshes a login queue ticket",
+      "x_operation_id": "login-queue/public/queue/v1/refresh-ticket"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-config",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/login-queue/v1/admin/namespaces/{namespace}/config",
+      "permissions": [],
+      "summary": "Updates login queue configuration",
+      "x_operation_id": "login-queue/admin/queue/v1/update-config"
+    }
+  ]
+}

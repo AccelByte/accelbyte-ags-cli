@@ -1,0 +1,1407 @@
+{
+  "agreements": [
+    {
+      "http_method": "POST",
+      "method": "accept",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/public/agreements/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Accepts a localized policy version",
+      "x_operation_id": "legal/public/agreements/v1/accept"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-accept",
+      "parameters": [],
+      "path": "/agreement/public/agreements/policies",
+      "permissions": [],
+      "summary": "Accepts policy versions in bulk",
+      "x_operation_id": "legal/public/agreements/v1/bulk-accept"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-accept-on-behalf",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "publisherUserId",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/users/{userId}/agreements/policies",
+      "permissions": [],
+      "summary": "Accepts a set of policy versions on behalf of a user",
+      "x_operation_id": "legal/admin/agreements/v1/bulk-accept-on-behalf"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-accepted",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/agreements",
+      "permissions": [],
+      "summary": "Retrieves accepted legal agreements for a set of users",
+      "x_operation_id": "legal/admin/agreements/v1/bulk-get-accepted"
+    },
+    {
+      "http_method": "GET",
+      "method": "generate-exported-csv-download-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "exportId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/agreements/policy-versions/users/export-csv/download",
+      "permissions": [],
+      "summary": "Downloads an exported CSV of users' accepted agreements",
+      "x_operation_id": "legal/admin/agreements/v1/generate-exported-csv-download-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-accepted",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "excludeOtherNamespacesPolicies",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/agreements/policies/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves accepted legal agreements for a user",
+      "x_operation_id": "legal/admin/agreements/v1/list-accepted"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-accepted-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/agreements/policies/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves accepted legal agreements for a user",
+      "x_operation_id": "legal/admin/agreements/v1/list-accepted-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-accepted",
+      "parameters": [],
+      "path": "/agreement/public/agreements/policies",
+      "permissions": [],
+      "summary": "Retrieves the current user's accepted legal agreements",
+      "x_operation_id": "legal/public/agreements/v1/list-my-accepted"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-users-by-version",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "convertGameUserId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/agreements/policy-versions/users",
+      "permissions": [],
+      "summary": "Retrieves users who have accepted a specific policy version",
+      "x_operation_id": "legal/admin/agreements/v1/list-users-by-version"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-users-by-version-deprecated",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/agreements/policy-versions/users",
+      "permissions": [],
+      "summary": "Retrieves users who have accepted a specific policy version",
+      "x_operation_id": "legal/admin/agreements/v1/list-users-by-version-deprecated"
+    },
+    {
+      "http_method": "POST",
+      "method": "start-csv-export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "end",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyVersionId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "start",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/agreements/policy-versions/users/export-csv/initiate",
+      "permissions": [],
+      "summary": "Starts an export of users' accepted agreements to CSV",
+      "x_operation_id": "legal/admin/agreements/v1/start-csv-export"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-consent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/agreements/localized-policy-versions/preferences/namespaces/{namespace}/userId/{userId}",
+      "permissions": [],
+      "summary": "Updates a user's preference consent settings",
+      "x_operation_id": "legal/admin/agreements/v1/update-consent"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-consent",
+      "parameters": [],
+      "path": "/agreement/public/agreements/localized-policy-versions/preferences",
+      "permissions": [],
+      "summary": "Accepts or revokes marketing preference consent",
+      "x_operation_id": "legal/public/agreements/v1/update-consent"
+    }
+  ],
+  "base-policies": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies",
+      "permissions": [],
+      "summary": "Creates a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-child",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}/policies",
+      "permissions": [],
+      "summary": "Creates a policy under a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/create-child"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-deprecated",
+      "parameters": [],
+      "path": "/agreement/admin/base-policies",
+      "permissions": [],
+      "summary": "Creates a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/create-deprecated"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}",
+      "permissions": [],
+      "summary": "Deletes a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}",
+      "permissions": [],
+      "summary": "Retrieves a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-child",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves a base legal policy for a specific country",
+      "x_operation_id": "legal/admin/base-policies/v1/get-child"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-child-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/base-policies/{basePolicyId}/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves a base legal policy for a specific country",
+      "x_operation_id": "legal/admin/base-policies/v1/get-child-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/base-policies/{basePolicyId}",
+      "permissions": [],
+      "summary": "Retrieves a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/get-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "visibleOnly",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies",
+      "permissions": [],
+      "summary": "Retrieves base legal policies in a namespace",
+      "x_operation_id": "legal/admin/base-policies/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-children",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}/policies",
+      "permissions": [],
+      "summary": "Retrieves all policies under a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/list-children"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-deprecated",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "visibleOnly",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/base-policies",
+      "permissions": [],
+      "summary": "Retrieves all base legal policies",
+      "x_operation_id": "legal/admin/base-policies/v1/list-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-types",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policy-types",
+      "permissions": [],
+      "summary": "Retrieves all supported policy types",
+      "x_operation_id": "legal/admin/base-policies/v1/list-types"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/base-policies/{basePolicyId}",
+      "permissions": [],
+      "summary": "Updates a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "basePolicyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/base-policies/{basePolicyId}",
+      "permissions": [],
+      "summary": "Updates a base legal policy",
+      "x_operation_id": "legal/admin/base-policies/v1/update-deprecated"
+    }
+  ],
+  "eligibilities": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/public/eligibilities/namespaces/{namespace}/countries/{countryCode}/clients/{clientId}/users/{userId}",
+      "permissions": [],
+      "summary": "Checks legal eligibility for a specific user",
+      "x_operation_id": "legal/public/eligibilities/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-on-behalf",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "publisherUserId",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/users/{userId}/eligibilities",
+      "permissions": [],
+      "summary": "Checks a user's legal eligibility against active policies",
+      "x_operation_id": "legal/admin/eligibilities/v1/get-on-behalf"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/public/eligibilities/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Checks the current user's legal eligibility",
+      "x_operation_id": "legal/public/eligibilities/v1/list"
+    }
+  ],
+  "localized-versions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Creates a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Creates a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/create-deprecated"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Deletes a localized policy version",
+      "x_operation_id": "legal/admin/localized-versions/v1/delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/{localizedPolicyVersionId}/attachments",
+      "permissions": [],
+      "summary": "Requests a pre-signed URL for uploading a policy attachment",
+      "x_operation_id": "legal/admin/localized-versions/v1/generate-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/{localizedPolicyVersionId}/attachments",
+      "permissions": [],
+      "summary": "Requests a pre-signed URL for uploading a policy attachment",
+      "x_operation_id": "legal/admin/localized-versions/v1/generate-upload-url-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/public/namespaces/{namespace}/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves a localized policy version for a namespace",
+      "x_operation_id": "legal/public/localized-versions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/get-deprecated"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-global",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/public/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves a localized policy version",
+      "x_operation_id": "legal/public/localized-versions/v1/get-global"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves localized versions of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Retrieves localized versions of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/list-deprecated"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "set-default",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/{localizedPolicyVersionId}/default",
+      "permissions": [],
+      "summary": "Sets a localized policy version as the default",
+      "x_operation_id": "legal/admin/localized-versions/v1/set-default"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "set-default-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/{localizedPolicyVersionId}/default",
+      "permissions": [],
+      "summary": "Sets a localized policy version as the default",
+      "x_operation_id": "legal/admin/localized-versions/v1/set-default-deprecated"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Updates a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "localizedPolicyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/localized-policy-versions/{localizedPolicyVersionId}",
+      "permissions": [],
+      "summary": "Updates a localized version of a country-specific policy",
+      "x_operation_id": "legal/admin/localized-versions/v1/update-deprecated"
+    }
+  ],
+  "policies": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/{policyId}",
+      "permissions": [],
+      "summary": "Deletes a country-specific policy",
+      "x_operation_id": "legal/admin/policies/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/policies/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves active policies for a country",
+      "x_operation_id": "legal/admin/policies/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "alwaysIncludeDefault",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "defaultOnEmpty",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "visibleOnly",
+          "required": false
+        }
+      ],
+      "path": "/agreement/public/policies/namespaces/{namespace}/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves the latest active policies for a namespace and country",
+      "x_operation_id": "legal/public/policies/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/v2/public/policies/namespaces/{namespace}/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves the latest active policies for a namespace and country (v2)",
+      "x_operation_id": "legal/public/policies/v2/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "defaultOnEmpty",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "visibleOnly",
+          "required": false
+        }
+      ],
+      "path": "/agreement/public/policies/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves the latest active policies for a country",
+      "x_operation_id": "legal/public/policies/v1/list-all"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-countries",
+      "parameters": [],
+      "path": "/agreement/public/policies/countries/list",
+      "permissions": [],
+      "summary": "Retrieves countries that have active legal policies",
+      "x_operation_id": "legal/public/policies/v1/list-countries"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-country",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "alwaysIncludeDefault",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "defaultOnEmpty",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "policyType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "visibleOnly",
+          "required": false
+        }
+      ],
+      "path": "/agreement/public/policies/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves the latest active policies for a namespace and country",
+      "x_operation_id": "legal/public/policies/v1/list-my-country"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-types",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "limit",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/policy-types",
+      "permissions": [],
+      "summary": "Retrieves all supported policy types",
+      "x_operation_id": "legal/admin/policies/v1/list-types"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "set-default",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/{policyId}/default",
+      "permissions": [],
+      "summary": "Sets a policy as the default",
+      "x_operation_id": "legal/admin/policies/v1/set-default"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "set-default-global",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/policies/{policyId}/default",
+      "permissions": [],
+      "summary": "Sets a policy as the default",
+      "x_operation_id": "legal/admin/policies/v1/set-default-global"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/{policyId}",
+      "permissions": [],
+      "summary": "Updates a country-specific policy",
+      "x_operation_id": "legal/admin/policies/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-global",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/policies/{policyId}",
+      "permissions": [],
+      "summary": "Updates a country-specific policy",
+      "x_operation_id": "legal/admin/policies/v1/update-global"
+    }
+  ],
+  "policy-versions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/policies/{policyId}/versions",
+      "permissions": [],
+      "summary": "Creates a version of a country-specific policy",
+      "x_operation_id": "legal/admin/policy-versions/v1/create"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-versions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "versionId",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/policies/{policyId}/versions",
+      "permissions": [],
+      "summary": "Retrieves versions of a country-specific policy",
+      "x_operation_id": "legal/admin/policy-versions/v1/list-versions"
+    }
+  ],
+  "utility": [
+    {
+      "http_method": "GET",
+      "method": "check-readiness",
+      "parameters": [],
+      "path": "/agreement/public/readiness",
+      "permissions": [],
+      "summary": "Checks whether legal data is ready",
+      "x_operation_id": "legal/public/utility/v1/check-readiness"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-status",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "namespaces",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/userInfo",
+      "permissions": [],
+      "summary": "Retrieves user info cache status per namespace",
+      "x_operation_id": "legal/admin/utility/v1/get-status"
+    }
+  ],
+  "versions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/{policyId}/versions",
+      "permissions": [],
+      "summary": "Creates a version of a country-specific policy",
+      "x_operation_id": "legal/admin/versions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Deletes a version of a policy",
+      "x_operation_id": "legal/admin/versions/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "versionId",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/{policyId}/versions",
+      "permissions": [],
+      "summary": "Retrieves versions of a country-specific policy",
+      "x_operation_id": "legal/admin/versions/v1/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "publish",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "shouldNotify",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/versions/{policyVersionId}/latest",
+      "permissions": [],
+      "summary": "Publishes a country-specific policy version",
+      "x_operation_id": "legal/admin/versions/v1/publish"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "publish-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "shouldNotify",
+          "required": false
+        }
+      ],
+      "path": "/agreement/admin/policies/versions/{policyVersionId}/latest",
+      "permissions": [],
+      "summary": "Publishes a country-specific policy version",
+      "x_operation_id": "legal/admin/versions/v1/publish-deprecated"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "unpublish",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/versions/{policyVersionId}/unpublish",
+      "permissions": [],
+      "summary": "Revokes the published status of a policy version",
+      "x_operation_id": "legal/admin/versions/v1/unpublish"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/namespaces/{namespace}/policies/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Updates a version of a policy",
+      "x_operation_id": "legal/admin/versions/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-deprecated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "policyVersionId",
+          "required": true
+        }
+      ],
+      "path": "/agreement/admin/policies/versions/{policyVersionId}",
+      "permissions": [],
+      "summary": "Updates a version of a policy",
+      "x_operation_id": "legal/admin/versions/v1/update-deprecated"
+    }
+  ]
+}

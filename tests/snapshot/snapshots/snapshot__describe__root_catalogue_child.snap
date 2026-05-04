@@ -1,0 +1,12 @@
+---
+source: tests/snapshot/describe.rs
+expression: first_child
+---
+{
+  "name": "achievement",
+  "node_type": "service",
+  "path": [
+    "achievement"
+  ],
+  "summary": "Player achievements, badges, and progression tracking"
+}

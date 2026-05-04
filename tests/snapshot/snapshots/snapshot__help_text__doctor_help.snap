@@ -1,0 +1,21 @@
+---
+source: tests/snapshot/help_text.rs
+expression: stdout
+---
+Check environment, configuration, and connectivity
+
+  Exit code 0 if all checks pass or warn, 1 if any check fails. The
+  --all flag overrides --profile and runs against every profile.
+
+Usage:
+  doctor [OPTIONS]
+
+Options:
+      --offline
+          Skip network checks
+
+      --all
+          Check all profiles
+
+  -h, --help
+          Print help (see a summary with '-h')

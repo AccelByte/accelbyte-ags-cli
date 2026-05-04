@@ -1,0 +1,2258 @@
+{
+  "game-files": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries/bulk",
+      "permissions": [],
+      "summary": "Retrieves game binary records in bulk",
+      "x_operation_id": "cloud-save/public/game-files/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries",
+      "permissions": [],
+      "summary": "Creates a game binary record",
+      "x_operation_id": "cloud-save/admin/game-files/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries",
+      "permissions": [],
+      "summary": "Creates a game binary record",
+      "x_operation_id": "cloud-save/public/game-files/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Deletes a game binary record",
+      "x_operation_id": "cloud-save/admin/game-files/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Deletes a game binary record",
+      "x_operation_id": "cloud-save/public/game-files/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-ttl",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}/ttl",
+      "permissions": [],
+      "summary": "Deletes the TTL configuration for a game binary record",
+      "x_operation_id": "cloud-save/admin/game-files/v1/delete-ttl"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}/presigned",
+      "permissions": [],
+      "summary": "Generates a presigned URL for uploading a game binary record",
+      "x_operation_id": "cloud-save/admin/game-files/v1/generate-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries/{key}/presigned",
+      "permissions": [],
+      "summary": "Generates a presigned URL for uploading a game binary record",
+      "x_operation_id": "cloud-save/public/game-files/v1/generate-upload-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Retrieves a game binary record by key",
+      "x_operation_id": "cloud-save/admin/game-files/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Retrieves a game binary record",
+      "x_operation_id": "cloud-save/public/game-files/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries",
+      "permissions": [],
+      "summary": "Lists game binary records",
+      "x_operation_id": "cloud-save/admin/game-files/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries",
+      "permissions": [],
+      "summary": "Lists game binary records",
+      "x_operation_id": "cloud-save/public/game-files/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Updates a game binary record file",
+      "x_operation_id": "cloud-save/admin/game-files/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/binaries/{key}",
+      "permissions": [],
+      "summary": "Updates a game binary record file",
+      "x_operation_id": "cloud-save/public/game-files/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-metadata",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/binaries/{key}/metadata",
+      "permissions": [],
+      "summary": "Updates game binary record metadata",
+      "x_operation_id": "cloud-save/admin/game-files/v1/update-metadata"
+    }
+  ],
+  "game-records": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/records/bulk",
+      "permissions": [],
+      "summary": "Retrieves game records in bulk",
+      "x_operation_id": "cloud-save/public/game-records/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or appends a game record",
+      "x_operation_id": "cloud-save/admin/game-records/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or appends a game record",
+      "x_operation_id": "cloud-save/public/game-records/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Deletes a game record",
+      "x_operation_id": "cloud-save/admin/game-records/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Deletes a game record",
+      "x_operation_id": "cloud-save/public/game-records/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-ttl",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records/{key}/ttl",
+      "permissions": [],
+      "summary": "Deletes the TTL configuration for a game record",
+      "x_operation_id": "cloud-save/admin/game-records/v1/delete-ttl"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Retrieves a game record by key",
+      "x_operation_id": "cloud-save/admin/game-records/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Retrieves a game record",
+      "x_operation_id": "cloud-save/public/game-records/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records",
+      "permissions": [],
+      "summary": "Lists game record keys",
+      "x_operation_id": "cloud-save/admin/game-records/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a game record",
+      "x_operation_id": "cloud-save/admin/game-records/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a game record",
+      "x_operation_id": "cloud-save/public/game-records/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/concurrent/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a game record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/admin/game-records/v1/update-concurrent"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/concurrent/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a game record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/public/game-records/v1/update-concurrent"
+    }
+  ],
+  "game-records-protected": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/bulk",
+      "permissions": [],
+      "summary": "Retrieves admin game records by keys in bulk",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or appends an admin game record",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Deletes an admin game record",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-ttl",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/{key}/ttl",
+      "permissions": [],
+      "summary": "Deletes the TTL configuration for an admin game record",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/delete-ttl"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Retrieves an admin game record by key",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords",
+      "permissions": [],
+      "summary": "Lists admin game record keys",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces an admin game record",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/concurrent/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces an admin game record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/admin/game-records-protected/v1/update-concurrent"
+    }
+  ],
+  "plugin-config": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/plugins",
+      "permissions": [],
+      "summary": "Creates the plugin configuration",
+      "x_operation_id": "cloud-save/admin/plugin-config/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/plugins",
+      "permissions": [],
+      "summary": "Deletes the plugin configuration",
+      "x_operation_id": "cloud-save/admin/plugin-config/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/plugins",
+      "permissions": [],
+      "summary": "Retrieves the plugin configuration",
+      "x_operation_id": "cloud-save/admin/plugin-config/v1/get"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/plugins",
+      "permissions": [],
+      "summary": "Updates the plugin configuration",
+      "x_operation_id": "cloud-save/admin/plugin-config/v1/update"
+    }
+  ],
+  "tags": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Creates a tag",
+      "x_operation_id": "cloud-save/admin/tags/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tag",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/tags/{tag}",
+      "permissions": [],
+      "summary": "Deletes a tag",
+      "x_operation_id": "cloud-save/admin/tags/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists available tags",
+      "x_operation_id": "cloud-save/admin/tags/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists available tags",
+      "x_operation_id": "cloud-save/public/tags/v1/list"
+    }
+  ],
+  "user-files": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/me/binaries/bulk",
+      "permissions": [],
+      "summary": "Retrieves binary records for the current user in bulk",
+      "x_operation_id": "cloud-save/public/user-files/v1/bulk-get-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/public/bulk",
+      "permissions": [],
+      "summary": "Retrieves public binary records for a player in bulk",
+      "x_operation_id": "cloud-save/public/user-files/v1/bulk-get-public"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-public-by-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/bulk/binaries/{key}/public",
+      "permissions": [],
+      "summary": "Retrieves public binary records for players in bulk",
+      "x_operation_id": "cloud-save/public/user-files/v1/bulk-get-public-by-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries",
+      "permissions": [],
+      "summary": "Creates a player binary record",
+      "x_operation_id": "cloud-save/admin/user-files/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries",
+      "permissions": [],
+      "summary": "Creates a player binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Deletes a player binary record",
+      "x_operation_id": "cloud-save/admin/user-files/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Deletes a player binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries/{key}/presigned",
+      "permissions": [],
+      "summary": "Generates a presigned URL for uploading a player binary record",
+      "x_operation_id": "cloud-save/admin/user-files/v1/generate-upload-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}/presigned",
+      "permissions": [],
+      "summary": "Generates a presigned URL for uploading a player binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/generate-upload-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Retrieves a player binary record by key",
+      "x_operation_id": "cloud-save/admin/user-files/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Retrieves a player binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}/public",
+      "permissions": [],
+      "summary": "Retrieves a player's public binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/get-public"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries",
+      "permissions": [],
+      "summary": "Lists player binary records",
+      "x_operation_id": "cloud-save/admin/user-files/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/me/binaries",
+      "permissions": [],
+      "summary": "Lists my binary records",
+      "x_operation_id": "cloud-save/public/user-files/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/public",
+      "permissions": [],
+      "summary": "Lists another player's public binary records",
+      "x_operation_id": "cloud-save/public/user-files/v1/list-public"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Updates a player binary record file",
+      "x_operation_id": "cloud-save/admin/user-files/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}",
+      "permissions": [],
+      "summary": "Updates a player binary record file",
+      "x_operation_id": "cloud-save/public/user-files/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-metadata",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/binaries/{key}/metadata",
+      "permissions": [],
+      "summary": "Updates player binary record metadata",
+      "x_operation_id": "cloud-save/admin/user-files/v1/update-metadata"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-metadata",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/binaries/{key}/metadata",
+      "permissions": [],
+      "summary": "Updates the metadata of a player binary record",
+      "x_operation_id": "cloud-save/public/user-files/v1/update-metadata"
+    }
+  ],
+  "user-records": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/bulk",
+      "permissions": [],
+      "summary": "Retrieves player records by record keys in bulk",
+      "x_operation_id": "cloud-save/admin/user-records/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/records/{key}/bulk",
+      "permissions": [],
+      "summary": "Retrieves player records by user IDs in bulk",
+      "x_operation_id": "cloud-save/admin/user-records/v1/bulk-get-by-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/me/records/bulk",
+      "permissions": [],
+      "summary": "Retrieves records for the current user in bulk",
+      "x_operation_id": "cloud-save/public/user-records/v1/bulk-get-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/public/bulk",
+      "permissions": [],
+      "summary": "Retrieves public records for a player in bulk",
+      "x_operation_id": "cloud-save/public/user-records/v1/bulk-get-public"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-public-by-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/bulk/records/{key}/public",
+      "permissions": [],
+      "summary": "Retrieves public records for players in bulk",
+      "x_operation_id": "cloud-save/public/user-records/v1/bulk-get-public-by-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-size",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/bulk/records/size",
+      "permissions": [],
+      "summary": "Retrieves player record sizes in bulk",
+      "x_operation_id": "cloud-save/admin/user-records/v1/bulk-get-size"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/bulk",
+      "permissions": [],
+      "summary": "Creates or replaces player records in bulk",
+      "x_operation_id": "cloud-save/admin/user-records/v1/bulk-update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update-by-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/records/{key}/bulk",
+      "permissions": [],
+      "summary": "Creates or replaces player records in bulk",
+      "x_operation_id": "cloud-save/admin/user-records/v1/bulk-update-by-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or appends a player record",
+      "x_operation_id": "cloud-save/admin/user-records/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or appends to a player record",
+      "x_operation_id": "cloud-save/public/user-records/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Deletes a player record",
+      "x_operation_id": "cloud-save/admin/user-records/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Deletes a player record",
+      "x_operation_id": "cloud-save/public/user-records/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Retrieves a player record by key",
+      "x_operation_id": "cloud-save/admin/user-records/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Retrieves a player record",
+      "x_operation_id": "cloud-save/public/user-records/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}/public",
+      "permissions": [],
+      "summary": "Retrieves a player public record",
+      "x_operation_id": "cloud-save/admin/user-records/v1/get-public"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/{key}/public",
+      "permissions": [],
+      "summary": "Retrieves a player's public record",
+      "x_operation_id": "cloud-save/public/user-records/v1/get-public"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-size",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}/size",
+      "permissions": [],
+      "summary": "Retrieves the size of a player record",
+      "x_operation_id": "cloud-save/admin/user-records/v1/get-size"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-by-user-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records",
+      "permissions": [],
+      "summary": "Lists player record keys",
+      "x_operation_id": "cloud-save/admin/user-records/v1/list-by-user-id"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/me/records",
+      "permissions": [],
+      "summary": "Lists the current user's record keys",
+      "x_operation_id": "cloud-save/public/user-records/v1/list-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/public",
+      "permissions": [],
+      "summary": "Lists public record keys for a player",
+      "x_operation_id": "cloud-save/public/user-records/v1/list-public"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a player record",
+      "x_operation_id": "cloud-save/admin/user-records/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a player record",
+      "x_operation_id": "cloud-save/public/user-records/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "responseBody",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/concurrent/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a player private record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/admin/user-records/v1/update-concurrent"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "responseBody",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/concurrent/records/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces a player record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/public/user-records/v1/update-concurrent"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "responseBody",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/concurrent/records/{key}/public",
+      "permissions": [],
+      "summary": "Creates or replaces a player public record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/admin/user-records/v1/update-concurrent-public"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "responseBody",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/namespaces/{namespace}/users/{userId}/concurrent/records/{key}/public",
+      "permissions": [],
+      "summary": "Creates or replaces a public player record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/public/user-records/v1/update-concurrent-public"
+    }
+  ],
+  "user-records-protected": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/bulk",
+      "permissions": [],
+      "summary": "Retrieves admin player records by key in bulk",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/adminrecords/{key}/bulk",
+      "permissions": [],
+      "summary": "Retrieves admin player records by user IDs in bulk",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/bulk-get-by-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or appends an admin player record",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Deletes an admin player record",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Retrieves an admin player record by key",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords",
+      "permissions": [],
+      "summary": "Lists admin player record keys",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces an admin player record",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-concurrent",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "key",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "responseBody",
+          "required": false
+        }
+      ],
+      "path": "/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/concurrent/adminrecords/{key}",
+      "permissions": [],
+      "summary": "Creates or replaces an admin player record with optimistic concurrency control",
+      "x_operation_id": "cloud-save/admin/user-records-protected/v1/update-concurrent"
+    }
+  ]
+}

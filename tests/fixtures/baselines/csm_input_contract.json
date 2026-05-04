@@ -1,0 +1,1134 @@
+{
+  "apps": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Creates a new extend app",
+      "x_operation_id": "csm/admin/apps/v2/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "forced",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Deletes the extend app by name",
+      "x_operation_id": "csm/admin/apps/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Retrieves the extend app by name",
+      "x_operation_id": "csm/admin/apps/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-release-info",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/apps/{app}/release",
+      "permissions": [],
+      "summary": "Gets the Latest Release Version info of this App",
+      "x_operation_id": "csm/admin/apps/v1/get-release-info"
+    },
+    {
+      "http_method": "POST",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps",
+      "permissions": [],
+      "summary": "Lists extend apps in the given game namespace",
+      "x_operation_id": "csm/admin/apps/v2/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "request-resource-limit-increase",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/resources/form",
+      "permissions": [],
+      "summary": "Submits a request to increase the app resource limits",
+      "x_operation_id": "csm/admin/apps/v2/request-resource-limit-increase"
+    },
+    {
+      "http_method": "PUT",
+      "method": "start",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/start",
+      "permissions": [],
+      "summary": "Starts the Application",
+      "x_operation_id": "csm/admin/apps/v2/start"
+    },
+    {
+      "http_method": "PUT",
+      "method": "stop",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/stop",
+      "permissions": [],
+      "summary": "Stops the Application",
+      "x_operation_id": "csm/admin/apps/v2/stop"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Updates the app configuration",
+      "x_operation_id": "csm/admin/apps/v2/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-resource",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/resources",
+      "permissions": [],
+      "summary": "Updates the app resource allocation",
+      "x_operation_id": "csm/admin/apps/v2/update-resource"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "POST",
+      "method": "create-secret",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets",
+      "permissions": [],
+      "summary": "Saves an environment secret",
+      "x_operation_id": "csm/admin/config/v2/create-secret"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-variable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables",
+      "permissions": [],
+      "summary": "Saves an environment variable",
+      "x_operation_id": "csm/admin/config/v2/create-variable"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-secret",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets/{configId}",
+      "permissions": [],
+      "summary": "Deletes an environment secret",
+      "x_operation_id": "csm/admin/config/v2/delete-secret"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-variable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables/{configId}",
+      "permissions": [],
+      "summary": "Deletes an environment variable",
+      "x_operation_id": "csm/admin/config/v2/delete-variable"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-secrets",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets",
+      "permissions": [],
+      "summary": "Lists environment secrets for the app",
+      "x_operation_id": "csm/admin/config/v2/list-secrets"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-variables",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables",
+      "permissions": [],
+      "summary": "Lists environment variables for the app",
+      "x_operation_id": "csm/admin/config/v2/list-variables"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-secret",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets/{configId}",
+      "permissions": [],
+      "summary": "Updates an environment secret",
+      "x_operation_id": "csm/admin/config/v2/update-secret"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-variable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables/{configId}",
+      "permissions": [],
+      "summary": "Updates an environment variable",
+      "x_operation_id": "csm/admin/config/v2/update-variable"
+    }
+  ],
+  "deployments": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/deployments",
+      "permissions": [],
+      "summary": "Creates Deployment",
+      "x_operation_id": "csm/admin/deployments/v2/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "deploymentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}",
+      "permissions": [],
+      "summary": "Deletes a deployment by ID",
+      "x_operation_id": "csm/admin/deployments/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "deploymentId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}",
+      "permissions": [],
+      "summary": "Retrieves a deployment by ID",
+      "x_operation_id": "csm/admin/deployments/v2/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/deployments",
+      "permissions": [],
+      "summary": "Fetches the List of Deployments",
+      "x_operation_id": "csm/admin/deployments/v2/list"
+    }
+  ],
+  "images": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/images",
+      "permissions": [],
+      "summary": "Deletes app images",
+      "x_operation_id": "csm/admin/images/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "cached",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/images",
+      "permissions": [],
+      "summary": "Lists container images for the app",
+      "x_operation_id": "csm/admin/images/v2/list"
+    }
+  ],
+  "nosql": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases",
+      "permissions": [],
+      "summary": "Creates NoSQL Database for Extend App",
+      "x_operation_id": "csm/admin/nosql/v2/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters",
+      "permissions": [],
+      "summary": "Creates NoSQL Cluster",
+      "x_operation_id": "csm/admin/nosql/v2/create-cluster"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-credentials",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/crendentials",
+      "permissions": [],
+      "summary": "Creates a new database credential for the customer",
+      "x_operation_id": "csm/admin/nosql/v2/create-credentials"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases",
+      "permissions": [],
+      "summary": "Deletes NoSQL Database for Extend App",
+      "x_operation_id": "csm/admin/nosql/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters",
+      "permissions": [],
+      "summary": "Deletes the NoSQL cluster",
+      "x_operation_id": "csm/admin/nosql/v2/delete-cluster"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases",
+      "permissions": [],
+      "summary": "Retrieves the NoSQL database for the extend app",
+      "x_operation_id": "csm/admin/nosql/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-access-tunnel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/tunnels",
+      "permissions": [],
+      "summary": "Retrieves the NoSQL access tunnel information",
+      "x_operation_id": "csm/admin/nosql/v2/get-access-tunnel"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters",
+      "permissions": [],
+      "summary": "Retrieves NoSQL cluster information",
+      "x_operation_id": "csm/admin/nosql/v2/get-cluster"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-apps",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "studioName",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "appName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "namespace",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{studioName}/nosql/{resourceId}/apps",
+      "permissions": [],
+      "summary": "Lists extend apps using the NoSQL cluster",
+      "x_operation_id": "csm/admin/nosql/v2/list-apps"
+    },
+    {
+      "http_method": "PUT",
+      "method": "start-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters/start",
+      "permissions": [],
+      "summary": "Starts the NoSQL cluster",
+      "x_operation_id": "csm/admin/nosql/v2/start-cluster"
+    },
+    {
+      "http_method": "PUT",
+      "method": "stop-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters/stop",
+      "permissions": [],
+      "summary": "Stops the NoSQL cluster",
+      "x_operation_id": "csm/admin/nosql/v2/stop-cluster"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/nosql/clusters",
+      "permissions": [],
+      "summary": "Updates the NoSQL cluster configuration",
+      "x_operation_id": "csm/admin/nosql/v2/update-cluster"
+    }
+  ],
+  "resource-limits": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/resources/limits",
+      "permissions": [],
+      "summary": "Retrieves configurable resource limits for extend apps",
+      "x_operation_id": "csm/admin/resource-limits/v2/list"
+    }
+  ],
+  "service-messages": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/csm/v1/messages",
+      "permissions": [],
+      "summary": "Retrieves service messages",
+      "x_operation_id": "csm/public/service-messages/v1/list"
+    }
+  ],
+  "subscriptions": [
+    {
+      "http_method": "POST",
+      "method": "add",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions",
+      "permissions": [],
+      "summary": "Subscribes users to app notifications",
+      "x_operation_id": "csm/admin/subscriptions/v2/add"
+    },
+    {
+      "http_method": "POST",
+      "method": "add-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions/me",
+      "permissions": [],
+      "summary": "Subscribes the authenticated user to app notifications",
+      "x_operation_id": "csm/admin/subscriptions/v2/add-my"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "emailAddress",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/csm/v3/admin/namespaces/{namespace}/apps/{app}/subscriptions",
+      "permissions": [],
+      "summary": "Removes a user's notification subscription by user ID or email",
+      "x_operation_id": "csm/admin/subscriptions/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions/users/{userId}",
+      "permissions": [],
+      "summary": "Removes a user's notification subscription",
+      "x_operation_id": "csm/admin/subscriptions/v2/delete-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions/me",
+      "permissions": [],
+      "summary": "Retrieves the current user's notification subscription status",
+      "x_operation_id": "csm/admin/subscriptions/v2/get-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-subscribers",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "notificationType",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions",
+      "permissions": [],
+      "summary": "Lists app notification subscribers",
+      "x_operation_id": "csm/admin/subscriptions/v2/list-subscribers"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-subscribers",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "notificationType",
+          "required": true
+        }
+      ],
+      "path": "/csm/v3/admin/namespaces/{namespace}/apps/{app}/subscriptions",
+      "permissions": [],
+      "summary": "Lists app notification subscribers",
+      "x_operation_id": "csm/admin/subscriptions/v3/list-subscribers"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions/me",
+      "permissions": [],
+      "summary": "Unsubscribes the authenticated user from app notifications",
+      "x_operation_id": "csm/admin/subscriptions/v2/remove-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions",
+      "permissions": [],
+      "summary": "Updates notification subscriptions for the specified users",
+      "x_operation_id": "csm/admin/subscriptions/v2/update"
+    }
+  ],
+  "topics": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/asyncmessaging/topics",
+      "permissions": [],
+      "summary": "Creates an async messaging topic",
+      "x_operation_id": "csm/admin/topics/v2/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topicName",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/asyncmessaging/topics/{topicName}",
+      "permissions": [],
+      "summary": "Deletes an async messaging topic",
+      "x_operation_id": "csm/admin/topics/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "fuzzyTopicName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isSubscribedByAppName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isUnsubscribedByAppName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/asyncmessaging/topics",
+      "permissions": [],
+      "summary": "Lists async messaging topics",
+      "x_operation_id": "csm/admin/topics/v2/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "subscribe",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/asyncmessaging/topics/subscriptions",
+      "permissions": [],
+      "summary": "Subscribes the app to the specified async messaging topics",
+      "x_operation_id": "csm/admin/topics/v2/subscribe"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "unsubscribe",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topicName",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/asyncmessaging/topics/{topicName}/subscriptions",
+      "permissions": [],
+      "summary": "Unsubscribes the app from an async messaging topic",
+      "x_operation_id": "csm/admin/topics/v2/unsubscribe"
+    }
+  ]
+}

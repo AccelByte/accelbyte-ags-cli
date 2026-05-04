@@ -1,0 +1,16 @@
+---
+source: tests/snapshot/help_text.rs
+expression: stdout
+---
+Configuration management
+
+Usage:
+  config <COMMAND>
+
+Commands:
+  get    Get a configuration value
+  set    Set a configuration value
+  unset  Remove a configuration value
+
+Options:
+  -h, --help  Print help

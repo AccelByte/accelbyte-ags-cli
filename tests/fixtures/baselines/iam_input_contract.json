@@ -1,0 +1,6566 @@
+{
+  "age-restrictions": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/agerestrictions/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Retrieves age restriction settings for a country",
+      "x_operation_id": "iam/public/age-restrictions/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/agerestrictions",
+      "permissions": [],
+      "summary": "Retrieves age restriction status for a namespace",
+      "x_operation_id": "iam/admin/age-restrictions/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-countries",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/agerestrictions/countries",
+      "permissions": [],
+      "summary": "Lists country age restrictions for a namespace",
+      "x_operation_id": "iam/admin/age-restrictions/v3/list-countries"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/agerestrictions",
+      "permissions": [],
+      "summary": "Updates age restriction configuration for a namespace",
+      "x_operation_id": "iam/admin/age-restrictions/v3/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-country",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/agerestrictions/countries/{countryCode}",
+      "permissions": [],
+      "summary": "Updates age restriction for a specific country",
+      "x_operation_id": "iam/admin/age-restrictions/v3/update-country"
+    }
+  ],
+  "allow-list": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/loginAllowlist",
+      "permissions": [],
+      "summary": "Retrieves the login allowlist configuration",
+      "x_operation_id": "iam/admin/allow-list/v3/get"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/loginAllowlist",
+      "permissions": [],
+      "summary": "Updates the login allowlist configuration",
+      "x_operation_id": "iam/admin/allow-list/v3/update"
+    }
+  ],
+  "bans": [
+    {
+      "http_method": "POST",
+      "method": "bulk-ban-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/bans/users",
+      "permissions": [],
+      "summary": "Applies a ban to the specified users",
+      "x_operation_id": "iam/admin/bans/v3/bulk-ban-users"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-unban-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/bans/users/disabled",
+      "permissions": [],
+      "summary": "Removes bans from users in bulk",
+      "x_operation_id": "iam/admin/bans/v3/bulk-unban-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/iam/v3/admin/bans",
+      "permissions": [],
+      "summary": "Lists all available ban types",
+      "x_operation_id": "iam/admin/bans/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-banned-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "banType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/bans/users",
+      "permissions": [],
+      "summary": "Lists users filtered by ban type",
+      "x_operation_id": "iam/admin/bans/v3/list-banned-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-reasons",
+      "parameters": [],
+      "path": "/iam/v3/admin/bans/reasons",
+      "permissions": [],
+      "summary": "Lists all available ban reasons",
+      "x_operation_id": "iam/admin/bans/v3/list-reasons"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-types",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/bantypes",
+      "permissions": [],
+      "summary": "Lists ban types available in a namespace",
+      "x_operation_id": "iam/admin/bans/v3/list-types"
+    }
+  ],
+  "client-config": [
+    {
+      "http_method": "DELETE",
+      "method": "delete-permission",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "forceDelete",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/clientConfig/permissions",
+      "permissions": [],
+      "summary": "Deletes client configuration permissions by module and group",
+      "x_operation_id": "iam/admin/client-config/v3/delete-permission"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-permissions",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "excludePermissions",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/clientConfig/permissions",
+      "permissions": [],
+      "summary": "Lists available client configuration permissions",
+      "x_operation_id": "iam/admin/client-config/v3/list-permissions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-templates",
+      "parameters": [],
+      "path": "/iam/v3/admin/clientConfig/templates",
+      "permissions": [],
+      "summary": "Lists available client configuration templates",
+      "x_operation_id": "iam/admin/client-config/v3/list-templates"
+    },
+    {
+      "http_method": "PUT",
+      "method": "upsert-permissions",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "forceDelete",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/clientConfig/permissions",
+      "permissions": [],
+      "summary": "Updates or creates client permission modules",
+      "x_operation_id": "iam/admin/client-config/v3/upsert-permissions"
+    }
+  ],
+  "clients": [
+    {
+      "http_method": "POST",
+      "method": "add-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}/permissions",
+      "permissions": [],
+      "summary": "Adds permissions to an OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/add-permissions"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients",
+      "permissions": [],
+      "summary": "Updates a set of OAuth 2.0 clients",
+      "x_operation_id": "iam/admin/clients/v3/bulk-update"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients",
+      "permissions": [],
+      "summary": "Creates a new OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}",
+      "permissions": [],
+      "summary": "Deletes an OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-permission",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "action",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resource",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}/permissions/{resource}/{action}",
+      "permissions": [],
+      "summary": "Deletes a specific permission from an OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/delete-permission"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}",
+      "permissions": [],
+      "summary": "Retrieves an OAuth 2.0 client by ID",
+      "x_operation_id": "iam/admin/clients/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "clientName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "clientType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "skipLoginQueue",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients",
+      "permissions": [],
+      "summary": "Lists OAuth 2.0 clients in a namespace",
+      "x_operation_id": "iam/admin/clients/v3/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}",
+      "permissions": [],
+      "summary": "Updates an OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/clients/{clientId}/permissions",
+      "permissions": [],
+      "summary": "Replaces all permissions for an OAuth 2.0 client",
+      "x_operation_id": "iam/admin/clients/v3/update-permissions"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-secret",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/{clientId}/secret",
+      "permissions": [],
+      "summary": "Updates the secret for an OAuth client",
+      "x_operation_id": "iam/admin/clients/v3/update-secret"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/config/{configKey}",
+      "permissions": [],
+      "summary": "Retrieves a configuration value by key",
+      "x_operation_id": "iam/admin/config/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/config/{configKey}",
+      "permissions": [],
+      "summary": "Retrieves a namespace configuration value",
+      "x_operation_id": "iam/public/config/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-public",
+      "parameters": [],
+      "path": "/iam/v3/config/public",
+      "permissions": [],
+      "summary": "Retrieves public system configuration values",
+      "x_operation_id": "iam/public/config/v3/get-public"
+    }
+  ],
+  "countries": [
+    {
+      "http_method": "GET",
+      "method": "get-deny-list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/countries/blacklist",
+      "permissions": [],
+      "summary": "Retrieves the country blacklist",
+      "x_operation_id": "iam/admin/countries/v3/get-deny-list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "filterBlacklist",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/countries",
+      "permissions": [],
+      "summary": "Lists available countries",
+      "x_operation_id": "iam/admin/countries/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/countries",
+      "permissions": [],
+      "summary": "Retrieves the list of countries",
+      "x_operation_id": "iam/public/countries/v3/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "update-deny-list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/countries/blacklist",
+      "permissions": [],
+      "summary": "Updates the country blacklist",
+      "x_operation_id": "iam/admin/countries/v3/update-deny-list"
+    }
+  ],
+  "devices": [
+    {
+      "http_method": "POST",
+      "method": "ban",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/bans",
+      "permissions": [],
+      "summary": "Bans a device",
+      "x_operation_id": "iam/admin/devices/v4/ban"
+    },
+    {
+      "http_method": "GET",
+      "method": "generate-report",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "deviceType",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "endDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startDate",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/report",
+      "permissions": [],
+      "summary": "Generates a device activity report",
+      "x_operation_id": "iam/admin/devices/v4/generate-report"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-banned",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "banId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/bans/{banId}",
+      "permissions": [],
+      "summary": "Retrieves a device ban configuration",
+      "x_operation_id": "iam/admin/devices/v4/get-banned"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices",
+      "permissions": [],
+      "summary": "Retrieves devices a user has used to log in",
+      "x_operation_id": "iam/admin/devices/v4/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-banned",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "deviceId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/{deviceId}/bans",
+      "permissions": [],
+      "summary": "Retrieves ban records for a device",
+      "x_operation_id": "iam/admin/devices/v4/list-banned"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-banned-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "deviceType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startDate",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/banned",
+      "permissions": [],
+      "summary": "Retrieves banned devices with pagination",
+      "x_operation_id": "iam/admin/devices/v4/list-banned-all"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-banned-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/bans",
+      "permissions": [],
+      "summary": "Retrieves device bans for a user",
+      "x_operation_id": "iam/admin/devices/v4/list-banned-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-types",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/types",
+      "permissions": [],
+      "summary": "Retrieves available device types",
+      "x_operation_id": "iam/admin/devices/v4/list-types"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "deviceId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/{deviceId}/users",
+      "permissions": [],
+      "summary": "Retrieves users who have logged in on a device",
+      "x_operation_id": "iam/admin/devices/v4/list-users"
+    },
+    {
+      "http_method": "PUT",
+      "method": "unban",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "deviceId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/{deviceId}/unban",
+      "permissions": [],
+      "summary": "Unbans a device",
+      "x_operation_id": "iam/admin/devices/v4/unban"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-banned",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "banId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/devices/bans/{banId}",
+      "permissions": [],
+      "summary": "Updates a device ban configuration",
+      "x_operation_id": "iam/admin/devices/v4/update-banned"
+    }
+  ],
+  "input-validations": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "field",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/inputValidations/{field}",
+      "permissions": [],
+      "summary": "Retrieves input validation configuration for a specific field",
+      "x_operation_id": "iam/public/input-validations/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/iam/v3/admin/inputValidations",
+      "permissions": [],
+      "summary": "Retrieves input validation configurations",
+      "x_operation_id": "iam/admin/input-validations/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "defaultOnEmpty",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "languageCode",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/inputValidations",
+      "permissions": [],
+      "summary": "Retrieves input validation configurations",
+      "x_operation_id": "iam/public/input-validations/v3/list"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "field",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/inputValidations/{field}",
+      "permissions": [],
+      "summary": "Resets input validation to default configurations",
+      "x_operation_id": "iam/admin/input-validations/v3/reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [],
+      "path": "/iam/v3/admin/inputValidations",
+      "permissions": [],
+      "summary": "Updates input validation configurations",
+      "x_operation_id": "iam/admin/input-validations/v3/update"
+    }
+  ],
+  "oauth2": [
+    {
+      "http_method": "POST",
+      "method": "authenticate",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "redirect_uri",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "request_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "user_name",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/authenticate",
+      "permissions": [],
+      "summary": "Authenticates a user account",
+      "x_operation_id": "iam/public/oauth2/v3/authenticate"
+    },
+    {
+      "http_method": "GET",
+      "method": "authenticate-platform",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "error",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.assoc_handle",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.claimed_id",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.identity",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.mode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.ns",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.op_endpoint",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.response_nonce",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.return_to",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.sig",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "openid.signed",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "state",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/platforms/{platformId}/authenticate",
+      "permissions": [],
+      "summary": "Authenticates a user via a third-party platform",
+      "x_operation_id": "iam/public/oauth2/v3/authenticate-platform"
+    },
+    {
+      "http_method": "POST",
+      "method": "authenticate-with-link",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "linkingToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "username",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/authenticateWithLink",
+      "permissions": [],
+      "summary": "Authenticates a user and links a platform account",
+      "x_operation_id": "iam/public/oauth2/v3/authenticate-with-link"
+    },
+    {
+      "http_method": "POST",
+      "method": "authenticate-with-link",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "linkingToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "username",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/oauth/authenticateWithLink",
+      "permissions": [],
+      "summary": "Authenticates a user and links a platform account",
+      "x_operation_id": "iam/public/oauth2/v4/authenticate-with-link"
+    },
+    {
+      "http_method": "POST",
+      "method": "authenticate-with-link-forward",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "linkingToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "username",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/authenticateWithLink/forward",
+      "permissions": [],
+      "summary": "Authenticates a user and links a platform account with a redirect response",
+      "x_operation_id": "iam/public/oauth2/v3/authenticate-with-link-forward"
+    },
+    {
+      "http_method": "GET",
+      "method": "authorize",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "blockedPlatformId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code_challenge",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge_method",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "createHeadless",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "loginWebBased",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "nonce",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "oneTimeLinkCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "redirect_uri",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "response_type",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "state",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "target_auth_page",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "useRedirectUriAsLoginUrlWhenLocked",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/authorize",
+      "permissions": [],
+      "summary": "Starts the OAuth 2.0 authorization flow",
+      "x_operation_id": "iam/public/oauth2/v3/authorize"
+    },
+    {
+      "http_method": "GET",
+      "method": "authorize-platform",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "redirect_uri",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "request_id",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/platforms/{platformId}/authorize",
+      "permissions": [],
+      "summary": "Generates a URL to request an auth code from a third-party platform",
+      "x_operation_id": "iam/public/oauth2/v3/authorize-platform"
+    },
+    {
+      "http_method": "POST",
+      "method": "change-mfa-method",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "mfaToken",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/mfa/factor/change",
+      "permissions": [],
+      "summary": "Updates the active 2FA method",
+      "x_operation_id": "iam/public/oauth2/v3/change-mfa-method"
+    },
+    {
+      "http_method": "POST",
+      "method": "check-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "token",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/introspect",
+      "permissions": [],
+      "summary": "Returns information about an access token",
+      "x_operation_id": "iam/public/oauth2/v3/check-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "exchange-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/token/exchange",
+      "permissions": [],
+      "summary": "Generates a target token by exchanging a code",
+      "x_operation_id": "iam/public/oauth2/v3/exchange-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "exchange-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/oauth/token/exchange",
+      "permissions": [],
+      "summary": "Generates a target token by exchanging a one-time code",
+      "x_operation_id": "iam/public/oauth2/v4/exchange-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "exchange-token-with-linking-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "isTransient",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "oneTimeLinkCode",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/link/token/exchange",
+      "permissions": [],
+      "summary": "Issues a user token for a one-time linking code",
+      "x_operation_id": "iam/public/oauth2/v3/exchange-token-with-linking-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-token-for-headless-account",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "linkingToken",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/headless/token",
+      "permissions": [],
+      "summary": "Creates a headless account and returns a token",
+      "x_operation_id": "iam/public/oauth2/v3/generate-token-for-headless-account"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-token-for-headless-account",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "linkingToken",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/oauth/headless/token",
+      "permissions": [],
+      "summary": "Creates a headless account after platform authentication and returns a token",
+      "x_operation_id": "iam/public/oauth2/v4/generate-token-for-headless-account"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-country-location",
+      "parameters": [],
+      "path": "/iam/v3/location/country",
+      "permissions": [],
+      "summary": "Retrieves the country based on request location",
+      "x_operation_id": "iam/public/oauth2/v3/get-country-location"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-jwks",
+      "parameters": [],
+      "path": "/iam/v3/oauth/jwks",
+      "permissions": [],
+      "summary": "Retrieves the JSON Web Key Set for JWT verification",
+      "x_operation_id": "iam/public/oauth2/v3/get-jwks"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-platform-token",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "platformUserId",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/platformToken",
+      "permissions": [],
+      "summary": "Retrieves a third-party platform token for a user",
+      "x_operation_id": "iam/admin/oauth2/v3/get-platform-token"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-platform-token",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/namespaces/{namespace}/users/{userId}/platforms/{platformId}/platformToken",
+      "permissions": [],
+      "summary": "Retrieves a third-party platform token for a user",
+      "x_operation_id": "iam/public/oauth2/v3/get-platform-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant-by-platform",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "createHeadless",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "device_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "macAddress",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "platform_token",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "serviceLabel",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "skipSetCookie",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/platforms/{platformId}/token",
+      "permissions": [],
+      "summary": "Grants an access token using a third-party platform token",
+      "x_operation_id": "iam/public/oauth2/v3/grant-by-platform"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant-by-platform",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "createHeadless",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "device_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "macAddress",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "platform_token",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "serviceLabel",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "skipSetCookie",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code_challenge",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge_method",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/oauth/platforms/{platformId}/token",
+      "permissions": [],
+      "summary": "Generates an OAuth2 access token using a third-party platform credential",
+      "x_operation_id": "iam/public/oauth2/v4/grant-by-platform"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_secret",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code_verifier",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extendNamespace",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "grant_type",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "redirect_uri",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "refresh_token",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "username",
+          "required": false
+        },
+        {
+          "location": "header",
+          "name": "Auth-Trust-Id",
+          "required": false
+        },
+        {
+          "location": "header",
+          "name": "device_id",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/token",
+      "permissions": [],
+      "summary": "Generates an OAuth2 access token",
+      "x_operation_id": "iam/public/oauth2/v3/grant-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "additionalData",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "client_secret",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "code_verifier",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extendNamespace",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "extend_exp",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "grant_type",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "login_queue_ticket",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "redirect_uri",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "refresh_token",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "username",
+          "required": false
+        },
+        {
+          "location": "header",
+          "name": "Auth-Trust-Id",
+          "required": false
+        },
+        {
+          "location": "header",
+          "name": "device_id",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge_method",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/oauth/token",
+      "permissions": [],
+      "summary": "Generates an OAuth2 access token",
+      "x_operation_id": "iam/public/oauth2/v4/grant-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "handle-web-upgrade-forward",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "upgrade_success_token",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/upgrade/forward",
+      "permissions": [],
+      "summary": "Handles the forward redirect for account upgrade",
+      "x_operation_id": "iam/public/oauth2/v3/handle-web-upgrade-forward"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-revocations",
+      "parameters": [],
+      "path": "/iam/v3/oauth/revocationlist",
+      "permissions": [],
+      "summary": "Retrieves the token and user revocation list",
+      "x_operation_id": "iam/public/oauth2/v3/list-revocations"
+    },
+    {
+      "http_method": "POST",
+      "method": "login-simultaneous",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "nativePlatform",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "nativePlatformTicket",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "simultaneousPlatform",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "simultaneousTicket",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/simultaneousLogin",
+      "permissions": [],
+      "summary": "Authenticates on two platforms simultaneously",
+      "x_operation_id": "iam/public/oauth2/v3/login-simultaneous"
+    },
+    {
+      "http_method": "POST",
+      "method": "login-simultaneous",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "nativePlatform",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "nativePlatformTicket",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "simultaneousPlatform",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "simultaneousTicket",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge_method",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/oauth/simultaneousLogin",
+      "permissions": [],
+      "summary": "Authenticates using simultaneous platform credentials",
+      "x_operation_id": "iam/public/oauth2/v4/login-simultaneous"
+    },
+    {
+      "http_method": "POST",
+      "method": "logout",
+      "parameters": [],
+      "path": "/iam/v3/logout",
+      "permissions": [],
+      "summary": "Logs out the current user",
+      "x_operation_id": "iam/public/oauth2/v3/logout"
+    },
+    {
+      "http_method": "POST",
+      "method": "request-one-time-linking-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "redirectUri",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "state",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/link/code/request",
+      "permissions": [],
+      "summary": "Generates a one-time account linking code",
+      "x_operation_id": "iam/public/oauth2/v3/request-one-time-linking-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "request-token-exchange-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "client_id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code_challenge",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "code_challenge_method",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/namespace/{namespace}/token/request",
+      "permissions": [],
+      "summary": "Requests a code for cross-namespace token exchange",
+      "x_operation_id": "iam/public/oauth2/v3/request-token-exchange-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "revoke-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "token",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/revoke",
+      "permissions": [],
+      "summary": "Revokes an access or refresh token",
+      "x_operation_id": "iam/public/oauth2/v3/revoke-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "revoke-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "includeGameNamespace",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/admin/namespaces/{namespace}/users/{userId}/revoke",
+      "permissions": [],
+      "summary": "Revokes user's tokens",
+      "x_operation_id": "iam/admin/oauth2/v3/revoke-user"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-mfa-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "mfaToken",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/mfa/code",
+      "permissions": [],
+      "summary": "Sends a two-factor authentication code",
+      "x_operation_id": "iam/public/oauth2/v3/send-mfa-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-one-time-linking-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "oneTimeLinkCode",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/link/code/validate",
+      "permissions": [],
+      "summary": "Validates a one-time account linking code",
+      "x_operation_id": "iam/public/oauth2/v3/validate-one-time-linking-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-mfa-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "mfaToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "rememberDevice",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/mfa/verify",
+      "permissions": [],
+      "summary": "Verifies a 2FA code",
+      "x_operation_id": "iam/public/oauth2/v3/verify-mfa-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-mfa-code",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "mfaToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "rememberDevice",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/oauth/mfa/verify",
+      "permissions": [],
+      "summary": "Verifies a 2FA code during login",
+      "x_operation_id": "iam/public/oauth2/v4/verify-mfa-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-mfa-code-forward",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "clientId",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "defaultFactor",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "factors",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "mfaToken",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "rememberDevice",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/oauth/mfa/verify/forward",
+      "permissions": [],
+      "summary": "Verifies a 2FA code with redirect on result",
+      "x_operation_id": "iam/public/oauth2/v3/verify-mfa-code-forward"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-platform-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "platform_token",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/platforms/{platformId}/token/verify",
+      "permissions": [],
+      "summary": "Verifies a third-party platform token",
+      "x_operation_id": "iam/public/oauth2/v3/verify-platform-token"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-token",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "token",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/oauth/verify",
+      "permissions": [],
+      "summary": "Verifies an OAuth2 token",
+      "x_operation_id": "iam/public/oauth2/v3/verify-token"
+    }
+  ],
+  "platform-credentials": [
+    {
+      "http_method": "GET",
+      "method": "check-availability",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/platforms/{platformId}/availability",
+      "permissions": [],
+      "summary": "Checks the availability of a third-party platform",
+      "x_operation_id": "iam/admin/platform-credentials/v3/check-availability"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients",
+      "permissions": [],
+      "summary": "Adds third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients",
+      "permissions": [],
+      "summary": "Deletes third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-domain",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients/domain",
+      "permissions": [],
+      "summary": "Removes a third-party platform domain",
+      "x_operation_id": "iam/admin/platform-credentials/v3/delete-domain"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients",
+      "permissions": [],
+      "summary": "Retrieves third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/all/clients",
+      "permissions": [],
+      "summary": "Lists all third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-active",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/all/clients/active",
+      "permissions": [],
+      "summary": "Lists all active third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/list-active"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-active-oidc",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/platforms/clients/active",
+      "permissions": [],
+      "summary": "Retrieves active third-party platform credentials for public use",
+      "x_operation_id": "iam/public/platform-credentials/v3/list-active-oidc"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-oidc",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/platforms/clients/oidc",
+      "permissions": [],
+      "summary": "Retrieves the active OIDC platform credential for a client",
+      "x_operation_id": "iam/public/platform-credentials/v3/list-oidc"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-domain",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients/domain",
+      "permissions": [],
+      "summary": "Sets third-party platform domain configuration",
+      "x_operation_id": "iam/admin/platform-credentials/v3/set-domain"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients",
+      "permissions": [],
+      "summary": "Updates third-party platform credentials",
+      "x_operation_id": "iam/admin/platform-credentials/v3/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-domain",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/clients/domain",
+      "permissions": [],
+      "summary": "Updates third-party platform domain configuration",
+      "x_operation_id": "iam/admin/platform-credentials/v3/update-domain"
+    }
+  ],
+  "profile-update-strategies": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "field",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/profileUpdateStrategies",
+      "permissions": [],
+      "summary": "Retrieves profile update strategies for a namespace",
+      "x_operation_id": "iam/admin/profile-update-strategies/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "field",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/profileUpdateStrategies",
+      "permissions": [],
+      "summary": "Retrieves profile update strategies for a namespace",
+      "x_operation_id": "iam/public/profile-update-strategies/v3/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "field",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/profileUpdateStrategies",
+      "permissions": [],
+      "summary": "Updates profile update strategies for a namespace",
+      "x_operation_id": "iam/admin/profile-update-strategies/v3/update"
+    }
+  ],
+  "role-override": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "identity",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roleoverride",
+      "permissions": [],
+      "summary": "Retrieves role override configuration",
+      "x_operation_id": "iam/admin/role-override/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roleoverride/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Retrieves namespace permissions for a role override",
+      "x_operation_id": "iam/admin/role-override/v3/get-permissions"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-source",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "identity",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roleoverride/source",
+      "permissions": [],
+      "summary": "Retrieves the source permission set for role overrides",
+      "x_operation_id": "iam/admin/role-override/v3/get-source"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "identity",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roleoverride",
+      "permissions": [],
+      "summary": "Updates role override configuration",
+      "x_operation_id": "iam/admin/role-override/v3/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "identity",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roleoverride/status",
+      "permissions": [],
+      "summary": "Updates the active status of role override configuration",
+      "x_operation_id": "iam/admin/role-override/v3/update-status"
+    }
+  ],
+  "roles": [
+    {
+      "http_method": "POST",
+      "method": "add-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Adds permissions to the role",
+      "x_operation_id": "iam/admin/roles/v3/add-permissions"
+    },
+    {
+      "http_method": "POST",
+      "method": "add-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Adds permissions to a role",
+      "x_operation_id": "iam/admin/roles/v4/add-permissions"
+    },
+    {
+      "http_method": "POST",
+      "method": "assign-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/users",
+      "permissions": [],
+      "summary": "Assigns a user to a role",
+      "x_operation_id": "iam/admin/roles/v4/assign-user"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [],
+      "path": "/iam/v3/admin/roles",
+      "permissions": [],
+      "summary": "Creates a new role",
+      "x_operation_id": "iam/admin/roles/v3/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [],
+      "path": "/iam/v4/admin/roles",
+      "permissions": [],
+      "summary": "Creates a new role",
+      "x_operation_id": "iam/admin/roles/v4/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Deletes a role",
+      "x_operation_id": "iam/admin/roles/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Deletes a role",
+      "x_operation_id": "iam/admin/roles/v4/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Retrieves a role by ID",
+      "x_operation_id": "iam/admin/roles/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Retrieves a role by ID",
+      "x_operation_id": "iam/admin/roles/v4/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/roles/{roleId}",
+      "permissions": [],
+      "summary": "Retrieves a non-admin role by ID",
+      "x_operation_id": "iam/public/roles/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-admin-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/admin",
+      "permissions": [],
+      "summary": "Retrieves the admin status of a role",
+      "x_operation_id": "iam/admin/roles/v3/get-admin-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isWildcard",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/roles",
+      "permissions": [],
+      "summary": "Lists available roles",
+      "x_operation_id": "iam/admin/roles/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "adminRole",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isWildcard",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/roles",
+      "permissions": [],
+      "summary": "Lists all roles in the namespace",
+      "x_operation_id": "iam/admin/roles/v4/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isWildcard",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/roles",
+      "permissions": [],
+      "summary": "Retrieves non-admin roles",
+      "x_operation_id": "iam/public/roles/v3/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-assigned-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/roles/{roleId}/users",
+      "permissions": [],
+      "summary": "Retrieves admin users assigned to a role",
+      "x_operation_id": "iam/admin/roles/v3/list-assigned-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-assigned-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/users",
+      "permissions": [],
+      "summary": "Lists users assigned to a role",
+      "x_operation_id": "iam/admin/roles/v4/list-assigned-users"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-managers",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/managers",
+      "permissions": [],
+      "summary": "Lists the managers of a role",
+      "x_operation_id": "iam/admin/roles/v3/list-managers"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/members",
+      "permissions": [],
+      "summary": "Lists the members of a role",
+      "x_operation_id": "iam/admin/roles/v3/list-members"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-admin-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/admin",
+      "permissions": [],
+      "summary": "Removes the admin status from a role",
+      "x_operation_id": "iam/admin/roles/v3/remove-admin-status"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-permission",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "action",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resource",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/permissions/{resource}/{action}",
+      "permissions": [],
+      "summary": "Removes a permission from a role",
+      "x_operation_id": "iam/admin/roles/v3/remove-permission"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Removes permissions from a role",
+      "x_operation_id": "iam/admin/roles/v3/remove-permissions"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Removes permissions from a role",
+      "x_operation_id": "iam/admin/roles/v4/remove-permissions"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/users",
+      "permissions": [],
+      "summary": "Revokes a user from a role",
+      "x_operation_id": "iam/admin/roles/v4/revoke-users"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Updates a role",
+      "x_operation_id": "iam/admin/roles/v3/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}",
+      "permissions": [],
+      "summary": "Updates a role",
+      "x_operation_id": "iam/admin/roles/v4/update"
+    },
+    {
+      "http_method": "POST",
+      "method": "update-admin-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/admin",
+      "permissions": [],
+      "summary": "Marks a role as an admin role",
+      "x_operation_id": "iam/admin/roles/v3/update-admin-status"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Replaces a role's permissions",
+      "x_operation_id": "iam/admin/roles/v3/update-permissions"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/roles/{roleId}/permissions",
+      "permissions": [],
+      "summary": "Replaces all permissions assigned to a role",
+      "x_operation_id": "iam/admin/roles/v4/update-permissions"
+    }
+  ],
+  "sso": [
+    {
+      "http_method": "POST",
+      "method": "authenticate-with-saml",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "error",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "state",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/sso/saml/platforms/{platformId}/authenticate",
+      "permissions": [],
+      "summary": "Authenticates a user via a SAML platform",
+      "x_operation_id": "iam/public/sso/v3/authenticate-with-saml"
+    },
+    {
+      "http_method": "GET",
+      "method": "login-client",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "payload",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/sso/{platformId}",
+      "permissions": [],
+      "summary": "Starts an SSO login for a platform client.",
+      "x_operation_id": "iam/public/sso/v3/login-client"
+    },
+    {
+      "http_method": "POST",
+      "method": "logout-client",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/sso/{platformId}/logout",
+      "permissions": [],
+      "summary": "Logs out from an SSO platform session",
+      "x_operation_id": "iam/public/sso/v3/logout-client"
+    }
+  ],
+  "sso-credentials": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/sso",
+      "permissions": [],
+      "summary": "Adds SSO platform credentials",
+      "x_operation_id": "iam/admin/sso-credentials/v3/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/sso",
+      "permissions": [],
+      "summary": "Deletes SSO platform credentials",
+      "x_operation_id": "iam/admin/sso-credentials/v3/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/sso",
+      "permissions": [],
+      "summary": "Retrieves SSO platform credentials",
+      "x_operation_id": "iam/admin/sso-credentials/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/sso",
+      "permissions": [],
+      "summary": "Lists all SSO platform credentials",
+      "x_operation_id": "iam/admin/sso-credentials/v3/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/sso",
+      "permissions": [],
+      "summary": "Updates SSO platform credentials",
+      "x_operation_id": "iam/admin/sso-credentials/v3/update"
+    }
+  ],
+  "tags": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Creates an account identifier tag",
+      "x_operation_id": "iam/admin/tags/v3/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tagId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/tags/{tagId}",
+      "permissions": [],
+      "summary": "Deletes an account identifier tag",
+      "x_operation_id": "iam/admin/tags/v3/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tagName",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Queries account identifier tags",
+      "x_operation_id": "iam/admin/tags/v3/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tagId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/tags/{tagId}",
+      "permissions": [],
+      "summary": "Updates an account identifier tag",
+      "x_operation_id": "iam/admin/tags/v3/update"
+    }
+  ],
+  "user-mfa": [
+    {
+      "http_method": "DELETE",
+      "method": "disable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/mfa/disable",
+      "permissions": [],
+      "summary": "Disables 2FA for a user",
+      "x_operation_id": "iam/admin/user-mfa/v4/disable"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "disable-my-authenticator",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/authenticator/disable",
+      "permissions": [],
+      "summary": "Disables 2FA authenticator for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/disable-my-authenticator"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "disable-my-authenticator",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/authenticator/disable",
+      "permissions": [],
+      "summary": "Disables 2FA authenticator for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/disable-my-authenticator"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "disable-my-backup-codes",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/backupCode/disable",
+      "permissions": [],
+      "summary": "Disables 2FA backup codes for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/disable-my-backup-codes"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "disable-my-backup-codes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/backupCode/disable",
+      "permissions": [],
+      "summary": "Disables 2FA backup codes for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/disable-my-backup-codes"
+    },
+    {
+      "http_method": "POST",
+      "method": "disable-my-email",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/email/disable",
+      "permissions": [],
+      "summary": "Disables 2FA email for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/disable-my-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "disable-my-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/email/disable",
+      "permissions": [],
+      "summary": "Disables 2FA email for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/disable-my-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-authenticator",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/authenticator/enable",
+      "permissions": [],
+      "summary": "Enables 2FA authenticator for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/enable-my-authenticator"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-authenticator",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/authenticator/enable",
+      "permissions": [],
+      "summary": "Enables 2FA authenticator for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/enable-my-authenticator"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-backup-codes",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/backupCodes/enable",
+      "permissions": [],
+      "summary": "Enables 2FA backup codes for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/enable-my-backup-codes"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-backup-codes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/backupCodes/enable",
+      "permissions": [],
+      "summary": "Enables 2FA backup codes for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/enable-my-backup-codes"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-email",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/email/enable",
+      "permissions": [],
+      "summary": "Enables 2FA email for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/enable-my-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "enable-my-email",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/email/enable",
+      "permissions": [],
+      "summary": "Enables 2FA email for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/enable-my-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-my-authenticator-key",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/authenticator/key",
+      "permissions": [],
+      "summary": "Generates a secret key for a 3rd-party authenticator app",
+      "x_operation_id": "iam/admin/user-mfa/v4/generate-my-authenticator-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-my-authenticator-key",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/authenticator/key",
+      "permissions": [],
+      "summary": "Generates a secret key for a 3rd-party authenticator app",
+      "x_operation_id": "iam/public/user-mfa/v4/generate-my-authenticator-key"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-my-backup-codes",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/backupCodes",
+      "permissions": [],
+      "summary": "Generates backup codes for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/generate-my-backup-codes"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-my-backup-codes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/backupCodes",
+      "permissions": [],
+      "summary": "Generates new backup codes for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/generate-my-backup-codes"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my-status",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/status",
+      "permissions": [],
+      "summary": "Retrieves the current admin user's 2FA status",
+      "x_operation_id": "iam/admin/user-mfa/v4/get-my-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/status",
+      "permissions": [],
+      "summary": "Retrieves the current user's 2FA status",
+      "x_operation_id": "iam/public/user-mfa/v4/get-my-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-backup-codes",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/backupCodes",
+      "permissions": [],
+      "summary": "Retrieves backup codes and sends them to the registered email",
+      "x_operation_id": "iam/admin/user-mfa/v4/list-my-backup-codes"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-backup-codes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/backupCodes",
+      "permissions": [],
+      "summary": "Retrieves existing backup codes and sends them to the registered email",
+      "x_operation_id": "iam/public/user-mfa/v4/list-my-backup-codes"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-enabled",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me/mfa/factor",
+      "permissions": [],
+      "summary": "Lists 2FA factors enabled for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/list-my-enabled"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-enabled",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/factor",
+      "permissions": [],
+      "summary": "Lists 2FA factors enabled for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/list-my-enabled"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-my-mfa-email",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "action",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "languageTag",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/email/code",
+      "permissions": [],
+      "summary": "Sends a one-time code to the registered email for MFA",
+      "x_operation_id": "iam/admin/user-mfa/v4/send-my-mfa-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-my-mfa-email",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "action",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "languageTag",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/email/code",
+      "permissions": [],
+      "summary": "Sends a one-time code to the registered email for MFA",
+      "x_operation_id": "iam/public/user-mfa/v4/send-my-mfa-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-default",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/factor",
+      "permissions": [],
+      "summary": "Sets the default 2FA factor for the current user",
+      "x_operation_id": "iam/admin/user-mfa/v4/set-default"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-my-default",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/factor",
+      "permissions": [],
+      "summary": "Sets the default 2FA factor for the current user",
+      "x_operation_id": "iam/public/user-mfa/v4/set-my-default"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-my-challenge",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/users/me/mfa/challenge/verify",
+      "permissions": [],
+      "summary": "Verifies a user MFA code and issues an MFA token",
+      "x_operation_id": "iam/admin/user-mfa/v4/verify-my-challenge"
+    },
+    {
+      "http_method": "POST",
+      "method": "verify-my-challenge",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "factor",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/challenge/verify",
+      "permissions": [],
+      "summary": "Verifies a user MFA code and issues an MFA token",
+      "x_operation_id": "iam/public/user-mfa/v4/verify-my-challenge"
+    }
+  ],
+  "users": [
+    {
+      "http_method": "POST",
+      "method": "add-permission",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/permissions",
+      "permissions": [],
+      "summary": "Adds permissions to the user",
+      "x_operation_id": "iam/admin/users/v3/add-permission"
+    },
+    {
+      "http_method": "POST",
+      "method": "assign-role",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/roles/{roleId}",
+      "permissions": [],
+      "summary": "Assigns a role to a user",
+      "x_operation_id": "iam/admin/users/v3/assign-role"
+    },
+    {
+      "http_method": "POST",
+      "method": "assign-role",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Adds roles to a user's current role assignments.",
+      "x_operation_id": "iam/admin/users/v4/assign-role"
+    },
+    {
+      "http_method": "POST",
+      "method": "ban",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/bans",
+      "permissions": [],
+      "summary": "Bans a user",
+      "x_operation_id": "iam/admin/users/v3/ban"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-check-valid",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/bulk/validate",
+      "permissions": [],
+      "summary": "Checks whether user IDs are valid",
+      "x_operation_id": "iam/admin/users/v4/bulk-check-valid"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/bulk",
+      "permissions": [],
+      "summary": "Retrieves users by user ID",
+      "x_operation_id": "iam/admin/users/v3/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-bans",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "banType",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/bans",
+      "permissions": [],
+      "summary": "Retrieves bans for a list of users",
+      "x_operation_id": "iam/admin/users/v3/bulk-get-bans"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-by-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/search/bulk",
+      "permissions": [],
+      "summary": "Retrieves users by email address in bulk",
+      "x_operation_id": "iam/admin/users/v3/bulk-get-by-email"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-platforms",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/bulk/platforms",
+      "permissions": [],
+      "summary": "Retrieves platform information for a list of users",
+      "x_operation_id": "iam/admin/users/v3/bulk-get-platforms"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "bulk-remove-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/permissions",
+      "permissions": [],
+      "summary": "Deletes user permissions",
+      "x_operation_id": "iam/admin/users/v3/bulk-remove-permissions"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Updates users in bulk",
+      "x_operation_id": "iam/admin/users/v3/bulk-update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "bulk-update-account-type",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/bulk/accountType",
+      "permissions": [],
+      "summary": "Updates user account types in bulk.",
+      "x_operation_id": "iam/admin/users/v4/bulk-update-account-type"
+    },
+    {
+      "http_method": "GET",
+      "method": "check-availability",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "field",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/availability",
+      "permissions": [],
+      "summary": "Checks whether a user account field value is available",
+      "x_operation_id": "iam/public/users/v3/check-availability"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Creates a new user account",
+      "x_operation_id": "iam/admin/users/v4/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Creates a new user account",
+      "x_operation_id": "iam/public/users/v3/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Creates a new user account",
+      "x_operation_id": "iam/public/users/v4/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-from-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "invitationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/invite/{invitationId}",
+      "permissions": [],
+      "summary": "Creates a user account from an invitation",
+      "x_operation_id": "iam/public/users/v3/create-from-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-from-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "invitationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/invite/{invitationId}",
+      "permissions": [],
+      "summary": "Creates a user account from an invitation",
+      "x_operation_id": "iam/public/users/v4/create-from-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-from-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "targetNamespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/justice/{targetNamespace}",
+      "permissions": [],
+      "summary": "Creates a Justice user from a publisher user",
+      "x_operation_id": "iam/admin/users/v3/create-from-publisher"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-from-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "targetNamespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/justice/{targetNamespace}",
+      "permissions": [],
+      "summary": "Creates a game namespace user from a publisher account",
+      "x_operation_id": "iam/public/users/v3/create-from-publisher"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-test",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/test_users",
+      "permissions": [],
+      "summary": "Creates test users without sending verification emails",
+      "x_operation_id": "iam/admin/users/v4/create-test"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-test",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/test_users",
+      "permissions": [],
+      "summary": "Creates a test user without sending a verification email",
+      "x_operation_id": "iam/public/users/v4/create-test"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/information",
+      "permissions": [],
+      "summary": "Deletes a user's information",
+      "x_operation_id": "iam/admin/users/v3/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-platform-linking-restriction",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/link/restrictions",
+      "permissions": [],
+      "summary": "Removes a user's platform linking restriction",
+      "x_operation_id": "iam/admin/users/v3/delete-platform-linking-restriction"
+    },
+    {
+      "http_method": "POST",
+      "method": "force-link-platform",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "ticket",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/force",
+      "permissions": [],
+      "summary": "Links the current user's account to a platform, overriding any existing link.",
+      "x_operation_id": "iam/public/users/v3/force-link-platform"
+    },
+    {
+      "http_method": "POST",
+      "method": "force-link-platform-with-progression",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/platforms/linkWithProgression",
+      "permissions": [],
+      "summary": "Links a platform account and transfers game progression, overriding any existing link.",
+      "x_operation_id": "iam/public/users/v3/force-link-platform-with-progression"
+    },
+    {
+      "http_method": "PUT",
+      "method": "force-verify",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/verify",
+      "permissions": [],
+      "summary": "Verifies a user account",
+      "x_operation_id": "iam/admin/users/v3/force-verify"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves a user by user ID",
+      "x_operation_id": "iam/admin/users/v3/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves public information for a user",
+      "x_operation_id": "iam/public/users/v4/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-ban-summary",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/bans/summary",
+      "permissions": [],
+      "summary": "Retrieves a summary of ban records for a user",
+      "x_operation_id": "iam/admin/users/v3/get-ban-summary"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "emailAddress",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Retrieves a user by email address",
+      "x_operation_id": "iam/admin/users/v3/get-by-email"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-platform-user-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformUserId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "pidType",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/users/{platformUserId}",
+      "permissions": [],
+      "summary": "Retrieves a user by platform user ID",
+      "x_operation_id": "iam/admin/users/v3/get-by-platform-user-id"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-by-platform-user-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformUserId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/platforms/{platformId}/users/{platformUserId}",
+      "permissions": [],
+      "summary": "Retrieves a user by platform user ID",
+      "x_operation_id": "iam/public/users/v4/get-by-platform-user-id"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-deletion-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/deletion/status",
+      "permissions": [],
+      "summary": "Retrieves deletion status for a user",
+      "x_operation_id": "iam/admin/users/v3/get-deletion-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-information",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/information",
+      "permissions": [],
+      "summary": "Retrieves a user's profile and linked platform accounts",
+      "x_operation_id": "iam/public/users/v3/get-information"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "invitationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/invite/{invitationId}",
+      "permissions": [],
+      "summary": "Retrieves a user invitation",
+      "x_operation_id": "iam/public/users/v3/get-invitation"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-invitation-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/invitationHistories",
+      "permissions": [],
+      "summary": "Retrieves invitation history for a specific namespace",
+      "x_operation_id": "iam/admin/users/v4/get-invitation-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-linking-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/requests/{requestId}/async/status",
+      "permissions": [],
+      "summary": "Retrieves the async account linking progress status",
+      "x_operation_id": "iam/public/users/v3/get-linking-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-login-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/logins/histories",
+      "permissions": [],
+      "summary": "Retrieves login history for a user",
+      "x_operation_id": "iam/admin/users/v3/get-login-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-login-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/logins/histories",
+      "permissions": [],
+      "summary": "Retrieves login history for a user",
+      "x_operation_id": "iam/public/users/v3/get-login-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-mapping",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "targetNamespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "createIfNotFound",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/justice/{targetNamespace}",
+      "permissions": [],
+      "summary": "Retrieves the namespace user ID mapping for a user",
+      "x_operation_id": "iam/admin/users/v3/get-mapping"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-mfa-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/mfa/status",
+      "permissions": [],
+      "summary": "Retrieves a user's 2FA status",
+      "x_operation_id": "iam/admin/users/v4/get-mfa-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [],
+      "path": "/iam/v3/admin/users/me",
+      "permissions": [],
+      "summary": "Retrieves the current user account",
+      "x_operation_id": "iam/admin/users/v3/get-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "includeAllPlatforms",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/users/me",
+      "permissions": [],
+      "summary": "Retrieves the current user's profile",
+      "x_operation_id": "iam/public/users/v3/get-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my-link-redirection",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "oneTimeLinkCode",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/users/me/link/redirection",
+      "permissions": [],
+      "summary": "Retrieves the redirect URI after account linking",
+      "x_operation_id": "iam/public/users/v3/get-my-link-redirection"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my-linking-conflict",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "oneTimeLinkCode",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/users/me/headless/link/conflict",
+      "permissions": [],
+      "summary": "Retrieves linking conflicts when linking a headless account to a full account",
+      "x_operation_id": "iam/public/users/v3/get-my-linking-conflict"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my-profile-update-policy",
+      "parameters": [],
+      "path": "/iam/v3/public/users/me/profileStatus",
+      "permissions": [],
+      "summary": "Retrieves profile update status for the current user",
+      "x_operation_id": "iam/public/users/v3/get-my-profile-update-policy"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-openid-info",
+      "parameters": [],
+      "path": "/iam/v3/public/users/userinfo",
+      "permissions": [],
+      "summary": "Retrieves the current user's OpenID Connect user info",
+      "x_operation_id": "iam/public/users/v3/get-openid-info"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-platform-account-metadata",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "crossNamespace",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/metadata",
+      "permissions": [],
+      "summary": "Retrieves platform account metadata for a user",
+      "x_operation_id": "iam/admin/users/v3/get-platform-account-metadata"
+    },
+    {
+      "http_method": "POST",
+      "method": "get-platform-link-status",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "platformToken",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/linkStatus",
+      "permissions": [],
+      "summary": "Checks the link status of a third-party platform token",
+      "x_operation_id": "iam/admin/users/v3/get-platform-link-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-platform-linking-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/link/histories",
+      "permissions": [],
+      "summary": "Lists platform link history for a user",
+      "x_operation_id": "iam/admin/users/v3/get-platform-linking-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-platform-web-link",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "clientId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "redirectUri",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link",
+      "permissions": [],
+      "summary": "Generates a third-party platform login URL for web account linking",
+      "x_operation_id": "iam/public/users/v3/get-platform-web-link"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/publisher",
+      "permissions": [],
+      "summary": "Retrieves the publisher account for a user",
+      "x_operation_id": "iam/public/users/v3/get-publisher"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-state",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/state",
+      "permissions": [],
+      "summary": "Retrieves the state of a user account",
+      "x_operation_id": "iam/admin/users/v3/get-state"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user-invitation-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/invitationHistories/users",
+      "permissions": [],
+      "summary": "Retrieves user invitation history for a specific namespace",
+      "x_operation_id": "iam/admin/users/v4/get-user-invitation-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "handle-web-auth-callback",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "state",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link/establish",
+      "permissions": [],
+      "summary": "Creates the third-party platform account link after the authorization redirect.",
+      "x_operation_id": "iam/public/users/v3/handle-web-auth-callback"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/invite",
+      "permissions": [],
+      "summary": "Invites a user to the namespace",
+      "x_operation_id": "iam/admin/users/v3/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/invite",
+      "permissions": [],
+      "summary": "Invites a user and assigns a role",
+      "x_operation_id": "iam/admin/users/v4/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite-admin",
+      "parameters": [],
+      "path": "/iam/v4/public/users/invite",
+      "permissions": [],
+      "summary": "Invites a game studio admin user to a new namespace",
+      "x_operation_id": "iam/public/users/v4/invite-admin"
+    },
+    {
+      "http_method": "POST",
+      "method": "link-my-headless-account",
+      "parameters": [],
+      "path": "/iam/v3/public/users/me/headless/linkWithProgression",
+      "permissions": [],
+      "summary": "Links a headless account to the current full account",
+      "x_operation_id": "iam/public/users/v3/link-my-headless-account"
+    },
+    {
+      "http_method": "POST",
+      "method": "link-platform-account",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "ticket",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/link",
+      "permissions": [],
+      "summary": "Links a user's account to a platform",
+      "x_operation_id": "iam/admin/users/v3/link-platform-account"
+    },
+    {
+      "http_method": "POST",
+      "method": "link-platform-account",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "redirectUri",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "ticket",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}",
+      "permissions": [],
+      "summary": "Links the current user's account to a third-party platform",
+      "x_operation_id": "iam/public/users/v3/link-platform-account"
+    },
+    {
+      "http_method": "POST",
+      "method": "link-platform-account-forced",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "skipConflict",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/link",
+      "permissions": [],
+      "summary": "Links a platform account to a user",
+      "x_operation_id": "iam/admin/users/v3/link-platform-account-forced"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-accelbyte-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/justice",
+      "permissions": [],
+      "summary": "Lists Justice platform accounts for a user",
+      "x_operation_id": "iam/admin/users/v3/list-accelbyte-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-accelbyte-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/platforms/justice",
+      "permissions": [],
+      "summary": "Retrieves Justice platform accounts for a user",
+      "x_operation_id": "iam/public/users/v3/list-accelbyte-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-admins",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "roleId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startDate",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/admins",
+      "permissions": [],
+      "summary": "Lists admin users in a namespace",
+      "x_operation_id": "iam/admin/users/v3/list-admins"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-bans",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/bans",
+      "permissions": [],
+      "summary": "Retrieves ban records for a user",
+      "x_operation_id": "iam/admin/users/v3/list-bans"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-bans",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/bans",
+      "permissions": [],
+      "summary": "Retrieves ban records for a user",
+      "x_operation_id": "iam/public/users/v3/list-bans"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-by-cursor",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/cursor",
+      "permissions": [],
+      "summary": "Retrieves users using cursor-based pagination",
+      "x_operation_id": "iam/admin/users/v3/list-by-cursor"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-by-platform-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "rawPID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "rawPUID",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/platforms/{platformId}/users",
+      "permissions": [],
+      "summary": "Lists user IDs by platform user ID",
+      "x_operation_id": "iam/admin/users/v3/list-by-platform-id"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-by-platform-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "rawPUID",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/platforms/{platformId}/users",
+      "permissions": [],
+      "summary": "Lists AccelByte user IDs by platform user IDs",
+      "x_operation_id": "iam/public/users/v4/list-by-platform-id"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-distinct-active-platform-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/distinctPlatforms",
+      "permissions": [],
+      "summary": "Retrieves distinct platform accounts linked to a user",
+      "x_operation_id": "iam/admin/users/v3/list-distinct-active-platform-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-distinct-active-platform-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/distinctPlatforms",
+      "permissions": [],
+      "summary": "Retrieves distinct platform accounts linked to a user",
+      "x_operation_id": "iam/public/users/v3/list-distinct-active-platform-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-distinct-platform-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/distinct",
+      "permissions": [],
+      "summary": "Lists distinct third-party platforms linked to a user",
+      "x_operation_id": "iam/admin/users/v3/list-distinct-platform-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-invitation-histories",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "namespace",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v4/admin/invitationHistories",
+      "permissions": [],
+      "summary": "Lists invitation histories for studio namespaces",
+      "x_operation_id": "iam/admin/users/v4/list-invitation-histories"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-linked-platforms",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/platforms",
+      "permissions": [],
+      "summary": "Retrieves users' basic info and linked third-party platform info",
+      "x_operation_id": "iam/public/users/v3/list-linked-platforms"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-platform-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "targetNamespace",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms",
+      "permissions": [],
+      "summary": "Lists platform accounts linked to a user",
+      "x_operation_id": "iam/admin/users/v3/list-platform-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-platform-accounts",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/platforms",
+      "permissions": [],
+      "summary": "Retrieves platform accounts linked to a user",
+      "x_operation_id": "iam/public/users/v3/list-platform-accounts"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-roles",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Lists roles assigned to a user",
+      "x_operation_id": "iam/admin/users/v4/list-roles"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-users-with-accelbyte-account",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/platforms/justice",
+      "permissions": [],
+      "summary": "Lists users with Justice platform accounts",
+      "x_operation_id": "iam/admin/users/v3/list-users-with-accelbyte-account"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-verification-codes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/codes",
+      "permissions": [],
+      "summary": "Retrieves active verification codes for a user",
+      "x_operation_id": "iam/admin/users/v3/list-verification-codes"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-permission",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "action",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resource",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/permissions/{resource}/{action}",
+      "permissions": [],
+      "summary": "Deletes a permission from a user",
+      "x_operation_id": "iam/admin/users/v3/remove-permission"
+    },
+    {
+      "http_method": "POST",
+      "method": "request-password-reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/forgot",
+      "permissions": [],
+      "summary": "Requests a password reset code",
+      "x_operation_id": "iam/public/users/v3/request-password-reset"
+    },
+    {
+      "http_method": "POST",
+      "method": "request-password-reset-global",
+      "parameters": [],
+      "path": "/iam/v3/public/users/forgot",
+      "permissions": [],
+      "summary": "Requests a password reset code",
+      "x_operation_id": "iam/public/users/v3/request-password-reset-global"
+    },
+    {
+      "http_method": "POST",
+      "method": "reset-password",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/reset",
+      "permissions": [],
+      "summary": "Resets a user's password",
+      "x_operation_id": "iam/public/users/v3/reset-password"
+    },
+    {
+      "http_method": "POST",
+      "method": "resolve-web-auth-redirect",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "state",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link/process",
+      "permissions": [],
+      "summary": "Processes the third-party web link callback and returns link status",
+      "x_operation_id": "iam/public/users/v3/resolve-web-auth-redirect"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-role",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "roleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/roles/{roleId}",
+      "permissions": [],
+      "summary": "Removes a role from a user",
+      "x_operation_id": "iam/admin/users/v3/revoke-role"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-role",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Removes roles from a user",
+      "x_operation_id": "iam/admin/users/v4/revoke-role"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-roles",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Removes roles from a user",
+      "x_operation_id": "iam/admin/users/v3/revoke-roles"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-trusted-device",
+      "parameters": [
+        {
+          "location": "header",
+          "name": "Cookie",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/mfa/device",
+      "permissions": [],
+      "summary": "Removes the trusted device for the current user",
+      "x_operation_id": "iam/public/users/v4/revoke-trusted-device"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "by",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "includeTotal",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "roleIds",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "selectedFields",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "skipLoginQueue",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startDate",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tagIds",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "testAccount",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/search",
+      "permissions": [],
+      "summary": "Searches users in the namespace",
+      "x_operation_id": "iam/admin/users/v3/search"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "by",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "query",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users",
+      "permissions": [],
+      "summary": "Searches for users by display name, username, or third-party display name",
+      "x_operation_id": "iam/public/users/v3/search"
+    },
+    {
+      "http_method": "GET",
+      "method": "search-platform-linking-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "platformUserId",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/linkhistories",
+      "permissions": [],
+      "summary": "Searches link history for a platform user ID",
+      "x_operation_id": "iam/admin/users/v3/search-platform-linking-history"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-my-verification-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/code/request",
+      "permissions": [],
+      "summary": "Sends a verification code to the current user's email address",
+      "x_operation_id": "iam/public/users/v3/send-my-verification-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-verification-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/code/request",
+      "permissions": [],
+      "summary": "Sends a verification code to a user",
+      "x_operation_id": "iam/admin/users/v3/send-verification-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-verification-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/code/request",
+      "permissions": [],
+      "summary": "Sends a verification code to a new account's email address",
+      "x_operation_id": "iam/public/users/v3/send-verification-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-verification-code-forward",
+      "parameters": [],
+      "path": "/iam/v3/public/users/me/code/request/forward",
+      "permissions": [],
+      "summary": "Sends a verification code using an upgrade token",
+      "x_operation_id": "iam/public/users/v3/send-verification-code-forward"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-verification-link",
+      "parameters": [],
+      "path": "/iam/v3/public/users/me/verify_link/request",
+      "permissions": [],
+      "summary": "Sends a verification link to the current user's email address",
+      "x_operation_id": "iam/public/users/v3/send-verification-link"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me",
+      "permissions": [],
+      "summary": "Updates the current user's profile",
+      "x_operation_id": "iam/public/users/v3/set-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/permissions",
+      "permissions": [],
+      "summary": "Replaces a user's permissions",
+      "x_operation_id": "iam/admin/users/v3/set-permissions"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "set-roles",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Replaces the roles assigned to a user",
+      "x_operation_id": "iam/admin/users/v3/set-roles"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-roles",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/roles",
+      "permissions": [],
+      "summary": "Replaces all roles assigned to a user",
+      "x_operation_id": "iam/admin/users/v4/set-roles"
+    },
+    {
+      "http_method": "POST",
+      "method": "start-upgrade-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "needVerificationCode",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/headless/verify",
+      "permissions": [],
+      "summary": "Upgrades a headless account to a full account with email",
+      "x_operation_id": "iam/public/users/v3/start-upgrade-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "start-upgrade-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/headless/verify",
+      "permissions": [],
+      "summary": "Upgrades a headless account to a full account",
+      "x_operation_id": "iam/public/users/v4/start-upgrade-my"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "unlink-platform-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/platforms/{platformId}/all",
+      "permissions": [],
+      "summary": "Unlinks a user's account from a platform across all namespaces",
+      "x_operation_id": "iam/admin/users/v3/unlink-platform-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "unlink-platform-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/all",
+      "permissions": [],
+      "summary": "Unlinks the current user's account from a platform across all namespaces",
+      "x_operation_id": "iam/public/users/v3/unlink-platform-all"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Updates a user",
+      "x_operation_id": "iam/admin/users/v3/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Updates a user's profile",
+      "x_operation_id": "iam/admin/users/v4/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-ban",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "banId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/bans/{banId}",
+      "permissions": [],
+      "summary": "Enables or disables a ban for a user",
+      "x_operation_id": "iam/admin/users/v3/update-ban"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-deletion-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/deletion/status",
+      "permissions": [],
+      "summary": "Updates deletion status for a user",
+      "x_operation_id": "iam/admin/users/v3/update-deletion-status"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/admin/namespaces/{namespace}/users/{userId}/email",
+      "permissions": [],
+      "summary": "Updates a user's email address",
+      "x_operation_id": "iam/admin/users/v4/update-email"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-my",
+      "parameters": [],
+      "path": "/iam/v4/admin/users/me",
+      "permissions": [],
+      "summary": "Updates the current admin user's profile",
+      "x_operation_id": "iam/admin/users/v4/update-my"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me",
+      "permissions": [],
+      "summary": "Updates the current user's profile",
+      "x_operation_id": "iam/public/users/v3/update-my"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me",
+      "permissions": [],
+      "summary": "Updates the current user's profile",
+      "x_operation_id": "iam/public/users/v4/update-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-my-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/email",
+      "permissions": [],
+      "summary": "Updates the current user's email address",
+      "x_operation_id": "iam/public/users/v4/update-my-email"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-my-password",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/password",
+      "permissions": [],
+      "summary": "Updates the current user's password",
+      "x_operation_id": "iam/public/users/v3/update-my-password"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-password",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/password",
+      "permissions": [],
+      "summary": "Updates a user's password",
+      "x_operation_id": "iam/admin/users/v3/update-password"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/status",
+      "permissions": [],
+      "summary": "Enables or disables a user account",
+      "x_operation_id": "iam/admin/users/v3/update-status"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-trusted-identity",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/trustly/identity",
+      "permissions": [],
+      "summary": "Updates a user's identity without email notification",
+      "x_operation_id": "iam/admin/users/v3/update-trusted-identity"
+    },
+    {
+      "http_method": "POST",
+      "method": "upgrade-and-validate",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/headless/code/verify",
+      "permissions": [],
+      "summary": "Verifies or consumes a verification code",
+      "x_operation_id": "iam/admin/users/v3/upgrade-and-validate"
+    },
+    {
+      "http_method": "POST",
+      "method": "upgrade-and-validate",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v4/public/namespaces/{namespace}/users/me/headless/code/verify",
+      "permissions": [],
+      "summary": "Upgrades a headless account and verifies the email address",
+      "x_operation_id": "iam/public/users/v4/upgrade-and-validate"
+    },
+    {
+      "http_method": "POST",
+      "method": "upgrade-and-validate-forward",
+      "parameters": [],
+      "path": "/iam/v4/public/users/me/headless/code/verify/forward",
+      "permissions": [],
+      "summary": "Upgrades a headless account and verifies the email address with redirect",
+      "x_operation_id": "iam/public/users/v4/upgrade-and-validate-forward"
+    },
+    {
+      "http_method": "POST",
+      "method": "upgrade-and-validate-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/headless/code/verify",
+      "permissions": [],
+      "summary": "Verifies or consumes a code to upgrade a headless account",
+      "x_operation_id": "iam/public/users/v3/upgrade-and-validate-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/admin/namespaces/{namespace}/users/{userId}/code/verify",
+      "permissions": [],
+      "summary": "Verifies or consumes a verification code for a user",
+      "x_operation_id": "iam/admin/users/v3/validate-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/me/code/verify",
+      "permissions": [],
+      "summary": "Validates or consumes a verification code for the current user",
+      "x_operation_id": "iam/public/users/v3/validate-code"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-input",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/input/validation",
+      "permissions": [],
+      "summary": "Validates user input against configured validation rules",
+      "x_operation_id": "iam/public/users/v3/validate-input"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-password",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/{userId}/validate",
+      "permissions": [],
+      "summary": "Validates a user's password",
+      "x_operation_id": "iam/public/users/v3/validate-password"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-registration-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/iam/v3/public/namespaces/{namespace}/users/code/verify",
+      "permissions": [],
+      "summary": "Verifies the registration code",
+      "x_operation_id": "iam/public/users/v3/validate-registration-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "verify-email",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        }
+      ],
+      "path": "/iam/v3/public/users/verify_link/verify",
+      "permissions": [],
+      "summary": "Verifies a user's email using a verification link code",
+      "x_operation_id": "iam/public/users/v3/verify-email"
+    }
+  ]
+}

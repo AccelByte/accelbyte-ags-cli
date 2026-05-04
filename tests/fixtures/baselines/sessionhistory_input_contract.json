@@ -1,0 +1,34 @@
+{
+  "xray-tickets": [
+    {
+      "http_method": "POST",
+      "method": "bulk-create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/sessionhistory/v2/admin/namespaces/{namespace}/xray/tickets/bulk",
+      "permissions": [],
+      "summary": "Creates ticket observability records in bulk",
+      "x_operation_id": "session-history/admin/xray-tickets/v2/bulk-create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/sessionhistory/v2/admin/namespaces/{namespace}/xray/tickets",
+      "permissions": [],
+      "summary": "Creates a ticket observability record",
+      "x_operation_id": "session-history/admin/xray-tickets/v2/create"
+    }
+  ]
+}

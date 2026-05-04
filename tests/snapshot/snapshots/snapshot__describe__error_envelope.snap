@@ -1,0 +1,22 @@
+---
+source: tests/snapshot/describe.rs
+expression: "&json"
+---
+{
+  "data": {
+    "code": "unknown_service",
+    "message": "Unknown service: 'iamx'",
+    "suggestions": [
+      "iam"
+    ]
+  },
+  "generated_by": {
+    "cli": "ags",
+    "version": "[version]"
+  },
+  "kind": "error",
+  "path": [
+    "iamx"
+  ],
+  "schema_version": "1"
+}

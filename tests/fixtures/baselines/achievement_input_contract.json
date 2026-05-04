@@ -1,0 +1,847 @@
+{
+  "achievements": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements",
+      "permissions": [],
+      "summary": "Creates a new achievement",
+      "x_operation_id": "achievement/admin/achievements/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/{achievementCode}",
+      "permissions": [],
+      "summary": "Deletes an achievement",
+      "x_operation_id": "achievement/admin/achievements/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/export",
+      "permissions": [],
+      "summary": "Exports achievement configuration",
+      "x_operation_id": "achievement/admin/achievements/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/{achievementCode}",
+      "permissions": [],
+      "summary": "Retrieves an achievement",
+      "x_operation_id": "achievement/admin/achievements/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "language",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/achievements/{achievementCode}",
+      "permissions": [],
+      "summary": "Retrieves an achievement",
+      "x_operation_id": "achievement/public/achievements/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "strategy",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/import",
+      "permissions": [],
+      "summary": "Imports achievement configuration",
+      "x_operation_id": "achievement/admin/achievements/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "global",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements",
+      "permissions": [],
+      "summary": "Lists achievements",
+      "x_operation_id": "achievement/admin/achievements/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "global",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "language",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/achievements",
+      "permissions": [],
+      "summary": "Lists achievements",
+      "x_operation_id": "achievement/public/achievements/v1/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "reorder",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/{achievementCode}",
+      "permissions": [],
+      "summary": "Updates achievement list order",
+      "x_operation_id": "achievement/admin/achievements/v1/reorder"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/achievements/{achievementCode}",
+      "permissions": [],
+      "summary": "Updates an achievement",
+      "x_operation_id": "achievement/admin/achievements/v1/update"
+    }
+  ],
+  "collaborative-progress": [
+    {
+      "http_method": "POST",
+      "method": "claim-reward",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/users/{userId}/global/achievements/{achievementCode}/claim",
+      "permissions": [],
+      "summary": "Claims a global achievement reward",
+      "x_operation_id": "achievement/public/collaborative-progress/v1/claim-reward"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "achievementCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/global/achievements",
+      "permissions": [],
+      "summary": "Lists global achievements",
+      "x_operation_id": "achievement/admin/collaborative-progress/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "achievementCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/global/achievements",
+      "permissions": [],
+      "summary": "Lists global achievements",
+      "x_operation_id": "achievement/public/collaborative-progress/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-contributions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "achievementCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/users/{userId}/global/achievements",
+      "permissions": [],
+      "summary": "Lists user global achievement contributions",
+      "x_operation_id": "achievement/admin/collaborative-progress/v1/list-contributions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-contributions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "achievementCodes",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/users/{userId}/global/achievements",
+      "permissions": [],
+      "summary": "Lists user global achievement contributions",
+      "x_operation_id": "achievement/public/collaborative-progress/v1/list-contributions"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-contributors",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/global/achievements/{achievementCode}/contributors",
+      "permissions": [],
+      "summary": "Lists global achievement contributors",
+      "x_operation_id": "achievement/admin/collaborative-progress/v1/list-contributors"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-contributors",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/global/achievements/{achievementCode}/contributors",
+      "permissions": [],
+      "summary": "Lists global achievement contributors",
+      "x_operation_id": "achievement/public/collaborative-progress/v1/list-contributors"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/global/achievements/{achievementCode}/reset",
+      "permissions": [],
+      "summary": "Resets a global achievement",
+      "x_operation_id": "achievement/admin/collaborative-progress/v1/reset"
+    }
+  ],
+  "platform-achievements": [
+    {
+      "http_method": "POST",
+      "method": "bulk-create-playstation-event",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/platforms/psn/bulk",
+      "permissions": [],
+      "summary": "Creates PSN UDS events",
+      "x_operation_id": "achievement/admin/platform-achievements/v1/bulk-create-playstation-event"
+    }
+  ],
+  "tags": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists tags",
+      "x_operation_id": "achievement/admin/tags/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists tags",
+      "x_operation_id": "achievement/public/tags/v1/list"
+    }
+  ],
+  "user-progress": [
+    {
+      "http_method": "PUT",
+      "method": "bulk-unlock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/users/{userId}/achievements/bulkUnlock",
+      "permissions": [],
+      "summary": "Unlocks achievements in bulk",
+      "x_operation_id": "achievement/admin/user-progress/v1/bulk-unlock"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-unlock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/users/{userId}/achievements/bulkUnlock",
+      "permissions": [],
+      "summary": "Unlocks achievements in bulk",
+      "x_operation_id": "achievement/public/user-progress/v1/bulk-unlock"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "preferUnlocked",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/users/{userId}/achievements",
+      "permissions": [],
+      "summary": "Lists user achievements",
+      "x_operation_id": "achievement/admin/user-progress/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "preferUnlocked",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/users/{userId}/achievements",
+      "permissions": [],
+      "summary": "Lists user achievements",
+      "x_operation_id": "achievement/public/user-progress/v1/list"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/users/{userId}/achievements/{achievementCode}/reset",
+      "permissions": [],
+      "summary": "Resets an achievement",
+      "x_operation_id": "achievement/admin/user-progress/v1/reset"
+    },
+    {
+      "http_method": "PUT",
+      "method": "unlock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/admin/namespaces/{namespace}/users/{userId}/achievements/{achievementCode}/unlock",
+      "permissions": [],
+      "summary": "Unlocks an achievement",
+      "x_operation_id": "achievement/admin/user-progress/v1/unlock"
+    },
+    {
+      "http_method": "PUT",
+      "method": "unlock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "achievementCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/achievement/v1/public/namespaces/{namespace}/users/{userId}/achievements/{achievementCode}/unlock",
+      "permissions": [],
+      "summary": "Unlocks an achievement",
+      "x_operation_id": "achievement/public/user-progress/v1/unlock"
+    }
+  ]
+}

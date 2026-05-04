@@ -1,0 +1,21 @@
+---
+source: tests/snapshot/describe.rs
+expression: "&json"
+---
+{
+  "data": {
+    "children": "[children]",
+    "name": "iam",
+    "node_type": "service",
+    "summary": "Identity, authentication, authorization, and user management"
+  },
+  "generated_by": {
+    "cli": "ags",
+    "version": "[version]"
+  },
+  "kind": "catalogue",
+  "path": [
+    "iam"
+  ],
+  "schema_version": "1"
+}

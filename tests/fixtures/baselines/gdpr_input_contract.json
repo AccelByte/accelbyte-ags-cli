@@ -1,0 +1,912 @@
+{
+  "config": [
+    {
+      "http_method": "POST",
+      "method": "add-admin-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/emails/configurations",
+      "permissions": [],
+      "summary": "Adds admin email addresses to the personal data notification list",
+      "x_operation_id": "gdpr/admin/config/v1/add-admin-email"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-admin-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/emails/configurations",
+      "permissions": [],
+      "summary": "Retrieves admin email address configurations for the namespace",
+      "x_operation_id": "gdpr/admin/config/v1/get-admin-email"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/configurations",
+      "permissions": [],
+      "summary": "Retrieves registered service configurations for the namespace",
+      "x_operation_id": "gdpr/admin/config/v1/list-services"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-admin-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "emails",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/emails/configurations",
+      "permissions": [],
+      "summary": "Deletes admin email addresses from the personal data notification list",
+      "x_operation_id": "gdpr/admin/config/v1/remove-admin-email"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/configurations/reset",
+      "permissions": [],
+      "summary": "Resets registered service configurations to defaults",
+      "x_operation_id": "gdpr/admin/config/v1/reset-services"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-admin-email",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/emails/configurations",
+      "permissions": [],
+      "summary": "Updates admin email addresses in the personal data notification list",
+      "x_operation_id": "gdpr/admin/config/v1/update-admin-email"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/configurations",
+      "permissions": [],
+      "summary": "Updates registered service configurations for the namespace",
+      "x_operation_id": "gdpr/admin/config/v1/update-services"
+    }
+  ],
+  "platform-closure": [
+    {
+      "http_method": "DELETE",
+      "method": "delete-client",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platform",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/{platform}/closure/client",
+      "permissions": [],
+      "summary": "Deletes the account closure client configuration for the specified platform",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/delete-client"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-client",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platform",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/{platform}/closure/client",
+      "permissions": [],
+      "summary": "Retrieves the account closure client configuration for the specified platform",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/get-client"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "platform",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/platforms/closure/histories",
+      "permissions": [],
+      "summary": "Retrieves platform account closure histories across users in the namespace",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/get-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/platforms/closure/config",
+      "permissions": [],
+      "summary": "Retrieves platform account closure service configurations for the namespace",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/get-services"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-clients",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/closure/clients",
+      "permissions": [],
+      "summary": "Retrieves platform account closure client configurations",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/list-clients"
+    },
+    {
+      "http_method": "POST",
+      "method": "mock-closure-event",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platform",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/{platform}/closure/mock",
+      "permissions": [],
+      "summary": "Creates a mock account closure event for the specified platform",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/mock-closure-event"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/platforms/closure/config",
+      "permissions": [],
+      "summary": "Resets platform account closure service configurations to defaults",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/reset-services"
+    },
+    {
+      "http_method": "POST",
+      "method": "update-client",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platform",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/{platform}/closure/client",
+      "permissions": [],
+      "summary": "Updates the account closure client configuration for the specified platform",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/update-client"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-services",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/services/platforms/closure/config",
+      "permissions": [],
+      "summary": "Updates platform account closure service configurations for the namespace",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/update-services"
+    },
+    {
+      "http_method": "POST",
+      "method": "validate-xbox-business-partner-certificate",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/platforms/xbox/closure/cert/validation",
+      "permissions": [],
+      "summary": "Validates the Xbox Business Partner certificate file for account closure",
+      "x_operation_id": "gdpr/admin/platform-closure/v1/validate-xbox-business-partner-certificate"
+    }
+  ],
+  "user-access-requests": [
+    {
+      "http_method": "DELETE",
+      "method": "cancel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestDate",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/requests/{requestDate}",
+      "permissions": [],
+      "summary": "Cancels a user's pending personal data request",
+      "x_operation_id": "gdpr/admin/user-access-requests/v1/cancel"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "cancel",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestDate",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/requests/{requestDate}",
+      "permissions": [],
+      "summary": "Cancels a user's pending personal data request",
+      "x_operation_id": "gdpr/public/user-access-requests/v1/cancel"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-download-url",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestDate",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/requests/{requestDate}/generate",
+      "permissions": [],
+      "summary": "Generates a personal data download URL for the specified request",
+      "x_operation_id": "gdpr/admin/user-access-requests/v1/generate-download-url"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-download-url",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestDate",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/requests/{requestDate}/generate",
+      "permissions": [],
+      "summary": "Generates a personal data download URL for the specified request",
+      "x_operation_id": "gdpr/public/user-access-requests/v1/generate-download-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/requests",
+      "permissions": [],
+      "summary": "Retrieves personal data requests for a specific user",
+      "x_operation_id": "gdpr/admin/user-access-requests/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/requests",
+      "permissions": [],
+      "summary": "Retrieves personal data requests for the specified user",
+      "x_operation_id": "gdpr/public/user-access-requests/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "requestDate",
+          "required": false
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/requests",
+      "permissions": [],
+      "summary": "Lists personal data requests across the namespace",
+      "x_operation_id": "gdpr/admin/user-access-requests/v1/list-all"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/requests",
+      "permissions": [],
+      "summary": "Submits a personal data retrieval request for a user",
+      "x_operation_id": "gdpr/admin/user-access-requests/v1/submit"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "languageTag",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/requests",
+      "permissions": [],
+      "summary": "Submits a personal data retrieval request for the specified user",
+      "x_operation_id": "gdpr/public/user-access-requests/v1/submit"
+    }
+  ],
+  "user-access-requests-s2s": [
+    {
+      "http_method": "POST",
+      "method": "generate-download-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestDate",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/users/{userId}/requests/{requestDate}/generate",
+      "permissions": [],
+      "summary": "Generates a personal data download URL via server-to-server",
+      "x_operation_id": "gdpr/admin/user-access-requests-s2s/v1/generate-download-url"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "requestId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/requests/{requestId}",
+      "permissions": [],
+      "summary": "Retrieves a personal data request by its ID",
+      "x_operation_id": "gdpr/admin/user-access-requests-s2s/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-finished",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "end",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "start",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/requests/finished",
+      "permissions": [],
+      "summary": "Lists finished personal data requests within a time range",
+      "x_operation_id": "gdpr/admin/user-access-requests-s2s/v1/list-finished"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/users/{userId}/requests",
+      "permissions": [],
+      "summary": "Submits a personal data retrieval request via server-to-server",
+      "x_operation_id": "gdpr/admin/user-access-requests-s2s/v1/submit"
+    }
+  ],
+  "user-deletion-requests": [
+    {
+      "http_method": "DELETE",
+      "method": "cancel-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Cancels a user's pending account deletion request",
+      "x_operation_id": "gdpr/admin/user-deletion-requests/v1/cancel-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "cancel-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Cancels a user's pending account deletion request",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/cancel-all"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "cancel-all-my",
+      "parameters": [],
+      "path": "/gdpr/public/users/me/deletions",
+      "permissions": [],
+      "summary": "Cancels the current user's pending account deletion request",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/cancel-all-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Retrieves the account deletion request for a specific user",
+      "x_operation_id": "gdpr/admin/user-deletion-requests/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/deletions/status",
+      "permissions": [],
+      "summary": "Retrieves the account deletion status for the specified user",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [],
+      "path": "/gdpr/public/users/me/deletions/status",
+      "permissions": [],
+      "summary": "Retrieves the current user's account deletion status",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/get-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "requestDate",
+          "required": false
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/deletions",
+      "permissions": [],
+      "summary": "Retrieves all account deletion requests for a specified date",
+      "x_operation_id": "gdpr/admin/user-deletion-requests/v1/list-all"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/admin/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Submits an account deletion request for a specific user",
+      "x_operation_id": "gdpr/admin/user-deletion-requests/v1/submit"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "languageTag",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Submits an account deletion request for the specified user",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/submit"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit-my",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "platformId",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "platformToken",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/public/users/me/deletions",
+      "permissions": [],
+      "summary": "Submits an account deletion request for the current user",
+      "x_operation_id": "gdpr/public/user-deletion-requests/v1/submit-my"
+    }
+  ],
+  "user-deletion-requests-s2s": [
+    {
+      "http_method": "GET",
+      "method": "list-finished",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "end",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "start",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/deletions/finished",
+      "permissions": [],
+      "summary": "Lists finished account deletion requests within a time range",
+      "x_operation_id": "gdpr/admin/user-deletion-requests-s2s/v1/list-finished"
+    },
+    {
+      "http_method": "POST",
+      "method": "submit",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/gdpr/s2s/namespaces/{namespace}/users/{userId}/deletions",
+      "permissions": [],
+      "summary": "Submits a user's account deletion request via server-to-server",
+      "x_operation_id": "gdpr/admin/user-deletion-requests-s2s/v1/submit"
+    }
+  ]
+}

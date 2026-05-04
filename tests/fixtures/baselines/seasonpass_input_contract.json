@@ -1,0 +1,1039 @@
+{
+  "passes": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/passes",
+      "permissions": [],
+      "summary": "Creates a pass for a season",
+      "x_operation_id": "season-pass/admin/passes/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/passes/{code}",
+      "permissions": [],
+      "summary": "Deletes a pass permanently",
+      "x_operation_id": "season-pass/admin/passes/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/passes/{code}",
+      "permissions": [],
+      "summary": "Retrieves a pass by code",
+      "x_operation_id": "season-pass/admin/passes/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/passes",
+      "permissions": [],
+      "summary": "Grants a pass to a user",
+      "x_operation_id": "season-pass/admin/passes/v1/grant"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/passes",
+      "permissions": [],
+      "summary": "Lists all passes for a season",
+      "x_operation_id": "season-pass/admin/passes/v1/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/passes/{code}",
+      "permissions": [],
+      "summary": "Updates a pass",
+      "x_operation_id": "season-pass/admin/passes/v1/update"
+    }
+  ],
+  "progress": [
+    {
+      "http_method": "POST",
+      "method": "bulk-claim-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/public/namespaces/{namespace}/users/{userId}/seasons/current/rewards/bulk",
+      "permissions": [],
+      "summary": "Claims all remaining tier rewards",
+      "x_operation_id": "season-pass/public/progress/v1/bulk-claim-rewards"
+    },
+    {
+      "http_method": "GET",
+      "method": "check-season-ownership",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "passCodes",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/passes/ownership/any",
+      "permissions": [],
+      "summary": "Checks ownership of any season pass",
+      "x_operation_id": "season-pass/admin/progress/v1/check-season-ownership"
+    },
+    {
+      "http_method": "POST",
+      "method": "claim-rewards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/public/namespaces/{namespace}/users/{userId}/seasons/current/rewards",
+      "permissions": [],
+      "summary": "Claims a tier reward",
+      "x_operation_id": "season-pass/public/progress/v1/claim-rewards"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/progression",
+      "permissions": [],
+      "summary": "Retrieves the current user's season progression",
+      "x_operation_id": "season-pass/admin/progress/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "get-bulk",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/current/users/bulk/progression",
+      "permissions": [],
+      "summary": "Retrieves current season progression for a batch of users",
+      "x_operation_id": "season-pass/admin/progress/v1/get-bulk"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-current-season",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/public/namespaces/{namespace}/users/{userId}/seasons/current/data",
+      "permissions": [],
+      "summary": "Retrieves the current user's season data",
+      "x_operation_id": "season-pass/public/progress/v1/get-current-season"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-experience-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "from",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "seasonId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "source",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "to",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/exp/history",
+      "permissions": [],
+      "summary": "Lists a user's season experience acquisition history",
+      "x_operation_id": "season-pass/admin/progress/v1/get-experience-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-season",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/{seasonId}/data",
+      "permissions": [],
+      "summary": "Retrieves a user's data for a specific season",
+      "x_operation_id": "season-pass/admin/progress/v1/get-season"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-season",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/public/namespaces/{namespace}/users/{userId}/seasons/{seasonId}/data",
+      "permissions": [],
+      "summary": "Retrieves a user's data for a specific season",
+      "x_operation_id": "season-pass/public/progress/v1/get-season"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant-experience",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/exp",
+      "permissions": [],
+      "summary": "Grants experience points to a user",
+      "x_operation_id": "season-pass/admin/progress/v1/grant-experience"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-experience-history-tags",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "seasonId",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/exp/history/tags",
+      "permissions": [],
+      "summary": "Lists reason tags for a user's experience history",
+      "x_operation_id": "season-pass/admin/progress/v1/list-experience-history-tags"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-participated-seasons",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons",
+      "permissions": [],
+      "summary": "Retrieves a user's participated season data",
+      "x_operation_id": "season-pass/admin/progress/v1/list-participated-seasons"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reset",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/reset",
+      "permissions": [],
+      "summary": "Resets user data in the current season",
+      "x_operation_id": "season-pass/admin/progress/v1/reset"
+    }
+  ],
+  "rewards": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/rewards",
+      "permissions": [],
+      "summary": "Creates a reward for a season",
+      "x_operation_id": "season-pass/admin/rewards/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/rewards/{code}",
+      "permissions": [],
+      "summary": "Deletes a reward permanently",
+      "x_operation_id": "season-pass/admin/rewards/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/rewards/{code}",
+      "permissions": [],
+      "summary": "Retrieves a reward by code",
+      "x_operation_id": "season-pass/admin/rewards/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "q",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/rewards",
+      "permissions": [],
+      "summary": "Lists all rewards for a season",
+      "x_operation_id": "season-pass/admin/rewards/v1/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "code",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/rewards/{code}",
+      "permissions": [],
+      "summary": "Updates a reward",
+      "x_operation_id": "season-pass/admin/rewards/v1/update"
+    }
+  ],
+  "seasons": [
+    {
+      "http_method": "POST",
+      "method": "check-purchaseable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/purchasable",
+      "permissions": [],
+      "summary": "Checks if a pass or tier is purchasable",
+      "x_operation_id": "season-pass/admin/seasons/v1/check-purchaseable"
+    },
+    {
+      "http_method": "POST",
+      "method": "clone",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/clone",
+      "permissions": [],
+      "summary": "Clones a season",
+      "x_operation_id": "season-pass/admin/seasons/v1/clone"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons",
+      "permissions": [],
+      "summary": "Creates a season in the namespace",
+      "x_operation_id": "season-pass/admin/seasons/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}",
+      "permissions": [],
+      "summary": "Deletes a season permanently",
+      "x_operation_id": "season-pass/admin/seasons/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespace/{namespace}/export",
+      "permissions": [],
+      "summary": "Exports season service data",
+      "x_operation_id": "season-pass/admin/seasons/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}",
+      "permissions": [],
+      "summary": "Retrieves a season by ID",
+      "x_operation_id": "season-pass/admin/seasons/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-current",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/current",
+      "permissions": [],
+      "summary": "Retrieves the current published season summary",
+      "x_operation_id": "season-pass/admin/seasons/v1/get-current"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-current",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "language",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/public/namespaces/{namespace}/seasons/current",
+      "permissions": [],
+      "summary": "Retrieves the current published season",
+      "x_operation_id": "season-pass/public/seasons/v1/get-current"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-full",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/full",
+      "permissions": [],
+      "summary": "Retrieves the full content of a season",
+      "x_operation_id": "season-pass/admin/seasons/v1/get-full"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons",
+      "permissions": [],
+      "summary": "Lists seasons in the namespace",
+      "x_operation_id": "season-pass/admin/seasons/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "publish",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/publish",
+      "permissions": [],
+      "summary": "Publishes a season",
+      "x_operation_id": "season-pass/admin/seasons/v1/publish"
+    },
+    {
+      "http_method": "PUT",
+      "method": "retire",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "force",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/retire",
+      "permissions": [],
+      "summary": "Retires a published season",
+      "x_operation_id": "season-pass/admin/seasons/v1/retire"
+    },
+    {
+      "http_method": "PUT",
+      "method": "unpublish",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "force",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/unpublish",
+      "permissions": [],
+      "summary": "Unpublishes a season",
+      "x_operation_id": "season-pass/admin/seasons/v1/unpublish"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}",
+      "permissions": [],
+      "summary": "Updates a season",
+      "x_operation_id": "season-pass/admin/seasons/v1/update"
+    }
+  ],
+  "tiers": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/tiers",
+      "permissions": [],
+      "summary": "Creates tiers for a season",
+      "x_operation_id": "season-pass/admin/tiers/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/tiers/{id}",
+      "permissions": [],
+      "summary": "Deletes a tier permanently",
+      "x_operation_id": "season-pass/admin/tiers/v1/delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "grant",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/users/{userId}/seasons/current/tiers",
+      "permissions": [],
+      "summary": "Grants a tier to a user",
+      "x_operation_id": "season-pass/admin/tiers/v1/grant"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/tiers",
+      "permissions": [],
+      "summary": "Lists all tiers for a season",
+      "x_operation_id": "season-pass/admin/tiers/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "reorder",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/tiers/{id}/reorder",
+      "permissions": [],
+      "summary": "Moves a tier to a new position",
+      "x_operation_id": "season-pass/admin/tiers/v1/reorder"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "seasonId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/{seasonId}/tiers/{id}",
+      "permissions": [],
+      "summary": "Updates a tier",
+      "x_operation_id": "season-pass/admin/tiers/v1/update"
+    }
+  ],
+  "utilities": [
+    {
+      "http_method": "GET",
+      "method": "list-item-references",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "itemId",
+          "required": true
+        }
+      ],
+      "path": "/seasonpass/admin/namespaces/{namespace}/seasons/item/references",
+      "permissions": [],
+      "summary": "Retrieves season pass item references from the ecommerce store",
+      "x_operation_id": "season-pass/admin/utilities/v1/list-item-references"
+    }
+  ]
+}

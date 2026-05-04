@@ -1,0 +1,833 @@
+{
+  "backfill": [
+    {
+      "http_method": "PUT",
+      "method": "accept",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "backfillID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill/{backfillID}/proposal/accept",
+      "permissions": [],
+      "summary": "Accepts a backfill proposal",
+      "x_operation_id": "matchmaking/public/backfill/v1/accept"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill",
+      "permissions": [],
+      "summary": "Creates a backfill ticket",
+      "x_operation_id": "matchmaking/public/backfill/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "backfillID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill/{backfillID}",
+      "permissions": [],
+      "summary": "Deletes a backfill ticket",
+      "x_operation_id": "matchmaking/public/backfill/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "backfillID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill/{backfillID}",
+      "permissions": [],
+      "summary": "Retrieves a backfill ticket by ID",
+      "x_operation_id": "matchmaking/public/backfill/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-proposal",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "sessionID",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill/proposal",
+      "permissions": [],
+      "summary": "Retrieves a backfill proposal for the session",
+      "x_operation_id": "matchmaking/public/backfill/v1/get-proposal"
+    },
+    {
+      "http_method": "PUT",
+      "method": "reject",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "backfillID",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill/{backfillID}/proposal/reject",
+      "permissions": [],
+      "summary": "Rejects a backfill proposal",
+      "x_operation_id": "matchmaking/public/backfill/v1/reject"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "fromTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isActive",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "matchPool",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "playerID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "region",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sessionID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "toTime",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/backfill",
+      "permissions": [],
+      "summary": "Queries backfill tickets in the namespace",
+      "x_operation_id": "matchmaking/admin/backfill/v1/search"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves the matchmaking configuration for the namespace",
+      "x_operation_id": "matchmaking/admin/config/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-log",
+      "parameters": [],
+      "path": "/match2/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Retrieves the log configuration",
+      "x_operation_id": "matchmaking/admin/config/v1/get-log"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-version",
+      "parameters": [],
+      "path": "/match2/version",
+      "permissions": [],
+      "summary": "Checks the service version",
+      "x_operation_id": "matchmaking/public/config/v1/get-version"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/match2/v1/config",
+      "permissions": [],
+      "summary": "Lists matchmaking configurations for all namespaces",
+      "x_operation_id": "matchmaking/admin/config/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-environment-variables",
+      "parameters": [],
+      "path": "/match2/v1/environment-variables",
+      "permissions": [],
+      "summary": "Lists environment variables",
+      "x_operation_id": "matchmaking/admin/config/v1/list-environment-variables"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Updates the matchmaking configuration for the namespace",
+      "x_operation_id": "matchmaking/admin/config/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-log",
+      "parameters": [],
+      "path": "/match2/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Updates the log configuration",
+      "x_operation_id": "matchmaking/admin/config/v1/update-log"
+    }
+  ],
+  "feature-flags": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/admin/namespaces/{namespace}/playfeatureflag",
+      "permissions": [],
+      "summary": "Deletes the play feature flag for the namespace",
+      "x_operation_id": "matchmaking/admin/feature-flags/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/admin/namespaces/{namespace}/playfeatureflag",
+      "permissions": [],
+      "summary": "Retrieves the play feature flag for the namespace",
+      "x_operation_id": "matchmaking/admin/feature-flags/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/admin/namespaces/{namespace}/playfeatureflag",
+      "permissions": [],
+      "summary": "Creates or updates the play feature flag for the namespace",
+      "x_operation_id": "matchmaking/admin/feature-flags/v1/update"
+    }
+  ],
+  "match-functions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-functions",
+      "permissions": [],
+      "summary": "Creates a match function",
+      "x_operation_id": "matchmaking/admin/match-functions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-functions/{name}",
+      "permissions": [],
+      "summary": "Deletes a match function",
+      "x_operation_id": "matchmaking/admin/match-functions/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-functions/{name}",
+      "permissions": [],
+      "summary": "Retrieves a match function by name",
+      "x_operation_id": "matchmaking/admin/match-functions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-functions",
+      "permissions": [],
+      "summary": "Lists match functions in the namespace",
+      "x_operation_id": "matchmaking/admin/match-functions/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-functions/{name}",
+      "permissions": [],
+      "summary": "Updates a match function",
+      "x_operation_id": "matchmaking/admin/match-functions/v1/update"
+    }
+  ],
+  "match-pools": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools",
+      "permissions": [],
+      "summary": "Creates a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-error-metric",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}/metrics/external-failure",
+      "permissions": [],
+      "summary": "Records an external flow failure metric for a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/create-error-metric"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}",
+      "permissions": [],
+      "summary": "Deletes a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}",
+      "permissions": [],
+      "summary": "Retrieves details for a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-metric",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}/metrics",
+      "permissions": [],
+      "summary": "Retrieves metrics for a match pool",
+      "x_operation_id": "matchmaking/public/match-pools/v1/get-metric"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user-metric",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}/metrics/player",
+      "permissions": [],
+      "summary": "Retrieves player metrics for a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/get-user-metric"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user-metric",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/public/namespaces/{namespace}/match-pools/{pool}/metrics/player",
+      "permissions": [],
+      "summary": "Retrieves player metrics for a match pool",
+      "x_operation_id": "matchmaking/public/match-pools/v1/get-user-metric"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools",
+      "permissions": [],
+      "summary": "Lists match pools in the namespace",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-tickets",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}/tickets",
+      "permissions": [],
+      "summary": "Retrieves tickets in the queue for a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/list-tickets"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "pool",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-pools/{pool}",
+      "permissions": [],
+      "summary": "Updates a match pool",
+      "x_operation_id": "matchmaking/admin/match-pools/v1/update"
+    }
+  ],
+  "match-tickets": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketid",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-tickets/{ticketid}",
+      "permissions": [],
+      "summary": "Deletes a matchmaking ticket",
+      "x_operation_id": "matchmaking/public/match-tickets/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ticketid",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-tickets/{ticketid}",
+      "permissions": [],
+      "summary": "Retrieves details for a match ticket",
+      "x_operation_id": "matchmaking/public/match-tickets/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "matchPool",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/match-tickets/me",
+      "permissions": [],
+      "summary": "Retrieves match tickets for the current user",
+      "x_operation_id": "matchmaking/public/match-tickets/v1/get-my"
+    }
+  ],
+  "rule-sets": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/rulesets",
+      "permissions": [],
+      "summary": "Creates a match rule set",
+      "x_operation_id": "matchmaking/admin/rule-sets/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleset",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/rulesets/{ruleset}",
+      "permissions": [],
+      "summary": "Deletes a rule set",
+      "x_operation_id": "matchmaking/admin/rule-sets/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleset",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/rulesets/{ruleset}",
+      "permissions": [],
+      "summary": "Retrieves details for a rule set",
+      "x_operation_id": "matchmaking/admin/rule-sets/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/rulesets",
+      "permissions": [],
+      "summary": "Lists rule sets in the namespace",
+      "x_operation_id": "matchmaking/admin/rule-sets/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "ruleset",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/namespaces/{namespace}/rulesets/{ruleset}",
+      "permissions": [],
+      "summary": "Updates a match rule set",
+      "x_operation_id": "matchmaking/admin/rule-sets/v1/update"
+    }
+  ],
+  "xray-config": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/admin/namespaces/{namespace}/xray/config",
+      "permissions": [],
+      "summary": "Retrieves the X-Ray configuration for the namespace",
+      "x_operation_id": "matchmaking/admin/xray-config/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/match2/v1/admin/namespaces/{namespace}/xray/config",
+      "permissions": [],
+      "summary": "Updates the X-Ray configuration for the namespace",
+      "x_operation_id": "matchmaking/admin/xray-config/v1/update"
+    }
+  ]
+}

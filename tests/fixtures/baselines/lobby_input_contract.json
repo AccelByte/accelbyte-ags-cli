@@ -1,0 +1,1442 @@
+{
+  "blocks": [
+    {
+      "http_method": "PATCH",
+      "method": "symc",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/sync/namespaces/{namespace}/me/block",
+      "permissions": [],
+      "summary": "Syncs the current user's blocked list with linked native first-party platform accounts",
+      "x_operation_id": "lobby/public/blocks/v1/symc"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/config/namespaces/{namespace}/export",
+      "permissions": [],
+      "summary": "Exports the lobby configuration to a JSON file",
+      "x_operation_id": "lobby/admin/config/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves the configuration for a specified namespace",
+      "x_operation_id": "lobby/admin/config/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-log",
+      "parameters": [],
+      "path": "/lobby/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Retrieves the current log configuration",
+      "x_operation_id": "lobby/admin/config/v1/get-log"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/config/namespaces/{namespace}/import",
+      "permissions": [],
+      "summary": "Imports lobby configuration from a JSON file",
+      "x_operation_id": "lobby/admin/config/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/lobby/v1/admin/config",
+      "permissions": [],
+      "summary": "Retrieves configuration for all namespaces",
+      "x_operation_id": "lobby/admin/config/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Updates the configuration for a specified namespace",
+      "x_operation_id": "lobby/admin/config/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-log",
+      "parameters": [],
+      "path": "/lobby/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Updates the log configuration",
+      "x_operation_id": "lobby/admin/config/v1/update-log"
+    }
+  ],
+  "friends": [
+    {
+      "http_method": "POST",
+      "method": "accept-request",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/request/accept",
+      "permissions": [],
+      "summary": "Accepts a pending incoming friend request",
+      "x_operation_id": "lobby/public/friends/v1/accept-request"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-add",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/users/{userId}/add/bulk",
+      "permissions": [],
+      "summary": "Adds users as friends in bulk without requiring confirmation",
+      "x_operation_id": "lobby/public/friends/v1/bulk-add"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-remove",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/users/{userId}/delete/bulk",
+      "permissions": [],
+      "summary": "Deletes friends and removes related friend requests in bulk",
+      "x_operation_id": "lobby/public/friends/v1/bulk-remove"
+    },
+    {
+      "http_method": "POST",
+      "method": "cancel-request",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/request/cancel",
+      "permissions": [],
+      "summary": "Cancels an outgoing friend request",
+      "x_operation_id": "lobby/public/friends/v1/cancel-request"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "friendId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/status/{friendId}",
+      "permissions": [],
+      "summary": "Retrieves the friendship status with a specified user",
+      "x_operation_id": "lobby/public/friends/v1/get-status"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "friendId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "friendIds",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/friend/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Lists friends for a specified user",
+      "x_operation_id": "lobby/admin/friends/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me",
+      "permissions": [],
+      "summary": "Lists friends in the current user's namespace",
+      "x_operation_id": "lobby/public/friends/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-friends-of-friends",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "friendId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "nopaging",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/friend/namespaces/{namespace}/users/{userId}/of-friends",
+      "permissions": [],
+      "summary": "Lists friends and friends of friends for a specified user",
+      "x_operation_id": "lobby/admin/friends/v1/list-friends-of-friends"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-incoming-requests",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "friendId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/friend/namespaces/{namespace}/users/{userId}/incoming",
+      "permissions": [],
+      "summary": "Lists incoming friend requests for a specified user",
+      "x_operation_id": "lobby/admin/friends/v1/list-incoming-requests"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-incoming-requests",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/incoming",
+      "permissions": [],
+      "summary": "Lists incoming friend requests for the current user",
+      "x_operation_id": "lobby/public/friends/v1/list-my-incoming-requests"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-incoming-requests-with-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/incoming-time",
+      "permissions": [],
+      "summary": "Lists incoming friend requests with timestamp data for the current user",
+      "x_operation_id": "lobby/public/friends/v1/list-my-incoming-requests-with-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-outgoing-requests",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/outgoing",
+      "permissions": [],
+      "summary": "Lists outgoing friend requests sent by the current user",
+      "x_operation_id": "lobby/public/friends/v1/list-my-outgoing-requests"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-outgoing-requests-with-time",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/outgoing-time",
+      "permissions": [],
+      "summary": "Lists outgoing friend requests with timestamp data for the current user",
+      "x_operation_id": "lobby/public/friends/v1/list-my-outgoing-requests-with-time"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-platform",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/platforms",
+      "permissions": [],
+      "summary": "Lists friends with linked platform account data for the current user",
+      "x_operation_id": "lobby/public/friends/v1/list-my-platform"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-outgoing-requests",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/friend/namespaces/{namespace}/users/{userId}/outgoing",
+      "permissions": [],
+      "summary": "Lists outgoing friend requests for a specified user",
+      "x_operation_id": "lobby/admin/friends/v1/list-outgoing-requests"
+    },
+    {
+      "http_method": "POST",
+      "method": "reject-my-request",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/request/reject",
+      "permissions": [],
+      "summary": "Rejects an incoming friend request",
+      "x_operation_id": "lobby/public/friends/v1/reject-my-request"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-my-request",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/request",
+      "permissions": [],
+      "summary": "Sends a friend request to another user",
+      "x_operation_id": "lobby/public/friends/v1/send-my-request"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "sync-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/sync/namespaces/{namespace}/me",
+      "permissions": [],
+      "summary": "Syncs the current user's friend list with linked native first-party platform accounts",
+      "x_operation_id": "lobby/public/friends/v1/sync-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "unfriend-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/friends/namespaces/{namespace}/me/unfriend",
+      "permissions": [],
+      "summary": "Removes a user from the current user's friend list",
+      "x_operation_id": "lobby/public/friends/v1/unfriend-my"
+    }
+  ],
+  "notifications": [
+    {
+      "http_method": "POST",
+      "method": "bulk-send",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/bulkUsers/freeform/notify",
+      "permissions": [],
+      "summary": "Sends a freeform notification to a list of users",
+      "x_operation_id": "lobby/admin/notifications/v1/bulk-send"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-template",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates",
+      "permissions": [],
+      "summary": "Creates a new notification template",
+      "x_operation_id": "lobby/admin/notifications/v1/create-template"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/topics",
+      "permissions": [],
+      "summary": "Creates a new notification topic",
+      "x_operation_id": "lobby/admin/notifications/v1/create-topic"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/topics",
+      "permissions": [],
+      "summary": "Creates a new notification topic",
+      "x_operation_id": "lobby/public/notifications/v1/create-topic"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-template",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}",
+      "permissions": [],
+      "summary": "Deletes a notification template and all its localisations",
+      "x_operation_id": "lobby/admin/notifications/v1/delete-template"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-template-localization",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}",
+      "permissions": [],
+      "summary": "Deletes a notification template localisation",
+      "x_operation_id": "lobby/admin/notifications/v1/delete-template-localization"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topicName",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/topics/{topicName}",
+      "permissions": [],
+      "summary": "Deletes a notification topic",
+      "x_operation_id": "lobby/admin/notifications/v1/delete-topic"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/topics/{topic}",
+      "permissions": [],
+      "summary": "Deletes a notification topic",
+      "x_operation_id": "lobby/public/notifications/v1/delete-topic"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-template-localization",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}",
+      "permissions": [],
+      "summary": "Retrieves a notification template localisation",
+      "x_operation_id": "lobby/admin/notifications/v1/get-template-localization"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topicName",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/topics/{topicName}",
+      "permissions": [],
+      "summary": "Retrieves information about a notification topic",
+      "x_operation_id": "lobby/admin/notifications/v1/get-topic"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/topics/{topic}",
+      "permissions": [],
+      "summary": "Retrieves information about a notification topic",
+      "x_operation_id": "lobby/public/notifications/v1/get-topic"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "endTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startTime",
+          "required": false
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/me",
+      "permissions": [],
+      "summary": "Lists notifications for the current user",
+      "x_operation_id": "lobby/public/notifications/v1/list-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-offline",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/notification/offline/me",
+      "permissions": [],
+      "summary": "Lists offline notifications for the current user",
+      "x_operation_id": "lobby/public/notifications/v1/list-my-offline"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-template-localizations",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}",
+      "permissions": [],
+      "summary": "Lists all localisations for a notification template",
+      "x_operation_id": "lobby/admin/notifications/v1/list-template-localizations"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-templates",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates",
+      "permissions": [],
+      "summary": "Lists all notification templates in the namespace",
+      "x_operation_id": "lobby/admin/notifications/v1/list-templates"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-topics",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/topics",
+      "permissions": [],
+      "summary": "Lists notification topics in the namespace",
+      "x_operation_id": "lobby/admin/notifications/v1/list-topics"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-topics",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "after",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "before",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/topics",
+      "permissions": [],
+      "summary": "Lists notification topics in the namespace",
+      "x_operation_id": "lobby/public/notifications/v1/list-topics"
+    },
+    {
+      "http_method": "POST",
+      "method": "publish-template",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}/publish",
+      "permissions": [],
+      "summary": "Publishes a notification template draft",
+      "x_operation_id": "lobby/admin/notifications/v1/publish-template"
+    },
+    {
+      "http_method": "POST",
+      "method": "publish-template-localization",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}/publish",
+      "permissions": [],
+      "summary": "Publishes a notification template localisation draft",
+      "x_operation_id": "lobby/admin/notifications/v1/publish-template-localization"
+    },
+    {
+      "http_method": "POST",
+      "method": "send",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/users/{userId}/freeform/notify",
+      "permissions": [],
+      "summary": "Sends a freeform notification to a specific user",
+      "x_operation_id": "lobby/admin/notifications/v1/send"
+    },
+    {
+      "http_method": "POST",
+      "method": "send",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/users/{userId}/freeform",
+      "permissions": [],
+      "summary": "Sends a freeform notification to a user",
+      "x_operation_id": "lobby/public/notifications/v1/send"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-active",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/freeform/notify",
+      "permissions": [],
+      "summary": "Sends a freeform notification to all connected users",
+      "x_operation_id": "lobby/admin/notifications/v1/send-active"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-active-templated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/notify",
+      "permissions": [],
+      "summary": "Sends a templated notification to all connected users",
+      "x_operation_id": "lobby/admin/notifications/v1/send-active-templated"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-connected",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/freeform",
+      "permissions": [],
+      "summary": "Sends a freeform notification to a user",
+      "x_operation_id": "lobby/admin/notifications/v1/send-connected"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-connected-templated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/templated",
+      "permissions": [],
+      "summary": "Sends a templated notification to a user",
+      "x_operation_id": "lobby/admin/notifications/v1/send-connected-templated"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-templated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/users/{userId}/templates/notify",
+      "permissions": [],
+      "summary": "Sends a templated notification to a specific user",
+      "x_operation_id": "lobby/admin/notifications/v1/send-templated"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-templated",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/users/{userId}/templated",
+      "permissions": [],
+      "summary": "Sends a templated notification to a user",
+      "x_operation_id": "lobby/public/notifications/v1/send-templated"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-localized-template",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}",
+      "permissions": [],
+      "summary": "Updates a notification template draft",
+      "x_operation_id": "lobby/admin/notifications/v1/update-localized-template"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-template-localization",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateLanguage",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "templateSlug",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/templates/{templateSlug}/languages/{templateLanguage}",
+      "permissions": [],
+      "summary": "Updates a notification template localisation",
+      "x_operation_id": "lobby/admin/notifications/v1/update-template-localization"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topicName",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/notification/namespaces/{namespace}/topics/{topicName}",
+      "permissions": [],
+      "summary": "Updates information for a notification topic",
+      "x_operation_id": "lobby/admin/notifications/v1/update-topic"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-topic",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/notification/namespaces/{namespace}/topics/{topic}",
+      "permissions": [],
+      "summary": "Updates information for a notification topic",
+      "x_operation_id": "lobby/public/notifications/v1/update-topic"
+    }
+  ],
+  "presence": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "countOnly",
+          "required": false
+        }
+      ],
+      "path": "/lobby/v1/public/presence/namespaces/{namespace}/users/presence",
+      "permissions": [],
+      "summary": "Queries presence status for a list of users",
+      "x_operation_id": "lobby/public/presence/v1/bulk-get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "countOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/public/presence/namespaces/{namespace}/users/presence",
+      "permissions": [],
+      "summary": "Queries presence status for a list of users",
+      "x_operation_id": "lobby/public/presence/v1/list"
+    }
+  ],
+  "service-messages": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/lobby/v1/messages",
+      "permissions": [],
+      "summary": "Retrieves service messages",
+      "x_operation_id": "lobby/public/service-messages/v1/list"
+    }
+  ],
+  "users": [
+    {
+      "http_method": "POST",
+      "method": "block",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/public/player/namespaces/{namespace}/users/me/block",
+      "permissions": [],
+      "summary": "Blocks a player by user ID",
+      "x_operation_id": "lobby/public/users/v1/block"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-block",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/users/{userId}/bulk/block",
+      "permissions": [],
+      "summary": "Blocks players in bulk for a specified user",
+      "x_operation_id": "lobby/admin/users/v1/bulk-block"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-blocked",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/users/bulk/blocked",
+      "permissions": [],
+      "summary": "Retrieves blocked players for a list of users",
+      "x_operation_id": "lobby/admin/users/v1/bulk-get-blocked"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "bulk-unblock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/users/{userId}/bulk/unblock",
+      "permissions": [],
+      "summary": "Removes blocked players in bulk for a specified user",
+      "x_operation_id": "lobby/admin/users/v1/bulk-unblock"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-ccu",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/ccu",
+      "permissions": [],
+      "summary": "Retrieves the number of players currently connected to the lobby",
+      "x_operation_id": "lobby/admin/users/v1/get-ccu"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-blocked",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/users/{userId}/blocked",
+      "permissions": [],
+      "summary": "Retrieves blocked players for a specified user",
+      "x_operation_id": "lobby/admin/users/v1/list-blocked"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-blocked",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/public/player/namespaces/{namespace}/users/me/blocked",
+      "permissions": [],
+      "summary": "Lists players blocked by the current user",
+      "x_operation_id": "lobby/public/users/v1/list-blocked"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-blocked-by",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/admin/player/namespaces/{namespace}/users/{userId}/blocked-by",
+      "permissions": [],
+      "summary": "Retrieves players who have blocked a specified user",
+      "x_operation_id": "lobby/admin/users/v1/list-blocked-by"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-blocked-by",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/public/player/namespaces/{namespace}/users/me/blocked-by",
+      "permissions": [],
+      "summary": "Lists players who have blocked the current user",
+      "x_operation_id": "lobby/public/users/v1/list-blocked-by"
+    },
+    {
+      "http_method": "POST",
+      "method": "unblock",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/lobby/v1/public/player/namespaces/{namespace}/users/me/unblock",
+      "permissions": [],
+      "summary": "Removes the block on a player by user ID",
+      "x_operation_id": "lobby/public/users/v1/unblock"
+    }
+  ]
+}

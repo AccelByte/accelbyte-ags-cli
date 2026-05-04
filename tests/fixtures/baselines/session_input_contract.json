@@ -1,0 +1,1904 @@
+{
+  "alerts": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/alerts-configuration",
+      "permissions": [],
+      "summary": "Creates an alerts configuration for the namespace",
+      "x_operation_id": "session/admin/alerts/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/alerts-configuration",
+      "permissions": [],
+      "summary": "Deletes the alerts configuration for the namespace",
+      "x_operation_id": "session/admin/alerts/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/alerts-configuration",
+      "permissions": [],
+      "summary": "Retrieves the alerts configuration for the namespace",
+      "x_operation_id": "session/admin/alerts/v1/get"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/alerts-configuration",
+      "permissions": [],
+      "summary": "Updates the alerts configuration for the namespace",
+      "x_operation_id": "session/admin/alerts/v1/update"
+    }
+  ],
+  "config": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [],
+      "path": "/session/v1/admin/global-configurations",
+      "permissions": [],
+      "summary": "Deletes global configuration data",
+      "x_operation_id": "session/admin/config/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-log",
+      "parameters": [],
+      "path": "/session/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Retrieves the log configuration",
+      "x_operation_id": "session/admin/config/v1/get-log"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/session/v1/admin/global-configurations",
+      "permissions": [],
+      "summary": "Retrieves global configuration data",
+      "x_operation_id": "session/admin/config/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-environment-variables",
+      "parameters": [],
+      "path": "/session/v1/admin/environment-variables",
+      "permissions": [],
+      "summary": "Lists environment variables for the session service",
+      "x_operation_id": "session/admin/config/v1/list-environment-variables"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [],
+      "path": "/session/v1/admin/global-configurations",
+      "permissions": [],
+      "summary": "Creates or updates global configuration data",
+      "x_operation_id": "session/admin/config/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-log",
+      "parameters": [],
+      "path": "/session/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Updates the log configuration",
+      "x_operation_id": "session/admin/config/v1/update-log"
+    }
+  ],
+  "game-sessions": [
+    {
+      "http_method": "DELETE",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions/bulk",
+      "permissions": [],
+      "summary": "Deletes game sessions in bulk",
+      "x_operation_id": "session/admin/game-sessions/v1/bulk-delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "cancel-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/users/{userId}/cancel",
+      "permissions": [],
+      "summary": "Cancels a game session invitation",
+      "x_operation_id": "session/public/game-sessions/v1/cancel-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "resolveMaxActiveSession",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesession",
+      "permissions": [],
+      "summary": "Creates a game session",
+      "x_operation_id": "session/public/game-sessions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}",
+      "permissions": [],
+      "summary": "Deletes a game session",
+      "x_operation_id": "session/public/game-sessions/v1/delete"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/code",
+      "permissions": [],
+      "summary": "Generates an invite code for a game session",
+      "x_operation_id": "session/public/game-sessions/v1/generate-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}",
+      "permissions": [],
+      "summary": "Retrieves a game session",
+      "x_operation_id": "session/public/game-sessions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-active",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations/{name}/memberactivesession/{userId}",
+      "permissions": [],
+      "summary": "Retrieves the active session for a member in a configuration",
+      "x_operation_id": "session/admin/game-sessions/v1/get-active"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-dedicated-server-secret",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/secret",
+      "permissions": [],
+      "summary": "Retrieves the server secret for a game session",
+      "x_operation_id": "session/public/game-sessions/v1/get-dedicated-server-secret"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-pod",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "podName",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/servers/{podName}",
+      "permissions": [],
+      "summary": "Retrieves a game session by server pod name",
+      "x_operation_id": "session/public/game-sessions/v1/get-pod"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/invite",
+      "permissions": [],
+      "summary": "Invites a user to a game session",
+      "x_operation_id": "session/public/game-sessions/v1/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/join",
+      "permissions": [],
+      "summary": "Joins a game session",
+      "x_operation_id": "session/public/game-sessions/v1/join"
+    },
+    {
+      "http_method": "POST",
+      "method": "join-by-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/join/code",
+      "permissions": [],
+      "summary": "Joins a game session using an invite code",
+      "x_operation_id": "session/public/game-sessions/v1/join-by-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "kick",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions/{sessionId}/members/{memberId}/kick",
+      "permissions": [],
+      "summary": "Kicks a member from a game session",
+      "x_operation_id": "session/admin/game-sessions/v1/kick"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "kick",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/members/{memberId}/kick",
+      "permissions": [],
+      "summary": "Kicks a member from a game session (leader only)",
+      "x_operation_id": "session/public/game-sessions/v1/kick"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "leave",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/leave",
+      "permissions": [],
+      "summary": "Leaves a game session",
+      "x_operation_id": "session/public/game-sessions/v1/leave"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "configurationName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "dsPodName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fromTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "gameMode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isPersistent",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isSoftDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "joinability",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "matchPool",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "memberID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sessionID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "statusV2",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "toTime",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions",
+      "permissions": [],
+      "summary": "Lists all game sessions in the namespace",
+      "x_operation_id": "session/admin/game-sessions/v1/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-filtered",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions",
+      "permissions": [],
+      "summary": "Queries game sessions using attribute filters",
+      "x_operation_id": "session/admin/game-sessions/v1/list-filtered"
+    },
+    {
+      "http_method": "POST",
+      "method": "list-filtered",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions",
+      "permissions": [],
+      "summary": "Queries game sessions using attribute filters",
+      "x_operation_id": "session/public/game-sessions/v1/list-filtered"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/me/gamesessions",
+      "permissions": [],
+      "summary": "Retrieves a list of the current user's game sessions",
+      "x_operation_id": "session/public/game-sessions/v1/list-my"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-native",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/native-sessions",
+      "permissions": [],
+      "summary": "Lists native sessions in the namespace",
+      "x_operation_id": "session/admin/game-sessions/v1/list-native"
+    },
+    {
+      "http_method": "POST",
+      "method": "reconcile-active-count",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations/{name}/reconcile",
+      "permissions": [],
+      "summary": "Reconciles the max active session count for a configuration template",
+      "x_operation_id": "session/admin/game-sessions/v1/reconcile-active-count"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reject-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/reject",
+      "permissions": [],
+      "summary": "Rejects a game session invitation",
+      "x_operation_id": "session/public/game-sessions/v1/reject-invitation"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/code",
+      "permissions": [],
+      "summary": "Revokes the game session invite code",
+      "x_operation_id": "session/public/game-sessions/v1/revoke-code"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}",
+      "permissions": [],
+      "summary": "Updates a game session",
+      "x_operation_id": "session/public/game-sessions/v1/set"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set-dedicated-server-ready",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions/{sessionId}/ds",
+      "permissions": [],
+      "summary": "Sets the DS as ready to accept connections",
+      "x_operation_id": "session/admin/game-sessions/v1/set-dedicated-server-ready"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-leader",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/leader",
+      "permissions": [],
+      "summary": "Promotes a member to game session leader",
+      "x_operation_id": "session/public/game-sessions/v1/set-leader"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}",
+      "permissions": [],
+      "summary": "Applies partial field updates to the specified game session",
+      "x_operation_id": "session/public/game-sessions/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-backfill",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/gamesessions/{sessionId}/backfill",
+      "permissions": [],
+      "summary": "Updates the backfill ticket ID for a game session",
+      "x_operation_id": "session/public/game-sessions/v1/update-backfill"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-dedicated-server",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions/{sessionId}/dsinformation",
+      "permissions": [],
+      "summary": "Updates DS information for a game session asynchronous process",
+      "x_operation_id": "session/admin/game-sessions/v1/update-dedicated-server"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-member",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "statusType",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/gamesessions/{sessionId}/members/{memberId}/status/{statusType}",
+      "permissions": [],
+      "summary": "Updates the status of a game session member",
+      "x_operation_id": "session/admin/game-sessions/v1/update-member"
+    }
+  ],
+  "parties": [
+    {
+      "http_method": "DELETE",
+      "method": "bulk-delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/parties/bulk",
+      "permissions": [],
+      "summary": "Deletes parties in bulk",
+      "x_operation_id": "session/admin/parties/v1/bulk-delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "cancel-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/users/{userId}/cancel",
+      "permissions": [],
+      "summary": "Cancels a pending invitation for the specified user",
+      "x_operation_id": "session/public/parties/v1/cancel-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/party",
+      "permissions": [],
+      "summary": "Creates a new party and adds the requester as leader",
+      "x_operation_id": "session/public/parties/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "generate-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/code",
+      "permissions": [],
+      "summary": "Generates an invite code for a party",
+      "x_operation_id": "session/public/parties/v1/generate-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}",
+      "permissions": [],
+      "summary": "Retrieves party details",
+      "x_operation_id": "session/public/parties/v1/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/invite",
+      "permissions": [],
+      "summary": "Invites a user to a party",
+      "x_operation_id": "session/public/parties/v1/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/users/me/join",
+      "permissions": [],
+      "summary": "Joins a party by invitation or open joinability",
+      "x_operation_id": "session/public/parties/v1/join"
+    },
+    {
+      "http_method": "POST",
+      "method": "join-by-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/users/me/join/code",
+      "permissions": [],
+      "summary": "Joins a party using an invite code",
+      "x_operation_id": "session/public/parties/v1/join-by-code"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "kick",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/users/{userId}/kick",
+      "permissions": [],
+      "summary": "Kicks the specified player from the party",
+      "x_operation_id": "session/public/parties/v1/kick"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "leave",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/users/me/leave",
+      "permissions": [],
+      "summary": "Leaves the specified party",
+      "x_operation_id": "session/public/parties/v1/leave"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/me/parties",
+      "permissions": [],
+      "summary": "Retrieves a list of the current user's parties",
+      "x_operation_id": "session/public/parties/v1/list-my"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "reject-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/users/me/reject",
+      "permissions": [],
+      "summary": "Rejects an invitation to the specified party",
+      "x_operation_id": "session/public/parties/v1/reject-invitation"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "revoke-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/code",
+      "permissions": [],
+      "summary": "Revokes the party invite code",
+      "x_operation_id": "session/public/parties/v1/revoke-code"
+    },
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "configurationName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fromTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isSoftDeleted",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "joinability",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "key",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "leaderID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "memberID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "memberStatus",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "partyID",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "toTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "value",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/parties",
+      "permissions": [],
+      "summary": "Queries parties in the namespace",
+      "x_operation_id": "session/admin/parties/v1/search"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}",
+      "permissions": [],
+      "summary": "Updates a party",
+      "x_operation_id": "session/public/parties/v1/set"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-leader",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/leader",
+      "permissions": [],
+      "summary": "Promotes a new party leader for the specified party",
+      "x_operation_id": "session/public/parties/v1/set-leader"
+    },
+    {
+      "http_method": "POST",
+      "method": "sync-native",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/users/{userId}/native-sync",
+      "permissions": [],
+      "summary": "Syncs the user's active party session to the native platform",
+      "x_operation_id": "session/admin/parties/v1/sync-native"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}",
+      "permissions": [],
+      "summary": "Applies partial field updates to the specified party",
+      "x_operation_id": "session/public/parties/v1/update"
+    }
+  ],
+  "platform-credentials": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials/{platformId}",
+      "permissions": [],
+      "summary": "Deletes platform credentials for the specified platform",
+      "x_operation_id": "session/admin/platform-credentials/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-all",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials",
+      "permissions": [],
+      "summary": "Deletes all platform credentials for the namespace",
+      "x_operation_id": "session/admin/platform-credentials/v1/delete-all"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials",
+      "permissions": [],
+      "summary": "Retrieves platform credentials for native session sync",
+      "x_operation_id": "session/admin/platform-credentials/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "sync",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials/{platformId}/sync",
+      "permissions": [],
+      "summary": "Syncs platform credentials from the platform service",
+      "x_operation_id": "session/admin/platform-credentials/v1/sync"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials",
+      "permissions": [],
+      "summary": "Updates platform credentials for native session sync",
+      "x_operation_id": "session/admin/platform-credentials/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "upload",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "description",
+          "required": false
+        },
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": true
+        },
+        {
+          "location": "form_data",
+          "name": "password",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "platformId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/platform-credentials/{platformId}/upload",
+      "permissions": [],
+      "summary": "Uploads certificates for the Xbox platform",
+      "x_operation_id": "session/admin/platform-credentials/v1/upload"
+    }
+  ],
+  "recent-users": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/recent-player",
+      "permissions": [],
+      "summary": "Queries recent players for a given user",
+      "x_operation_id": "session/admin/recent-users/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/recent-player",
+      "permissions": [],
+      "summary": "Retrieves a list of the user's recent players",
+      "x_operation_id": "session/public/recent-users/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-team",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/recent-team-player",
+      "permissions": [],
+      "summary": "Queries recent team players for a given user",
+      "x_operation_id": "session/admin/recent-users/v1/get-team"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-team",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/recent-team-player",
+      "permissions": [],
+      "summary": "Retrieves a list of the user's recent players from the same team",
+      "x_operation_id": "session/public/recent-users/v1/get-team"
+    }
+  ],
+  "storage": [
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/sessions/{sessionId}/storage",
+      "permissions": [],
+      "summary": "Deletes session storage for a game session",
+      "x_operation_id": "session/admin/storage/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/sessions/{sessionId}/storage",
+      "permissions": [],
+      "summary": "Retrieves session storage for a game session",
+      "x_operation_id": "session/admin/storage/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-party",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/parties/{partyId}/storage",
+      "permissions": [],
+      "summary": "Retrieves party session storage",
+      "x_operation_id": "session/admin/storage/v1/get-party"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-party",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage",
+      "permissions": [],
+      "summary": "Retrieves the party session storage data",
+      "x_operation_id": "session/public/storage/v1/get-party"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/sessions/{sessionId}/storage/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves session storage for a user",
+      "x_operation_id": "session/admin/storage/v1/get-user"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "upsert",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/sessions/{sessionId}/storage/users/{userId}",
+      "permissions": [],
+      "summary": "Updates or inserts session storage data for the specified user",
+      "x_operation_id": "session/public/storage/v1/upsert"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "upsert-leader",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sessionId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/sessions/{sessionId}/storage/leader",
+      "permissions": [],
+      "summary": "Updates or inserts session storage data for the session leader",
+      "x_operation_id": "session/public/storage/v1/upsert-leader"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "upsert-party",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage/users/{userId}",
+      "permissions": [],
+      "summary": "Updates or inserts party session storage data for the specified user",
+      "x_operation_id": "session/public/storage/v1/upsert-party"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "upsert-party-reserved",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "partyId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage/users/{userId}/reserved",
+      "permissions": [],
+      "summary": "Updates or inserts reserved party session storage data for the specified user",
+      "x_operation_id": "session/public/storage/v1/upsert-party-reserved"
+    }
+  ],
+  "templates": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configuration",
+      "permissions": [],
+      "summary": "Creates a configuration template for parties and game sessions",
+      "x_operation_id": "session/admin/templates/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations/{name}",
+      "permissions": [],
+      "summary": "Deletes the named configuration template",
+      "x_operation_id": "session/admin/templates/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations/{name}",
+      "permissions": [],
+      "summary": "Retrieves a configuration template by name",
+      "x_operation_id": "session/admin/templates/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "orderBy",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations",
+      "permissions": [],
+      "summary": "Retrieves configuration templates in the namespace",
+      "x_operation_id": "session/admin/templates/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "name",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/configurations/{name}",
+      "permissions": [],
+      "summary": "Updates the named configuration template",
+      "x_operation_id": "session/admin/templates/v1/update"
+    }
+  ],
+  "users": [
+    {
+      "http_method": "GET",
+      "method": "bulk-get-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "users",
+          "required": false
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/users/attributes",
+      "permissions": [],
+      "summary": "Retrieves player attributes for a list of users",
+      "x_operation_id": "session/admin/users/v1/bulk-get-attributes"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get-platforms",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/bulk/platform",
+      "permissions": [],
+      "summary": "Retrieves the current platform for a list of players",
+      "x_operation_id": "session/public/users/v1/bulk-get-platforms"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-my-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/me/attributes",
+      "permissions": [],
+      "summary": "Saves the current user's player attributes",
+      "x_operation_id": "session/public/users/v1/create-my-attributes"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/me/attributes",
+      "permissions": [],
+      "summary": "Removes the current user's player attributes",
+      "x_operation_id": "session/public/users/v1/delete-attributes"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/admin/namespaces/{namespace}/users/{userId}/attributes",
+      "permissions": [],
+      "summary": "Retrieves player attributes for a user",
+      "x_operation_id": "session/admin/users/v1/list-attributes"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/session/v1/public/namespaces/{namespace}/users/me/attributes",
+      "permissions": [],
+      "summary": "Retrieves the current user's player attributes",
+      "x_operation_id": "session/public/users/v1/list-my-attributes"
+    }
+  ]
+}

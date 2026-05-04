@@ -1,0 +1,1515 @@
+{
+  "config": [
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/config/namespaces/{namespace}/export",
+      "permissions": [],
+      "summary": "Exports the chat configuration to a JSON file",
+      "x_operation_id": "chat/admin/config/v1/export"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves the chat configuration for a namespace",
+      "x_operation_id": "chat/admin/config/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/public/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves the public chat configuration for a namespace",
+      "x_operation_id": "chat/public/config/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-log",
+      "parameters": [],
+      "path": "/chat/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Retrieves the log configuration",
+      "x_operation_id": "chat/admin/config/v1/get-log"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/config/namespaces/{namespace}/import",
+      "permissions": [],
+      "summary": "Imports chat configuration from a JSON file",
+      "x_operation_id": "chat/admin/config/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/chat/v1/admin/config",
+      "permissions": [],
+      "summary": "Retrieves configuration for all namespaces",
+      "x_operation_id": "chat/admin/config/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/config/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Updates the chat configuration for a namespace",
+      "x_operation_id": "chat/admin/config/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-log",
+      "parameters": [],
+      "path": "/chat/v1/admin/config/log",
+      "permissions": [],
+      "summary": "Updates the log configuration",
+      "x_operation_id": "chat/admin/config/v1/update-log"
+    }
+  ],
+  "inbox": [
+    {
+      "http_method": "POST",
+      "method": "create-category",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/categories",
+      "permissions": [],
+      "summary": "Adds an inbox category",
+      "x_operation_id": "chat/admin/inbox/v1/create-category"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages",
+      "permissions": [],
+      "summary": "Creates an inbox message",
+      "x_operation_id": "chat/admin/inbox/v1/create-message"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-category",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "category",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/categories/{category}",
+      "permissions": [],
+      "summary": "Deletes an inbox category",
+      "x_operation_id": "chat/admin/inbox/v1/delete-category"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "messageId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "force",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/message/{messageId}",
+      "permissions": [],
+      "summary": "Deletes an inbox message",
+      "x_operation_id": "chat/admin/inbox/v1/delete-message"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-category-schema",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "category",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/categories/{category}/schema.json",
+      "permissions": [],
+      "summary": "Retrieves the schema for an inbox category",
+      "x_operation_id": "chat/admin/inbox/v1/get-category-schema"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-categories",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/categories",
+      "permissions": [],
+      "summary": "Retrieves inbox categories for a namespace",
+      "x_operation_id": "chat/admin/inbox/v1/list-categories"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-kafka-topics",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/list/topic/kafka",
+      "permissions": [],
+      "summary": "Lists Kafka topics for inbox notifications",
+      "x_operation_id": "chat/admin/inbox/v1/list-kafka-topics"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-messages",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "messageId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "transient",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages",
+      "permissions": [],
+      "summary": "Lists inbox messages for a namespace",
+      "x_operation_id": "chat/admin/inbox/v1/list-messages"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-stats",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "messageId",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/stats",
+      "permissions": [],
+      "summary": "Retrieves inbox statistics for specified messages",
+      "x_operation_id": "chat/admin/inbox/v1/list-stats"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-users",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inbox",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "status",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages/{inbox}/users",
+      "permissions": [],
+      "summary": "Lists users who received an inbox message",
+      "x_operation_id": "chat/admin/inbox/v1/list-users"
+    },
+    {
+      "http_method": "POST",
+      "method": "send-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "messageId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages/{messageId}/send",
+      "permissions": [],
+      "summary": "Sends an inbox message to its recipients",
+      "x_operation_id": "chat/admin/inbox/v1/send-message"
+    },
+    {
+      "http_method": "POST",
+      "method": "unsend-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inbox",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages/{inbox}/unsend",
+      "permissions": [],
+      "summary": "Retracts an inbox message from specified recipients",
+      "x_operation_id": "chat/admin/inbox/v1/unsend-message"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-category",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "category",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/categories/{category}",
+      "permissions": [],
+      "summary": "Updates an inbox category",
+      "x_operation_id": "chat/admin/inbox/v1/update-category"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "messageId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/inbox/namespaces/{namespace}/messages/{messageId}",
+      "permissions": [],
+      "summary": "Updates an inbox message",
+      "x_operation_id": "chat/admin/inbox/v1/update-message"
+    }
+  ],
+  "moderation": [
+    {
+      "http_method": "DELETE",
+      "method": "delete-snapshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "chatId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/namespaces/{namespace}/snapshot/{chatId}",
+      "permissions": [],
+      "summary": "Deletes a chat snapshot",
+      "x_operation_id": "chat/admin/moderation/v1/delete-snapshot"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-snapshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "chatId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/namespaces/{namespace}/snapshot/{chatId}",
+      "permissions": [],
+      "summary": "Retrieves a chat snapshot",
+      "x_operation_id": "chat/admin/moderation/v1/get-snapshot"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-snapshot",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "chatId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/public/namespaces/{namespace}/topic/{topic}/snapshot/{chatId}",
+      "permissions": [],
+      "summary": "Retrieves a chat snapshot",
+      "x_operation_id": "chat/public/moderation/v1/get-snapshot"
+    }
+  ],
+  "profanity": [
+    {
+      "http_method": "POST",
+      "method": "bulk-create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/bulk",
+      "permissions": [],
+      "summary": "Adds profanity words to the namespace dictionary in bulk",
+      "x_operation_id": "chat/admin/profanity/v1/bulk-create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary",
+      "permissions": [],
+      "summary": "Adds a profanity word to the namespace dictionary",
+      "x_operation_id": "chat/admin/profanity/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/{id}",
+      "permissions": [],
+      "summary": "Deletes a profanity word from the dictionary",
+      "x_operation_id": "chat/admin/profanity/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "export",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/export",
+      "permissions": [],
+      "summary": "Exports profanity words from the dictionary",
+      "x_operation_id": "chat/admin/profanity/v1/export"
+    },
+    {
+      "http_method": "POST",
+      "method": "import",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "action",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "showResult",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/import",
+      "permissions": [],
+      "summary": "Imports profanity words from a file",
+      "x_operation_id": "chat/admin/profanity/v1/import"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-groups",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/group",
+      "permissions": [],
+      "summary": "Lists profanity word groups",
+      "x_operation_id": "chat/admin/profanity/v1/list-groups"
+    },
+    {
+      "http_method": "GET",
+      "method": "query",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "filterMask",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "includeChildren",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "parentId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startWith",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "wordType",
+          "required": false
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary",
+      "permissions": [],
+      "summary": "Queries the profanity word dictionary",
+      "x_operation_id": "chat/admin/profanity/v1/query"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "id",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/v1/admin/profanity/namespaces/{namespace}/dictionary/{id}",
+      "permissions": [],
+      "summary": "Updates a profanity word in the dictionary",
+      "x_operation_id": "chat/admin/profanity/v1/update"
+    }
+  ],
+  "service-messages": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [],
+      "path": "/chat/v1/messages",
+      "permissions": [],
+      "summary": "Retrieves service-level messages",
+      "x_operation_id": "chat/public/service-messages/v1/get"
+    }
+  ],
+  "topics": [
+    {
+      "http_method": "POST",
+      "method": "add-member",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/user/{userId}",
+      "permissions": [],
+      "summary": "Adds a user to a topic",
+      "x_operation_id": "chat/admin/topics/v1/add-member"
+    },
+    {
+      "http_method": "POST",
+      "method": "ban-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/ban-members",
+      "permissions": [],
+      "summary": "Bans users from a group topic",
+      "x_operation_id": "chat/admin/topics/v1/ban-members"
+    },
+    {
+      "http_method": "POST",
+      "method": "ban-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/ban-members",
+      "permissions": [],
+      "summary": "Bans members from a group topic",
+      "x_operation_id": "chat/public/topics/v1/ban-members"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic",
+      "permissions": [],
+      "summary": "Creates a group chat topic",
+      "x_operation_id": "chat/admin/topics/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-namespace",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/namespace-topic",
+      "permissions": [],
+      "summary": "Creates a namespace group topic",
+      "x_operation_id": "chat/admin/topics/v1/create-namespace"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}",
+      "permissions": [],
+      "summary": "Deletes a group chat topic",
+      "x_operation_id": "chat/admin/topics/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "chatId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/chats/{chatId}",
+      "permissions": [],
+      "summary": "Deletes a chat message",
+      "x_operation_id": "chat/public/topics/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "chatId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/chats/{chatId}",
+      "permissions": [],
+      "summary": "Deletes a chat message from a topic",
+      "x_operation_id": "chat/admin/topics/v1/delete-message"
+    },
+    {
+      "http_method": "POST",
+      "method": "filter-message",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "detail",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/chat/filter",
+      "permissions": [],
+      "summary": "Returns a filtered chat message with profanity analysis",
+      "x_operation_id": "chat/admin/topics/v1/filter-message"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicType",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic",
+      "permissions": [],
+      "summary": "Lists chat topics in a namespace",
+      "x_operation_id": "chat/admin/topics/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-channel-info",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/channel",
+      "permissions": [],
+      "summary": "Retrieves details of a channel topic",
+      "x_operation_id": "chat/admin/topics/v1/get-channel-info"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-channel-summary",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/channel/summary",
+      "permissions": [],
+      "summary": "Retrieves a summary of channel topics in a namespace",
+      "x_operation_id": "chat/admin/topics/v1/get-channel-summary"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "chatId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "keyword",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "senderUserId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "shardId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "unfiltered",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/chats",
+      "permissions": [],
+      "summary": "Retrieves chat message history across all topics in a namespace",
+      "x_operation_id": "chat/admin/topics/v1/get-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-history",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startCreatedAt",
+          "required": false
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/chats",
+      "permissions": [],
+      "summary": "Retrieves chat message history for a topic",
+      "x_operation_id": "chat/public/topics/v1/get-history"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "includeMembers",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "includePastMembers",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "includePastTopics",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topic",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicSubType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topics",
+      "permissions": [],
+      "summary": "Lists topics in a namespace",
+      "x_operation_id": "chat/admin/topics/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicType",
+          "required": false
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic",
+      "permissions": [],
+      "summary": "Lists chat topics in a namespace",
+      "x_operation_id": "chat/public/topics/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-channels",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicName",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/channel",
+      "permissions": [],
+      "summary": "Lists channel chat topics in a namespace",
+      "x_operation_id": "chat/admin/topics/v1/list-channels"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-joined",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "includePastTopics",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicSubType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicType",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/users/{userId}/topics",
+      "permissions": [],
+      "summary": "Lists topics a user belongs to",
+      "x_operation_id": "chat/admin/topics/v1/list-joined"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "isBanned",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "isModerator",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "shardId",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/members",
+      "permissions": [],
+      "summary": "Lists members of a topic",
+      "x_operation_id": "chat/admin/topics/v1/list-members"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-muted",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/muted",
+      "permissions": [],
+      "summary": "Retrieves topics where the current user is muted",
+      "x_operation_id": "chat/public/topics/v1/list-muted"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-shards",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/shards",
+      "permissions": [],
+      "summary": "Lists shards for a topic",
+      "x_operation_id": "chat/admin/topics/v1/list-shards"
+    },
+    {
+      "http_method": "PUT",
+      "method": "mute-member",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/mute",
+      "permissions": [],
+      "summary": "Mutes a topic member for the given duration",
+      "x_operation_id": "chat/public/topics/v1/mute-member"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "remove-member",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/user/{userId}",
+      "permissions": [],
+      "summary": "Removes a user from a topic",
+      "x_operation_id": "chat/admin/topics/v1/remove-member"
+    },
+    {
+      "http_method": "GET",
+      "method": "search-log",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "endCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "senderUserId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startCreatedAt",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "topicIds",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/log",
+      "permissions": [],
+      "summary": "Queries the topic activity log for a namespace",
+      "x_operation_id": "chat/admin/topics/v1/search-log"
+    },
+    {
+      "http_method": "POST",
+      "method": "send",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/chats",
+      "permissions": [],
+      "summary": "Sends a system message to a group topic",
+      "x_operation_id": "chat/admin/topics/v1/send"
+    },
+    {
+      "http_method": "POST",
+      "method": "unban-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}/unban-members",
+      "permissions": [],
+      "summary": "Unbans users from a group topic",
+      "x_operation_id": "chat/admin/topics/v1/unban-members"
+    },
+    {
+      "http_method": "POST",
+      "method": "unban-members",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/unban-members",
+      "permissions": [],
+      "summary": "Unbans members from a group topic",
+      "x_operation_id": "chat/public/topics/v1/unban-members"
+    },
+    {
+      "http_method": "PUT",
+      "method": "unmute-member",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/public/namespaces/{namespace}/topic/{topic}/unmute",
+      "permissions": [],
+      "summary": "Removes the mute from a topic member",
+      "x_operation_id": "chat/public/topics/v1/unmute-member"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "topic",
+          "required": true
+        }
+      ],
+      "path": "/chat/admin/namespaces/{namespace}/topic/{topic}",
+      "permissions": [],
+      "summary": "Updates group topic information",
+      "x_operation_id": "chat/admin/topics/v1/update"
+    }
+  ]
+}

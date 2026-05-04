@@ -1,0 +1,1071 @@
+{
+  "chaining": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/chainingOperations",
+      "permissions": [],
+      "summary": "Creates a chaining operation",
+      "x_operation_id": "inventory/admin/chaining/v1/create"
+    }
+  ],
+  "integrations": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/integrationConfigurations",
+      "permissions": [],
+      "summary": "Creates an integration configuration",
+      "x_operation_id": "inventory/admin/integrations/v1/create"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/integrationConfigurations",
+      "permissions": [],
+      "summary": "Lists integration configurations",
+      "x_operation_id": "inventory/admin/integrations/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "integrationConfigurationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/integrationConfigurations/{integrationConfigurationId}",
+      "permissions": [],
+      "summary": "Updates an integration configuration",
+      "x_operation_id": "inventory/admin/integrations/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "integrationConfigurationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/integrationConfigurations/{integrationConfigurationId}/status",
+      "permissions": [],
+      "summary": "Updates integration configuration status",
+      "x_operation_id": "inventory/admin/integrations/v1/update-status"
+    }
+  ],
+  "inventories": [
+    {
+      "http_method": "POST",
+      "method": "check-purchasable",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/purchaseable",
+      "permissions": [],
+      "summary": "Checks user inventory capacity for an e-commerce order",
+      "x_operation_id": "inventory/admin/inventories/v1/check-purchasable"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories",
+      "permissions": [],
+      "summary": "Creates an inventory",
+      "x_operation_id": "inventory/admin/inventories/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories/{inventoryId}",
+      "permissions": [],
+      "summary": "Deletes an inventory",
+      "x_operation_id": "inventory/admin/inventories/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories/{inventoryId}",
+      "permissions": [],
+      "summary": "Retrieves an inventory",
+      "x_operation_id": "inventory/admin/inventories/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "inventoryConfigurationCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories",
+      "permissions": [],
+      "summary": "Lists inventories",
+      "x_operation_id": "inventory/admin/inventories/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "inventoryConfigurationCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories",
+      "permissions": [],
+      "summary": "Lists the current user's inventories",
+      "x_operation_id": "inventory/public/inventories/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories/{inventoryId}",
+      "permissions": [],
+      "summary": "Updates an inventory",
+      "x_operation_id": "inventory/admin/inventories/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryConfigurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventoryConfigurations/{inventoryConfigurationCode}/inventories",
+      "permissions": [],
+      "summary": "Updates user inventories by inventory configuration code",
+      "x_operation_id": "inventory/admin/inventories/v1/update-user"
+    }
+  ],
+  "inventory-definitions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventoryConfigurations",
+      "permissions": [],
+      "summary": "Creates an inventory configuration",
+      "x_operation_id": "inventory/admin/inventory-definitions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryConfigurationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventoryConfigurations/{inventoryConfigurationId}",
+      "permissions": [],
+      "summary": "Deletes an inventory configuration",
+      "x_operation_id": "inventory/admin/inventory-definitions/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryConfigurationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventoryConfigurations/{inventoryConfigurationId}",
+      "permissions": [],
+      "summary": "Retrieves an inventory configuration",
+      "x_operation_id": "inventory/admin/inventory-definitions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventoryConfigurations",
+      "permissions": [],
+      "summary": "Lists inventory configurations",
+      "x_operation_id": "inventory/admin/inventory-definitions/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "code",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/inventoryConfigurations",
+      "permissions": [],
+      "summary": "Lists inventory configurations",
+      "x_operation_id": "inventory/public/inventory-definitions/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryConfigurationId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventoryConfigurations/{inventoryConfigurationId}",
+      "permissions": [],
+      "summary": "Updates an inventory configuration",
+      "x_operation_id": "inventory/admin/inventory-definitions/v1/update"
+    }
+  ],
+  "item-types": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/itemtypes",
+      "permissions": [],
+      "summary": "Creates an item type",
+      "x_operation_id": "inventory/admin/item-types/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "itemTypeName",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/itemtypes/{itemTypeName}",
+      "permissions": [],
+      "summary": "Deletes an item type",
+      "x_operation_id": "inventory/admin/item-types/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/itemtypes",
+      "permissions": [],
+      "summary": "Lists item types",
+      "x_operation_id": "inventory/admin/item-types/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/itemtypes",
+      "permissions": [],
+      "summary": "Lists item types",
+      "x_operation_id": "inventory/public/item-types/v1/list"
+    }
+  ],
+  "items": [
+    {
+      "http_method": "POST",
+      "method": "add",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Saves items to a specific inventory",
+      "x_operation_id": "inventory/admin/items/v1/add"
+    },
+    {
+      "http_method": "POST",
+      "method": "add-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/items",
+      "permissions": [],
+      "summary": "Saves an item to the user's inventory",
+      "x_operation_id": "inventory/admin/items/v1/add-user"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-add",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventories/{inventoryId}/items/bulk",
+      "permissions": [],
+      "summary": "Saves items to a specific inventory",
+      "x_operation_id": "inventory/admin/items/v1/bulk-add"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-add-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/items/bulk",
+      "permissions": [],
+      "summary": "Saves items to the user's inventory",
+      "x_operation_id": "inventory/admin/items/v1/bulk-add-user"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "bulk-remove",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Removes inventory items",
+      "x_operation_id": "inventory/admin/items/v1/bulk-remove"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "bulk-remove-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Removes items from the current user's inventory",
+      "x_operation_id": "inventory/public/items/v1/bulk-remove-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Updates inventory items",
+      "x_operation_id": "inventory/admin/items/v1/bulk-update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "bulk-update-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Updates items in the current user's inventory",
+      "x_operation_id": "inventory/public/items/v1/bulk-update-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "consume-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/consume",
+      "permissions": [],
+      "summary": "Updates the current user's inventory by consuming an item",
+      "x_operation_id": "inventory/public/items/v1/consume-my"
+    },
+    {
+      "http_method": "POST",
+      "method": "consume-user",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "dateRangeValidation",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/inventories/{inventoryId}/consume",
+      "permissions": [],
+      "summary": "Consumes an item from a user's inventory",
+      "x_operation_id": "inventory/admin/items/v1/consume-user"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "slotId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sourceItemId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories/{inventoryId}/slots/{slotId}/sourceItems/{sourceItemId}",
+      "permissions": [],
+      "summary": "Retrieves an inventory item",
+      "x_operation_id": "inventory/admin/items/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "slotId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "sourceItemId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/slots/{slotId}/sourceItems/{sourceItemId}",
+      "permissions": [],
+      "summary": "Gets an item from the current user's inventory",
+      "x_operation_id": "inventory/public/items/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sourceItemId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Lists inventory items",
+      "x_operation_id": "inventory/admin/items/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sourceItemId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "tags",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/items",
+      "permissions": [],
+      "summary": "Lists items in the current user's inventory",
+      "x_operation_id": "inventory/public/items/v1/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "move-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "inventoryId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/users/me/inventories/{inventoryId}/items/movement",
+      "permissions": [],
+      "summary": "Moves items between the current user's inventories",
+      "x_operation_id": "inventory/public/items/v1/move-my"
+    },
+    {
+      "http_method": "PUT",
+      "method": "sync-entitlements",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/users/{userId}/items/entitlements/sync",
+      "permissions": [],
+      "summary": "Updates inventory from user entitlements",
+      "x_operation_id": "inventory/admin/items/v1/sync-entitlements"
+    }
+  ],
+  "tags": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Creates a tag",
+      "x_operation_id": "inventory/admin/tags/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "tagName",
+          "required": true
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/tags/{tagName}",
+      "permissions": [],
+      "summary": "Deletes a tag",
+      "x_operation_id": "inventory/admin/tags/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "owner",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/admin/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists tags",
+      "x_operation_id": "inventory/admin/tags/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "sortBy",
+          "required": false
+        }
+      ],
+      "path": "/inventory/v1/public/namespaces/{namespace}/tags",
+      "permissions": [],
+      "summary": "Lists tags",
+      "x_operation_id": "inventory/public/tags/v1/list"
+    }
+  ]
+}

@@ -1,0 +1,1647 @@
+{
+  "group-definitions": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration",
+      "permissions": [],
+      "summary": "Creates a new group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/{configurationCode}",
+      "permissions": [],
+      "summary": "Deletes a group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-global-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/{configurationCode}/rules/{allowedAction}",
+      "permissions": [],
+      "summary": "Deletes a global rule from a group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/delete-global-rule"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/{configurationCode}",
+      "permissions": [],
+      "summary": "Retrieves a group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration",
+      "permissions": [],
+      "summary": "Lists group configurations",
+      "x_operation_id": "group/admin/group-definitions/v1/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "set-default",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/initiate",
+      "permissions": [],
+      "summary": "Initiates the default group service configuration for the namespace",
+      "x_operation_id": "group/admin/group-definitions/v1/set-default"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/{configurationCode}",
+      "permissions": [],
+      "summary": "Updates an existing group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-global-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "configurationCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/configuration/{configurationCode}/rules/{allowedAction}",
+      "permissions": [],
+      "summary": "Updates a global rule in a group configuration",
+      "x_operation_id": "group/admin/group-definitions/v1/update-global-rule"
+    }
+  ],
+  "groups": [
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/admin/namespaces/{namespace}/groups/bulk",
+      "permissions": [],
+      "summary": "Retrieves groups by IDs",
+      "x_operation_id": "group/admin/groups/v2/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "bulk-get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/bulk",
+      "permissions": [],
+      "summary": "Retrieves groups by IDs",
+      "x_operation_id": "group/public/groups/v2/bulk-get"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Creates a new group",
+      "x_operation_id": "group/public/groups/v1/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Creates a new group",
+      "x_operation_id": "group/public/groups/v2/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes an existing group",
+      "x_operation_id": "group/admin/groups/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a group",
+      "x_operation_id": "group/public/groups/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Deletes a group",
+      "x_operation_id": "group/public/groups/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-predefined-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/rules/defined/{allowedAction}",
+      "permissions": [],
+      "summary": "Deletes a predefined rule from a group",
+      "x_operation_id": "group/public/groups/v1/delete-predefined-rule"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-predefined-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/rules/defined/{allowedAction}",
+      "permissions": [],
+      "summary": "Deletes a predefined rule from a group",
+      "x_operation_id": "group/public/groups/v2/delete-predefined-rule"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves a group by ID",
+      "x_operation_id": "group/admin/groups/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Retrieves group information",
+      "x_operation_id": "group/public/groups/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "configurationCode",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "groupName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "groupRegion",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Lists groups in a namespace",
+      "x_operation_id": "group/admin/groups/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "groupName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "groupRegion",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups",
+      "permissions": [],
+      "summary": "Lists public and open groups",
+      "x_operation_id": "group/public/groups/v1/list"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Replaces an existing group",
+      "x_operation_id": "group/public/groups/v1/set"
+    },
+    {
+      "http_method": "PUT",
+      "method": "set",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Replaces an existing group",
+      "x_operation_id": "group/public/groups/v2/set"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Updates an existing group",
+      "x_operation_id": "group/public/groups/v1/update"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}",
+      "permissions": [],
+      "summary": "Updates an existing group",
+      "x_operation_id": "group/public/groups/v2/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/attributes/custom",
+      "permissions": [],
+      "summary": "Replaces custom attributes for a group",
+      "x_operation_id": "group/public/groups/v1/update-custom-attributes"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/attributes/custom",
+      "permissions": [],
+      "summary": "Replaces custom attributes for a group",
+      "x_operation_id": "group/public/groups/v2/update-custom-attributes"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-custom-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/rules/custom",
+      "permissions": [],
+      "summary": "Updates custom rules for a group",
+      "x_operation_id": "group/public/groups/v1/update-custom-rule"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-custom-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/rules/custom",
+      "permissions": [],
+      "summary": "Updates custom rules for a group",
+      "x_operation_id": "group/public/groups/v2/update-custom-rule"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-predefined-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/rules/defined/{allowedAction}",
+      "permissions": [],
+      "summary": "Updates a predefined rule in a group",
+      "x_operation_id": "group/public/groups/v1/update-predefined-rule"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-predefined-rule",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "allowedAction",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/rules/defined/{allowedAction}",
+      "permissions": [],
+      "summary": "Updates a predefined rule in a group",
+      "x_operation_id": "group/public/groups/v2/update-predefined-rule"
+    }
+  ],
+  "membership": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/admin/namespaces/{namespace}/users/{userId}/groups/{groupId}/status",
+      "permissions": [],
+      "summary": "Retrieves a user's group membership status",
+      "x_operation_id": "group/admin/membership/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/{userId}",
+      "permissions": [],
+      "summary": "Retrieves group membership information for a user",
+      "x_operation_id": "group/public/membership/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/status",
+      "permissions": [],
+      "summary": "Retrieves the membership status of a user in a group",
+      "x_operation_id": "group/public/membership/v2/get"
+    },
+    {
+      "http_method": "POST",
+      "method": "kick",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/{userId}/kick",
+      "permissions": [],
+      "summary": "Kicks a member from a group",
+      "x_operation_id": "group/public/membership/v1/kick"
+    },
+    {
+      "http_method": "POST",
+      "method": "kick",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/kick",
+      "permissions": [],
+      "summary": "Kicks a member from the group",
+      "x_operation_id": "group/public/membership/v2/kick"
+    },
+    {
+      "http_method": "POST",
+      "method": "leave",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/leave",
+      "permissions": [],
+      "summary": "Leaves the current group",
+      "x_operation_id": "group/public/membership/v1/leave"
+    },
+    {
+      "http_method": "POST",
+      "method": "leave",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/leave",
+      "permissions": [],
+      "summary": "Leaves the current group",
+      "x_operation_id": "group/public/membership/v2/leave"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/groups/{groupId}/members",
+      "permissions": [],
+      "summary": "Lists members of a group",
+      "x_operation_id": "group/admin/membership/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "order",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/members",
+      "permissions": [],
+      "summary": "Lists members of a group",
+      "x_operation_id": "group/public/membership/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-joined",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/admin/namespaces/{namespace}/users/{userId}/groups",
+      "permissions": [],
+      "summary": "Lists groups a user has joined",
+      "x_operation_id": "group/admin/membership/v2/list-joined"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-joined",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/me/groups",
+      "permissions": [],
+      "summary": "Lists groups the current user has joined",
+      "x_operation_id": "group/public/membership/v2/list-my-joined"
+    }
+  ],
+  "requests": [
+    {
+      "http_method": "POST",
+      "method": "accept-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/invite/accept",
+      "permissions": [],
+      "summary": "Accepts a group invitation",
+      "x_operation_id": "group/public/requests/v1/accept-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "accept-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/invite/accept",
+      "permissions": [],
+      "summary": "Accepts a group invitation",
+      "x_operation_id": "group/public/requests/v2/accept-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "accept-join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/{userId}/join/accept",
+      "permissions": [],
+      "summary": "Accepts a join request from a user",
+      "x_operation_id": "group/public/requests/v1/accept-join"
+    },
+    {
+      "http_method": "POST",
+      "method": "accept-join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/join/accept",
+      "permissions": [],
+      "summary": "Accepts a join request from a user",
+      "x_operation_id": "group/public/requests/v2/accept-join"
+    },
+    {
+      "http_method": "POST",
+      "method": "cancel-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/join/cancel",
+      "permissions": [],
+      "summary": "Cancels a join request",
+      "x_operation_id": "group/public/requests/v1/cancel-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "cancel-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/invite/cancel",
+      "permissions": [],
+      "summary": "Cancels an invitation to a group member",
+      "x_operation_id": "group/public/requests/v2/cancel-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/{userId}/invite",
+      "permissions": [],
+      "summary": "Invites a user to a group",
+      "x_operation_id": "group/public/requests/v1/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "invite",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/invite",
+      "permissions": [],
+      "summary": "Invites a user to a group",
+      "x_operation_id": "group/public/requests/v2/invite"
+    },
+    {
+      "http_method": "POST",
+      "method": "join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/join",
+      "permissions": [],
+      "summary": "Joins a group or submits a join request",
+      "x_operation_id": "group/public/requests/v1/join"
+    },
+    {
+      "http_method": "POST",
+      "method": "join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/join",
+      "permissions": [],
+      "summary": "Joins a group or submits a join request",
+      "x_operation_id": "group/public/requests/v2/join"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/me/invite/request",
+      "permissions": [],
+      "summary": "Lists group invitations for the current user",
+      "x_operation_id": "group/public/requests/v1/list-invitation"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-invitations",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/invite/request",
+      "permissions": [],
+      "summary": "Lists invite requests for a group",
+      "x_operation_id": "group/public/requests/v2/list-invitations"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-joins",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/join/request",
+      "permissions": [],
+      "summary": "Lists join requests for a group",
+      "x_operation_id": "group/public/requests/v1/list-joins"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-joins",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/join/request",
+      "permissions": [],
+      "summary": "Lists join requests for a group",
+      "x_operation_id": "group/public/requests/v2/list-joins"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-my-join-requests",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/me/join/request",
+      "permissions": [],
+      "summary": "Lists the current user's join requests",
+      "x_operation_id": "group/public/requests/v2/list-my-join-requests"
+    },
+    {
+      "http_method": "POST",
+      "method": "reject-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/groups/{groupId}/invite/reject",
+      "permissions": [],
+      "summary": "Rejects a group invitation",
+      "x_operation_id": "group/public/requests/v1/reject-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "reject-invitation",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/groups/{groupId}/invite/reject",
+      "permissions": [],
+      "summary": "Rejects a group invitation",
+      "x_operation_id": "group/public/requests/v2/reject-invitation"
+    },
+    {
+      "http_method": "POST",
+      "method": "reject-join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/users/{userId}/join/reject",
+      "permissions": [],
+      "summary": "Rejects a join request from a user",
+      "x_operation_id": "group/public/requests/v1/reject-join"
+    },
+    {
+      "http_method": "POST",
+      "method": "reject-join",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/users/{userId}/groups/{groupId}/join/reject",
+      "permissions": [],
+      "summary": "Rejects a join request from a user",
+      "x_operation_id": "group/public/requests/v2/reject-join"
+    }
+  ],
+  "roles": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles",
+      "permissions": [],
+      "summary": "Creates a new member role",
+      "x_operation_id": "group/admin/roles/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles/{memberRoleId}",
+      "permissions": [],
+      "summary": "Deletes a member role",
+      "x_operation_id": "group/admin/roles/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/roles/{memberRoleId}/members",
+      "permissions": [],
+      "summary": "Removes a role from a group member",
+      "x_operation_id": "group/public/roles/v1/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/roles/{memberRoleId}/groups/{groupId}/members",
+      "permissions": [],
+      "summary": "Removes a role from a group member",
+      "x_operation_id": "group/public/roles/v2/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles/{memberRoleId}",
+      "permissions": [],
+      "summary": "Retrieves a member role",
+      "x_operation_id": "group/admin/roles/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles",
+      "permissions": [],
+      "summary": "Lists member roles",
+      "x_operation_id": "group/admin/roles/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/roles",
+      "permissions": [],
+      "summary": "Lists member roles",
+      "x_operation_id": "group/public/roles/v1/list"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/roles",
+      "permissions": [],
+      "summary": "Lists member roles",
+      "x_operation_id": "group/public/roles/v2/list"
+    },
+    {
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles/{memberRoleId}",
+      "permissions": [],
+      "summary": "Updates a member role",
+      "x_operation_id": "group/admin/roles/v1/update"
+    },
+    {
+      "http_method": "POST",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/public/namespaces/{namespace}/roles/{memberRoleId}/members",
+      "permissions": [],
+      "summary": "Assigns a role to a group member",
+      "x_operation_id": "group/public/roles/v1/update"
+    },
+    {
+      "http_method": "POST",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "groupId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v2/public/namespaces/{namespace}/roles/{memberRoleId}/groups/{groupId}/members",
+      "permissions": [],
+      "summary": "Assigns a role to a group member",
+      "x_operation_id": "group/public/roles/v2/update"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-permissions",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "memberRoleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/group/v1/admin/namespaces/{namespace}/roles/{memberRoleId}/permissions",
+      "permissions": [],
+      "summary": "Updates permissions for a member role",
+      "x_operation_id": "group/admin/roles/v1/update-permissions"
+    }
+  ]
+}

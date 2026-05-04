@@ -1,0 +1,127 @@
+{
+  "events": [
+    {
+      "http_method": "GET",
+      "method": "search",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "deviceType",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "endTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "eventId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "eventName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "eventPayload",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "flightId",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "startTime",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "userId",
+          "required": false
+        }
+      ],
+      "path": "/game-telemetry/v1/admin/namespaces/{namespace}/events",
+      "permissions": [],
+      "summary": "Retrieves telemetry events for a namespace",
+      "x_operation_id": "gametelemetry/admin/events/v1/search"
+    }
+  ],
+  "namespaces": [
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [],
+      "path": "/game-telemetry/v1/admin/namespaces",
+      "permissions": [],
+      "summary": "Retrieves all game telemetry namespaces available to the caller",
+      "x_operation_id": "gametelemetry/admin/namespaces/v1/list"
+    }
+  ],
+  "steam-playtime": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "header",
+          "name": "Cookie",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "steamId",
+          "required": true
+        }
+      ],
+      "path": "/game-telemetry/v1/protected/steamIds/{steamId}/playtime",
+      "permissions": [],
+      "summary": "Retrieves a player's total Steam playtime for a specific game",
+      "x_operation_id": "gametelemetry/public/steam-playtime/v1/get"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "header",
+          "name": "Cookie",
+          "required": false
+        },
+        {
+          "location": "path",
+          "name": "playtime",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "steamId",
+          "required": true
+        }
+      ],
+      "path": "/game-telemetry/v1/protected/steamIds/{steamId}/playtime/{playtime}",
+      "permissions": [],
+      "summary": "Updates a player's cached Steam playtime for a specific game",
+      "x_operation_id": "gametelemetry/public/steam-playtime/v1/update"
+    }
+  ]
+}
