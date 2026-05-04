@@ -1,26 +1,14 @@
 # AGS CLI
 
-AGS CLI is a command-line interface for [AccelByte Gaming Services](https://accelbyte.io). It generates commands directly from AccelByte's OpenAPI specs so you can explore and call APIs from the terminal with a consistent command structure.
+AGS CLI is a unified command-line interface for AccelByte Gaming Services. Automate workflows across all 24 services. Use it interactively, in scripts, or via AI agents.
 
 ![AGS CLI demo](demo/reel.gif)
-
-## Current Status
-
-AGS CLI ships full coverage of all 24 AccelByte services, with bundled OpenAPI specs and end-to-end runtime support for every command.
-
-Prebuilt binaries are published on the [GitHub Releases page](https://github.com/AccelByte/accelbyte-ags-cli/releases) for:
-
-- macOS: `x86_64-apple-darwin`, `aarch64-apple-darwin`
-- Linux: `x86_64-unknown-linux-gnu`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, `aarch64-unknown-linux-musl`
-- Windows: `x86_64-pc-windows-msvc`
-
-There is no package-manager distribution (Homebrew, apt, `cargo install`, etc.) yet.
 
 ## Install
 
 Download the prebuilt archive for your OS and architecture from the [latest release](https://github.com/AccelByte/accelbyte-ags-cli/releases/latest). The release page includes per-platform install instructions and checksum verification.
 
-If you'd rather build from source, see [Build from source](#build-from-source) below.
+Supported targets: macOS (`x86_64`, `aarch64`), Linux (`x86_64` and `aarch64` × `gnu` and `musl`), Windows (`x86_64`).
 
 ## Build from source
 
