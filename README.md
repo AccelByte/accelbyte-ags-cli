@@ -18,56 +18,26 @@ There is no package-manager distribution (Homebrew, apt, `cargo install`, etc.) 
 
 ## Install
 
-### Download a release
+Download the prebuilt archive for your OS and architecture from the [latest release](https://github.com/AccelByte/accelbyte-ags-cli/releases/latest). The release page includes per-platform install instructions and checksum verification.
 
-Pick the archive matching your platform from the [latest release](https://github.com/AccelByte/accelbyte-ags-cli/releases/latest). Each archive ships alongside a `.sha256` checksum file.
+If you'd rather build from source, see [Build from source](#build-from-source) below.
 
-**macOS / Linux**
+## Build from source
 
-```bash
-# Replace TARGET with e.g. aarch64-apple-darwin or x86_64-unknown-linux-gnu
-TARGET=aarch64-apple-darwin
-curl -LO https://github.com/AccelByte/accelbyte-ags-cli/releases/latest/download/ags-${TARGET}.tar.gz
-curl -LO https://github.com/AccelByte/accelbyte-ags-cli/releases/latest/download/ags-${TARGET}.tar.gz.sha256
-shasum -a 256 -c ags-${TARGET}.tar.gz.sha256
-tar -xzf ags-${TARGET}.tar.gz
-sudo mv ags /usr/local/bin/
-ags --help
-```
-
-On macOS, if the binary is blocked by Gatekeeper on first launch, allow it from **System Settings → Privacy & Security**, or remove the quarantine attribute: `xattr -d com.apple.quarantine /usr/local/bin/ags`.
-
-**Windows (PowerShell)**
-
-```powershell
-$Target = "x86_64-pc-windows-msvc"
-Invoke-WebRequest -Uri "https://github.com/AccelByte/accelbyte-ags-cli/releases/latest/download/ags-$Target.zip" -OutFile "ags-$Target.zip"
-Invoke-WebRequest -Uri "https://github.com/AccelByte/accelbyte-ags-cli/releases/latest/download/ags-$Target.zip.sha256" -OutFile "ags-$Target.zip.sha256"
-$Expected = (Get-Content "ags-$Target.zip.sha256").Split(" ")[0]
-$Actual = (Get-FileHash "ags-$Target.zip" -Algorithm SHA256).Hash.ToLower()
-if ($Expected -ne $Actual) { throw "Checksum mismatch" }
-Expand-Archive "ags-$Target.zip" -DestinationPath .
-.\ags.exe --help
-```
-
-Move `ags.exe` to a directory on your `PATH` to use it from anywhere.
-
-### Build from source
-
-#### Prerequisites
+### Prerequisites
 
 - Git
 - [Rust](https://rustup.rs/) 1.84 or newer
 - On Linux, system packages required for keyring support may also be needed: `libdbus-1-dev` and `libsecret-1-dev`
 
-#### 1. Clone the repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/AccelByte/accelbyte-ags-cli.git
 cd accelbyte-ags-cli
 ```
 
-#### 2. Build the binary
+### 2. Build the binary
 
 ```bash
 cargo build --release
@@ -78,7 +48,7 @@ This creates the CLI binary in:
 - macOS and Linux: `target/release/ags`
 - Windows: `target\release\ags.exe`
 
-#### 3. Run it
+### 3. Run it
 
 Without installing globally:
 
@@ -92,9 +62,9 @@ On Windows PowerShell:
 .\target\release\ags.exe --help
 ```
 
-#### Optional: add it to your PATH
+### Optional: add it to your PATH
 
-##### macOS and Linux
+#### macOS and Linux
 
 You can copy the binary to a directory already on your `PATH`, such as `/usr/local/bin`:
 
@@ -104,7 +74,7 @@ cp target/release/ags /usr/local/bin/
 
 If you do not want to write to a system directory, add `target/release` to your `PATH` instead.
 
-##### Windows
+#### Windows
 
 You can:
 
@@ -118,7 +88,7 @@ After that, verify the installation:
 ags --help
 ```
 
-### Shell completions
+## Shell completions
 
 AGS prints a completion script for `bash`, `zsh`, `fish`, or `powershell`:
 

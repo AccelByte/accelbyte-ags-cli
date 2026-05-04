@@ -1,6 +1,6 @@
 [package]
 name = "accelbyte-ags-cli"
-version = "0.1.0-rc1"
+version = "0.1.0"
 edition = "2021"
 description = "Unified CLI for AccelByte Gaming Services"
 license = "MIT"
