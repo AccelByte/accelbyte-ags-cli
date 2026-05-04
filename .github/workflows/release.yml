@@ -155,4 +155,56 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
+          append_body: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            ## Installation
+
+            Download the archive for your OS and architecture (and the matching `.sha256` file) from the assets below. The instructions below assume both files are in your current directory.
+
+            ### macOS
+
+            ```bash
+            # 1. Verify the checksum
+            shasum -a 256 -c ags-aarch64-apple-darwin.tar.gz.sha256
+
+            # 2. Extract and install
+            tar -xzf ags-aarch64-apple-darwin.tar.gz
+            chmod +x ags
+            sudo mv ags /usr/local/bin/
+            ```
+
+            If Gatekeeper blocks first launch, allow it from System Settings → Privacy & Security, or run `xattr -d com.apple.quarantine /usr/local/bin/ags`.
+
+            Intel Macs: substitute `x86_64-apple-darwin` for `aarch64-apple-darwin` in the commands above.
+
+            ### Linux
+
+            Replace `<target>` with your platform (e.g. `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-musl`).
+
+            ```bash
+            # 1. Verify the checksum
+            shasum -a 256 -c ags-<target>.tar.gz.sha256
+
+            # 2. Extract and install
+            tar -xzf ags-<target>.tar.gz
+            chmod +x ags
+            sudo mv ags /usr/local/bin/
+            ```
+
+            ### Windows
+
+            Run the following in PowerShell from the directory containing the downloaded files:
+
+            ```powershell
+            # 1. Verify the checksum
+            $Expected = (Get-Content "ags-x86_64-pc-windows-msvc.zip.sha256").Split(" ")[0]
+            $Actual = (Get-FileHash "ags-x86_64-pc-windows-msvc.zip" -Algorithm SHA256).Hash.ToLower()
+            if ($Expected -ne $Actual) { throw "Checksum mismatch" }
+            "Checksum OK"
+
+            # 2. Extract
+            Expand-Archive ags-x86_64-pc-windows-msvc.zip -DestinationPath .
+            ```
+
+            Move `ags.exe` to a directory on your `PATH`.
