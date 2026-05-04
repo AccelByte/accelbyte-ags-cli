@@ -1,10 +1,10 @@
-use crate::common::cli_helpers::ags;
+use crate::common::cli_helpers::ags_isolated;
 use predicates::prelude::*;
 
 /// --dry-run prints the HTTP method, path, and auth header without making a real request
 #[test]
 fn test_dry_run_shows_request() {
-    ags()
+    ags_isolated()
         .args([
             "--dry-run",
             "--namespace",
@@ -23,7 +23,7 @@ fn test_dry_run_shows_request() {
 /// --dry-run produces no stderr output so stdout can be cleanly piped for inspection
 #[test]
 fn test_dry_run_no_status_on_stderr() {
-    ags()
+    ags_isolated()
         .args([
             "--dry-run",
             "--namespace",
