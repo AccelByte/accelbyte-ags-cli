@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use ags::runtime::config::ProfileConfig;
 
 // ── Config file permissions (Unix only) ──
