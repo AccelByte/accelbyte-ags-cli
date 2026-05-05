@@ -102,20 +102,20 @@ Running `ags completions` without an argument detects the shell from `$SHELL` (o
 # Authenticate using the authorization code flow
 ags auth login
 
-# List IAM users
-ags iam users list --namespace my-game
+# Search users in a namespace
+ags iam users search --namespace my-game
 
 # Inspect a specific user
-ags iam users get --userId abc-123 --namespace my-game
+ags iam users get --namespace my-game --user-id abc-123
 
 # Preview a request without sending it
-ags iam users list --namespace my-game --dry-run
+ags iam users search --namespace my-game --dry-run
 
 # Generate a request body template
 ags iam roles create --skeleton > body.json
 
 # Discover commands programmatically (JSON)
-ags describe iam users list
+ags describe iam users search
 ```
 
 ## Usage
@@ -154,10 +154,10 @@ Generated service commands resolve to a contract — the combination of command,
 | `--api-version <vN>` | Pin a specific API version for the resolved scope |
 
 ```bash
-ags iam users get 123                                       # admin scope, default version
-ags iam users get 123 --api-scope public                    # public scope, default version
-ags iam users get 123 --api-version v3                      # admin scope, v3
-ags iam users get 123 --api-scope public --api-version v2   # fully pinned
+ags iam roles get --role-id my-role                                     # admin scope, default version
+ags iam roles get --role-id my-role --api-scope public                  # public scope, default version
+ags iam roles get --role-id my-role --api-version v3                    # admin scope, v3
+ags iam roles get --role-id my-role --api-scope public --api-version v3 # fully pinned
 ```
 
 Both flags only appear on commands that offer a choice. Run `ags describe <service> <resource> <method>` to see the full scope/version matrix for a command, including the default contract and supported versions per scope.
@@ -186,7 +186,7 @@ For machine-readable discovery, use `ags describe` instead of `--help`. It outpu
 ags describe
 
 # Introspect a specific command
-ags describe iam users list
+ags describe iam users search
 ```
 
 ## Authentication
