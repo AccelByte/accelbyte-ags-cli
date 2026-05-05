@@ -508,7 +508,7 @@ pub(super) fn lookup(error_code: i64) -> Option<ErrorMapping> {
         1014017 => Some(ErrorMapping {
             message: "User not found.",
             reason: Some("The user does not exist or is not accessible in this context."),
-            suggestion: Some("Run 'ags iam users list' to see available users."),
+            suggestion: Some("Run 'ags iam users search' to see available users."),
             tip: None,
         }),
         1014018 => Some(ErrorMapping {

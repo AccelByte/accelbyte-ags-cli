@@ -37,8 +37,8 @@ fn build_root_shell() -> Command {
     let root_after_help = format!(
         "{}:\n  \
          ags auth login\n  \
-         ags iam users list --namespace my-game\n  \
-         ags platform item create --namespace my-game --json @item.json\n\
+         ags iam users search --namespace my-game\n  \
+         ags platform items create --namespace my-game --store-id main --json @item.json\n\
          \n\
          {}:\n  \
          0 = success\n  \
@@ -369,7 +369,7 @@ pub fn build_describe_command() -> Command {
              \x20   ags describe                       outputs all services\n\
              \x20   ags describe iam                   outputs resources within a service\n\
              \x20   ags describe iam users             outputs methods within a resource\n\
-             \x20   ags describe iam users list        outputs full parameter schema for a method\n\n\
+             \x20   ags describe iam users search      outputs full parameter schema for a method\n\n\
              \x20 Output is always JSON. No authentication required.",
         )
         .arg(Arg::new("service").help("Service name"))
@@ -462,7 +462,7 @@ fn build_login_subcommand() -> Command {
              \x20   IAM client. You will be prompted for any values not provided\n\
              \x20   via flags or environment.\n\n\
              \x20 Access token (pre-authenticated):\n\n\
-             \x20   AGS_ACCESS_TOKEN=<token> ags iam users list ...\n\n\
+             \x20   AGS_ACCESS_TOKEN=<token> ags iam users search ...\n\n\
              \x20   Bypass login entirely with a pre-obtained token. No\n\
              \x20   credentials are stored.\n\n\
              \x20 Resolution order:\n\n\

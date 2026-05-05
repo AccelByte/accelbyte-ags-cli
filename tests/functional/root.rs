@@ -93,7 +93,7 @@ fn test_root_help_shows_examples() {
         .success()
         .stdout(predicate::str::contains("Examples:"))
         .stdout(predicate::str::contains(
-            "ags iam users list --namespace my-game",
+            "ags iam users search --namespace my-game",
         ));
 }
 
