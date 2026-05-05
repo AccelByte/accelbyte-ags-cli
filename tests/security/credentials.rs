@@ -1,11 +1,11 @@
-use crate::common::cli_helpers::{ags, ags_isolated, ags_with_base_url};
+use crate::common::cli_helpers::{ags_isolated, ags_with_base_url};
 use crate::common::wiremock_helpers::{mount_api_error, mount_token_success};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[test]
 fn test_dry_run_shows_placeholder_not_real_token() {
-    let output = ags()
+    let output = ags_isolated()
         .args([
             "--dry-run",
             "--namespace",
@@ -30,7 +30,7 @@ fn test_dry_run_shows_placeholder_not_real_token() {
 
 #[test]
 fn test_dry_run_stderr_does_not_leak_tokens() {
-    let output = ags()
+    let output = ags_isolated()
         .args([
             "--dry-run",
             "--namespace",
@@ -51,7 +51,7 @@ fn test_dry_run_stderr_does_not_leak_tokens() {
 
 #[test]
 fn test_verbose_dry_run_does_not_leak_tokens() {
-    let output = ags()
+    let output = ags_isolated()
         .args([
             "--verbose",
             "--dry-run",

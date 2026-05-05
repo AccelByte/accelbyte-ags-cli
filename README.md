@@ -1,6 +1,6 @@
 # AGS CLI
 
-AGS CLI is a unified command-line interface for AccelByte Gaming Services. Automate workflows across all 24 services. Use it interactively, in scripts, or via AI agents.
+AGS CLI is a unified command-line interface for AccelByte Gaming Services. Manage players, entitlements, inventories, sessions, and other live-service workflows from your terminal, scripts, or AI agents.
 
 ![AGS CLI demo](demo/reel.gif)
 
@@ -8,77 +8,301 @@ AGS CLI is a unified command-line interface for AccelByte Gaming Services. Autom
 
 Download the prebuilt archive for your OS and architecture from the [latest release](https://github.com/AccelByte/accelbyte-ags-cli/releases/latest). The release page includes per-platform install instructions and checksum verification.
 
-Supported targets: macOS (`x86_64`, `aarch64`), Linux (`x86_64` and `aarch64` × `gnu` and `musl`), Windows (`x86_64`).
+Supported targets: macOS (`x86_64`, `aarch64`), Linux (`x86_64` and `aarch64`, both glibc and musl), Windows (`x86_64`).
 
-## Build from source
-
-### Prerequisites
-
-- Git
-- [Rust](https://rustup.rs/) 1.84 or newer
-- On Linux, system packages required for keyring support may also be needed: `libdbus-1-dev` and `libsecret-1-dev`
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/AccelByte/accelbyte-ags-cli.git
-cd accelbyte-ags-cli
-```
-
-### 2. Build the binary
-
-```bash
-cargo build --release
-```
-
-This creates the CLI binary in:
-
-- macOS and Linux: `target/release/ags`
-- Windows: `target\release\ags.exe`
-
-### 3. Run it
-
-Without installing globally:
-
-```bash
-./target/release/ags --help
-```
-
-On Windows PowerShell:
-
-```powershell
-.\target\release\ags.exe --help
-```
-
-### Optional: add it to your PATH
-
-#### macOS and Linux
-
-You can copy the binary to a directory already on your `PATH`, such as `/usr/local/bin`:
-
-```bash
-cp target/release/ags /usr/local/bin/
-```
-
-If you do not want to write to a system directory, add `target/release` to your `PATH` instead.
-
-#### Windows
-
-You can:
-
-- Run `target\release\ags.exe` directly
-- Copy `ags.exe` to a folder already on your `PATH`
-- Add `target\release` to your `PATH`
-
-After that, verify the installation:
+Each archive contains a standalone `ags` binary. Place it somewhere on your `PATH`, then verify the install:
 
 ```bash
 ags --help
 ```
 
-## Shell completions
+Building from source is covered in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-AGS prints a completion script for `bash`, `zsh`, `fish`, or `powershell`:
+## Quick start
+
+AGS CLI supports three common ways of working. Pick the one that matches you and start there:
+
+### Interactive
+
+Log in and fetch a user interactively.
+
+```bash
+ags auth login
+ags iam users get --namespace my-game --user-id abc-123
+```
+
+### Automation
+
+Authenticate with client credentials and return a user's entitlements as JSON.
+
+```bash
+# Local testing only. In CI or production, inject these at runtime from your
+# secret manager instead of exporting them in shell history or scripts.
+export AGS_BASE_URL="https://your-base-url.invalid"
+export AGS_CLIENT_ID="your-client-id"
+export AGS_CLIENT_SECRET="your-client-secret"
+
+ags auth login --grant client-credentials --no-input
+ags platform entitlements list \
+  --namespace my-game \
+  --user-id abc-123 \
+  --api-scope admin --api-version v1 \
+  --no-input --format json
+```
+
+### AI agent
+
+Inspect a command, then fetch a game session using the existing local session.
+
+```bash
+# Reuses the user's existing AGS session when the agent runs as the same OS user
+# on the same machine.
+
+ags describe session game-sessions get
+ags session game-sessions get \
+  --namespace my-game \
+  --session-id session-123 \
+  --api-scope public --api-version v1 \
+  --format json
+```
+
+If the agent runs in a container, CI runner, remote sandbox, or separate OS account, authenticate it explicitly instead of relying on the user's local session.
+
+The rest of the README expands on these workflows, then covers authentication, profiles, and configuration as reference material.
+
+## Example tasks
+
+```bash
+# List users
+ags iam users search --namespace my-game
+
+# Preview the request for a mutating operation without sending it
+ags iam users update --namespace my-game --user-id abc-123 --json @body.json --dry-run
+
+# Check auth, config, and connectivity
+ags doctor
+```
+
+## Using AGS CLI
+
+### Choose a mode
+
+Choose the mode that matches how you work: interactively in a terminal, non-interactively in scripts, or through an AI agent.
+
+|                | Interactive                                                                | Automation                                                                  | AI agent                                                                    |
+| -------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Auth**       | [Authorization code flow](#authorization-code-flow-public-client)          | [Client credentials flow](#client-credentials-flow-confidential-client)     | reuses the user's local session when available                              |
+| **Discovery**  | interactive `--help`                                                       | `ags describe` (JSON)                                                       | `ags describe` (JSON)                                                       |
+| **Versioning** | default contract                                                           | pinned contract                                                             | pinned contract                                                             |
+| **Input**      | interactive prompts                                                        | non-interactive, auto-confirm                                               | non-interactive, human confirms mutating actions                            |
+| **Output**     | human-readable                                                             | [stable JSON](#stable-json-output)                                            | [stable JSON](#stable-json-output)                                            |
+
+### Contracts and input
+
+- **Pinning the contract.** Service commands resolve to a contract: the combination of command, scope (`admin` or `public`), and API version (`v1`, `v2`, …). Without flags, AGS picks the admin scope and the latest stable version it knows about. The latest version can shift between releases, so automation and AI agents should pin both `--api-scope` and `--api-version` on every call. `--api-version latest` is intentionally not supported. Run `ags describe <service> <resource> <method>` to see the full scope/version matrix for a command.
+- **Non-interactive input.** Pair `--no-input` (fail rather than prompt for missing values) with `--yes` to auto-confirm mutating operations. AI agents should set `--no-input` but **not** `--yes`, since the user is present and human-in-the-loop confirmation should be preserved for destructive changes. If you're running fully headless on behalf of no user, follow the Automation column instead.
+- **Don't parse `--help`.** It is human-only and not a contract. Use `ags describe` for machine-readable introspection, typically at build time (generating typed clients, grounding agent prompts) rather than at runtime.
+- **Request bodies.** Operations that take a body accept `--json '<inline-json>'` or `--json @path/to/body.json`. Use `--skeleton` to print a starter template you can edit.
+
+### Command shape
+
+Commands follow this shape:
+
+```bash
+ags <service> <resource> <method> [flags]
+```
+
+### Discovery
+
+Use `--help` for human exploration:
+
+```bash
+ags --help
+ags iam --help
+ags iam users --help
+ags iam users get --help
+```
+
+Use `ags describe` for machine-readable introspection:
+
+```bash
+ags describe
+ags describe iam users get
+```
+
+### Stable JSON output
+
+Default human-readable output is not a contract: wording, layout, and colour can change between releases. `--format json` is the stable contract, and machine-readable fields will not be removed or renamed without a major version bump. JSON works on every command, including `auth`, `config`, `profile`, and `version`.
+
+Set persistently with `ags config set format json` if every invocation in your environment should default to JSON.
+
+> [!WARNING]
+> **Treat client secrets and access tokens like production credentials.**
+> - Store secrets in a secret manager (HashiCorp Vault, AWS Secrets Manager, GitHub Actions secrets, etc.). Never put them in source control or plain config files.
+> - Inject at runtime via `AGS_CLIENT_ID`, `AGS_CLIENT_SECRET`, or a short-lived `AGS_ACCESS_TOKEN`.
+> - Restrict the IAM client's permissions to the minimum required for the workload.
+> - Rotate client secrets periodically and on personnel changes.
+> - Avoid logging command lines that include credential-bearing flag values; the CLI redacts known secrets in its own output but upstream shells, CI logs, and downstream tooling may not.
+
+### Global flags
+
+<details>
+<summary>Show all global flags</summary>
+
+| Flag | Description |
+|------|-------------|
+| `--profile <name>` | Target a specific profile (or set `AGS_PROFILE`) |
+| `--namespace <ns>` | Target namespace (or set `AGS_NAMESPACE`) |
+| `--format json` | Machine-readable JSON output for automation |
+| `--dry-run` | Show the request without sending it |
+| `--skeleton` | Output a JSON request body template (for operations with `--json`) |
+| `--page-all` | Fetch all pages of paginated results |
+| `--page-limit <N>` | Max pages to fetch with `--page-all` (default 10, max 100) |
+| `--verbose` | Print request and response details |
+| `--quiet` | Suppress progress and status output |
+| `--yes` | Skip confirmation prompts for mutating operations |
+| `--timeout <secs>` | Request timeout in seconds (default 60) |
+| `--no-input` | Disable all interactive prompts |
+| `--no-color` | Disable colour output (or set `NO_COLOR`) |
+| `--api-scope <scope>` | Endpoint audience for this command (default `admin`) |
+| `--api-version <vN>` | Pin a specific API version for the resolved scope |
+
+Global flags can appear anywhere in the command. The `format`, `no-color`, and `timeout` flags can also be set as persistent defaults via `ags config set`.
+
+</details>
+
+## Authentication
+
+AGS CLI supports two OAuth2 flows. Each requires a different type of IAM client, created in the AccelByte Admin Portal under **Platform Configuration → IAM Clients**.
+
+If your team already gave you a base URL and IAM client, skip client creation and go straight to the appropriate login flow below.
+
+| Flow | IAM client type | When to use |
+|------|----------------|-------------|
+| Authorization code | **Public** | Interactive use, local development |
+| Client credentials | **Confidential** | Headless environments, CI, service-to-service |
+
+### Creating an IAM client
+
+> [!IMPORTANT]
+> Public IAM clients must have `http://127.0.0.1:8080` as a redirect URI. The CLI's authorization code flow uses a localhost callback on port 8080 (configurable with `--port`). Without this redirect URI, the browser login will fail with an OAuth error.
+
+> [!NOTE]
+> **Where to create your IAM client depends on your deployment.**
+>
+> **Private cloud** (publisher and game namespaces):
+> - **Publisher-level IAM client**: SSO (Google, Apple, Discord, etc.) or email/password login. Best for cross-game work and publisher-level control.
+> - **Game-level IAM client**: email/password login. Best for single-game management.
+>
+> **Shared cloud** (studio and game namespaces):
+> - **Studio-level IAM client**: not available.
+> - **Game-level IAM client**: email/password login.
+
+1. Go to your AccelByte Admin Portal
+2. Navigate to **Platform Configuration → IAM Clients**
+3. Create a new client:
+   - For interactive use: choose **Public** client type
+   - For CI or automation: choose **Confidential** client type and note the client secret
+4. Add `http://127.0.0.1:8080` as a redirect URI (public clients only)
+5. Assign the permissions your CLI usage requires
+
+### Authorization code flow (public client)
+
+The default flow for interactive use:
+
+```bash
+ags auth login
+```
+
+You will be prompted for the base URL and client ID. The CLI then prints a URL for you to open in your browser and completes authentication through a localhost callback.
+
+### Client credentials flow (confidential client)
+
+For headless environments such as CI:
+
+```bash
+ags auth login --grant client-credentials
+```
+
+You will be prompted for the base URL, client ID, and client secret.
+
+### Token storage
+
+Both flows store tokens in the OS keychain when available:
+
+- macOS Keychain
+- Windows Credential Manager
+- Linux Secret Service
+
+When the OS keychain is unavailable or `AGS_NO_KEYCHAIN=1` is set, tokens fall back to a file under your config directory.
+
+### Session management
+
+```bash
+ags auth status
+ags auth logout
+ags auth logout --all   # clear credentials from all profiles
+```
+
+### Environment variables
+
+Most interactive users don't need these. They let you override config without touching files, which is the usual pattern for CI and containerised use.
+
+| Variable | Description |
+|----------|-------------|
+| `AGS_ACCESS_TOKEN` | Use this token directly and skip interactive auth |
+| `AGS_CLIENT_ID` | Client ID for client-credentials flow |
+| `AGS_CLIENT_SECRET` | Client secret for client-credentials flow |
+| `AGS_BASE_URL` | AccelByte API base URL |
+| `AGS_NAMESPACE` | Default namespace |
+| `AGS_PROFILE` | Active profile name |
+| `AGS_HOME` | Override config and cache directory location |
+| `AGS_AUTH_TIMEOUT` | Timeout in seconds for browser auth flow (default 120) |
+| `AGS_NO_KEYCHAIN` | Disable OS keychain, use file-based token storage |
+
+## Profiles
+
+Profiles manage separate environments (dev, staging, prod). Each profile stores its own base URL, client ID, namespace, and credentials independently.
+
+A `default` profile is created automatically the first time you run a command. For single-environment use, you don't need to think about profiles at all.
+
+```bash
+# Create and switch
+ags profile create staging
+ags profile use staging
+
+# Authenticate against the active profile
+ags auth login
+
+# Inspect
+ags profile list
+ags profile show staging
+
+# Manage
+ags profile rename staging production
+ags profile delete old-profile
+
+# Target a specific profile without switching
+ags iam users list --namespace my-game --profile staging
+```
+
+## Configuration
+
+Use `ags config` to view and manage settings. Profile-scoped keys (like `base-url`, `namespace`) are stored per profile. Global keys (like `format`) apply to all profiles.
+
+```bash
+# View all config values and where they come from
+ags config get
+
+# Set a value (scope is auto-detected from the key)
+ags config set base-url https://your-base-url.invalid
+ags config set format json
+
+# Remove a value
+ags config unset namespace
+```
+
+## Shell completions
 
 ```bash
 # zsh
@@ -96,171 +320,9 @@ ags completions powershell | Out-String | Invoke-Expression
 
 Running `ags completions` without an argument detects the shell from `$SHELL` (or defaults to PowerShell on Windows) and prints an install hint to stderr.
 
-## Quick Start
+## Troubleshooting
 
-```bash
-# Authenticate using the authorization code flow
-ags auth login
-
-# Search users in a namespace
-ags iam users search --namespace my-game
-
-# Inspect a specific user
-ags iam users get --namespace my-game --user-id abc-123
-
-# Preview a request without sending it
-ags iam users search --namespace my-game --dry-run
-
-# Generate a request body template
-ags iam roles create --skeleton > body.json
-
-# Discover commands programmatically (JSON)
-ags describe iam users search
-```
-
-## Usage
-
-```bash
-ags <service> <resource> <method> [flags]
-```
-
-### Global Flags
-
-| Flag | Description |
-|------|-------------|
-| `--profile <name>` | Target a specific profile (or set `AGS_PROFILE`) |
-| `--namespace <ns>` | Target namespace (or set `AGS_NAMESPACE`) |
-| `--format json` | Machine-readable JSON output for automation |
-| `--dry-run` | Show the request without sending it |
-| `--skeleton` | Output a JSON request body template (for operations with `--json`) |
-| `--page-all` | Fetch all pages of paginated results |
-| `--page-limit <N>` | Max pages to fetch with --page-all (default 10, max 100) |
-| `--verbose` | Print request and response details |
-| `--quiet` | Suppress progress and status output |
-| `--yes` | Skip confirmation prompts for mutating operations |
-| `--timeout <secs>` | Request timeout in seconds (default 60) |
-| `--no-input` | Disable all interactive prompts |
-| `--no-color` | Disable colour output (or set `NO_COLOR`) |
-
-Global flags can appear anywhere in the command. The `format`, `no-color`, and `timeout` flags can also be set as persistent defaults via `ags config set`.
-
-### Selecting API scope and version
-
-Generated service commands resolve to a contract — the combination of command, scope (`admin` or `public`), and API version (`v1`, `v2`, …). Two flags select the contract:
-
-| Flag | Description |
-|------|-------------|
-| `--api-scope <scope>` | Endpoint audience for this command (default `admin`) |
-| `--api-version <vN>` | Pin a specific API version for the resolved scope |
-
-```bash
-ags iam roles get --role-id my-role                                     # admin scope, default version
-ags iam roles get --role-id my-role --api-scope public                  # public scope, default version
-ags iam roles get --role-id my-role --api-version v3                    # admin scope, v3
-ags iam roles get --role-id my-role --api-scope public --api-version v3 # fully pinned
-```
-
-Both flags only appear on commands that offer a choice. Run `ags describe <service> <resource> <method>` to see the full scope/version matrix for a command, including the default contract and supported versions per scope.
-
-> **Pin scope and version in automation.** Omitting the flags resolves to the CLI's *current* defaults. Those defaults can shift between releases as new versions are introduced or old ones retired. Scripts, CI pipelines, and AI agents that need stable behaviour across upgrades **must** pass both `--api-scope` and `--api-version` explicitly. The `--api-version latest` token is intentionally not supported — pinning means pinning to a specific `vN`.
-
-### Output Formats
-
-**Do not parse human-readable output.** The default output is designed for humans and may change format, wording, or layout between releases without notice. Scripts, CI pipelines, and AI agents that parse CLI output **must** use `--format json`. JSON output is the stable contract — fields will not be removed or renamed without a major version bump.
-
-JSON output works across all commands, including `auth`, `config`, `profile`, and `version`.
-
-### Exploring Commands
-
-```bash
-ags --help
-ags iam --help
-ags iam users --help
-ags iam users get --help
-```
-
-For machine-readable discovery, use `ags describe` instead of `--help`. It outputs JSON with command metadata including parameters, body schema, and execution semantics. This is designed for AI agents, scripts, and tooling.
-
-```bash
-# List all services
-ags describe
-
-# Introspect a specific command
-ags describe iam users search
-```
-
-## Authentication
-
-AGS CLI supports two OAuth2 flows. Each requires a different type of IAM client, created in the AccelByte Admin Portal under **Platform Configuration → IAM Clients**.
-
-| Flow | IAM client type | When to use |
-|------|----------------|-------------|
-| Authorization code | **Public** | Interactive use, local development |
-| Client credentials | **Confidential** | Headless environments, CI, service-to-service |
-
-### Creating an IAM client
-
-> **Important:** Public IAM clients must have `http://127.0.0.1:8080` as a redirect URI. The CLI's authorization code flow uses a localhost callback on port 8080 (configurable with `--port`). Without this redirect URI, the browser login will fail with an OAuth error.
-
-1. Go to your AccelByte Admin Portal
-2. Navigate to **Platform Configuration → IAM Clients**
-3. Create a new client:
-   - For interactive use: choose **Public** client type
-   - For CI or automation: choose **Confidential** client type and note the client secret
-4. Add `http://127.0.0.1:8080` as a redirect URI (public clients only)
-5. Assign the permissions your CLI usage requires
-
-### Authorization code flow
-
-This is the default flow for interactive use. Requires a **public** IAM client.
-
-```bash
-ags auth login
-```
-
-You will be prompted for the base URL and client ID. The CLI then prints a URL for you to open in your browser and completes authentication through a localhost callback.
-
-### Client credentials flow
-
-Use this for headless environments such as CI. Requires a **confidential** IAM client.
-
-```bash
-ags auth login --grant client-credentials
-```
-
-You will be prompted for the base URL, client ID, and client secret.
-
-Tokens are stored in the OS keychain when available:
-
-- macOS Keychain
-- Windows Credential Manager
-- Linux Secret Service
-
-Credentials are never stored in plaintext config files.
-
-### Environment Variable Overrides
-
-| Variable | Description |
-|----------|-------------|
-| `AGS_ACCESS_TOKEN` | Use this token directly and skip interactive auth |
-| `AGS_CLIENT_ID` | Client ID for client-credentials flow |
-| `AGS_CLIENT_SECRET` | Client secret for client-credentials flow |
-| `AGS_BASE_URL` | AccelByte API base URL |
-| `AGS_NAMESPACE` | Default namespace |
-| `AGS_PROFILE` | Active profile name |
-| `AGS_HOME` | Override config and cache directory location |
-| `AGS_AUTH_TIMEOUT` | Timeout in seconds for browser auth flow (default 120) |
-| `AGS_NO_KEYCHAIN` | Disable OS keychain, use file-based token storage |
-
-### Session Management
-
-```bash
-ags auth status
-ags auth logout
-ags auth logout --all   # clear credentials from all profiles
-```
-
-### Troubleshooting
+Use `ags doctor` to check config, auth, and connectivity. Use `ags refresh-specs` if command metadata looks stale after upgrading, a service is missing expected commands, or `ags describe` output seems out of date.
 
 ```bash
 ags doctor              # check config, auth, and connectivity
@@ -271,53 +333,12 @@ ags refresh-specs       # rebuild the parsed-schema cache for every service
 ags refresh-specs iam   # rebuild the cache for a single service
 ```
 
-## Profiles
+## Supported services
 
-AGS CLI uses profiles to manage separate environments (dev, staging, prod). Each profile stores its own base URL, client ID, namespace, and credentials independently.
+AGS CLI covers every AccelByte Gaming Services API. Run `ags --help` for the live list, or `ags describe` for machine-readable metadata.
 
-A `default` profile is created automatically the first time you run a command. For single-environment use, you don't need to think about profiles at all.
-
-```bash
-# Create a profile for a different environment
-ags profile create staging
-
-# Switch the active profile
-ags profile use staging
-
-# Authenticate against the active profile
-ags auth login
-
-# List all profiles
-ags profile list
-
-# Show profile details
-ags profile show staging
-
-# Rename or delete a profile
-ags profile rename staging production
-ags profile delete old-profile
-
-# Target a specific profile without switching
-ags iam users list --namespace my-game --profile staging
-```
-
-## Configuration
-
-Use `ags config` to view and manage settings. Profile-scoped keys (like `base-url`, `namespace`) are stored per profile. Global keys (like `format`) apply to all profiles.
-
-```bash
-# View all config values and where they come from
-ags config get
-
-# Set a value (scope is auto-detected from the key)
-ags config set base-url https://demo.accelbyte.io
-ags config set format json
-
-# Remove a value
-ags config unset namespace
-```
-
-## Supported Services
+<details>
+<summary>Full service list</summary>
 
 | Service | CLI name | Description |
 |---------|----------|-------------|
@@ -346,9 +367,11 @@ ags config unset namespace
 | Social | `social` | Stats, game profiles, and social slots |
 | UGC | `ugc` | User-generated content, channels, and moderation |
 
+</details>
+
 ## Contributing
 
-If you want to build, test, or contribute to AGS CLI itself, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Build, test, and contribution instructions live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
