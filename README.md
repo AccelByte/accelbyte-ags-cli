@@ -89,20 +89,19 @@ ags doctor
 
 Choose the mode that matches how you work: interactively in a terminal, non-interactively in scripts, or through an AI agent.
 
-|                | Interactive                                                                | Automation                                                                  | AI agent                                                                    |
-| -------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **Auth**       | [Authorization code flow](#authorization-code-flow-public-client)          | [Client credentials flow](#client-credentials-flow-confidential-client)     | reuses the user's local session when available                              |
-| **Discovery**  | interactive `--help`                                                       | `ags describe` (JSON)                                                       | `ags describe` (JSON)                                                       |
-| **Versioning** | default contract                                                           | pinned contract                                                             | pinned contract                                                             |
-| **Input**      | interactive prompts                                                        | non-interactive, auto-confirm                                               | non-interactive, human confirms mutating actions                            |
-| **Output**     | human-readable                                                             | [stable JSON](#stable-json-output)                                            | [stable JSON](#stable-json-output)                                            |
+|                | Interactive                                                          | Automation                                                              | AI agent           |
+| -------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------ |
+| **Auth**       | [Authorization code](#authorization-code-flow-public-client)         | [Client credentials](#client-credentials-flow-confidential-client)      | Either             |
+| **Discovery**  | `ags --help`                                                         | `ags describe`                                                          | `ags describe`     |
+| **Versioning** | default contract                                                     | pinned contract                                                         | pinned contract    |
+| **Input**      |                                                                      | `--no-input --yes`                                                      | `--no-input`       |
+| **Output**     |                                                                      | `--format json`                                                         | `--format json`    |
 
-### Contracts and input
-
-- **Pinning the contract.** Service commands resolve to a contract: the combination of command, scope (`admin` or `public`), and API version (`v1`, `v2`, …). Without flags, AGS picks the admin scope and the latest stable version it knows about. The latest version can shift between releases, so automation and AI agents should pin both `--api-scope` and `--api-version` on every call. `--api-version latest` is intentionally not supported. Run `ags describe <service> <resource> <method>` to see the full scope/version matrix for a command.
-- **Non-interactive input.** Pair `--no-input` (fail rather than prompt for missing values) with `--yes` to auto-confirm mutating operations. AI agents should set `--no-input` but **not** `--yes`, since the user is present and human-in-the-loop confirmation should be preserved for destructive changes. If you're running fully headless on behalf of no user, follow the Automation column instead.
-- **Don't parse `--help`.** It is human-only and not a contract. Use `ags describe` for machine-readable introspection, typically at build time (generating typed clients, grounding agent prompts) rather than at runtime.
-- **Request bodies.** Operations that take a body accept `--json '<inline-json>'` or `--json @path/to/body.json`. Use `--skeleton` to print a starter template you can edit.
+> [!NOTE]
+> - **Versioning.** Service commands resolve to a contract: command + scope (`admin` or `public`) + API version (`v1`, `v2`, …). Without flags, AGS picks the admin scope and the latest stable version it knows about; the latest version can shift between releases, so automation and AI agents should pin both `--api-scope` and `--api-version`. `--api-version latest` is intentionally not supported. Run `ags describe <service> <resource> <method>` to see the full scope/version matrix.
+> - **Discovery.** `--help` is human-only and not a contract — don't parse it. Use `ags describe` for machine-readable introspection, typically at build time (generating typed clients, grounding agent prompts) rather than at runtime.
+> - **Input.** `--no-input` fails rather than prompting for missing values; `--yes` auto-confirms mutating operations. AI agents should set `--no-input` but **not** `--yes`, since the user is present and human-in-the-loop confirmation should be preserved for destructive changes. If you're running fully headless on behalf of no user, follow the Automation column.
+> - **Output.** Default human-readable output is not a contract — wording, layout, and colour can change between releases. `--format json` is the stable contract; machine-readable fields will not be removed or renamed without a major version bump. JSON works on every command, including `auth`, `config`, `profile`, and `version`. Set persistently with `ags config set format json` if every invocation in your environment should default to JSON.
 
 ### Command shape
 
@@ -130,19 +129,9 @@ ags describe
 ags describe iam users get
 ```
 
-### Stable JSON output
+### Request bodies
 
-Default human-readable output is not a contract: wording, layout, and colour can change between releases. `--format json` is the stable contract, and machine-readable fields will not be removed or renamed without a major version bump. JSON works on every command, including `auth`, `config`, `profile`, and `version`.
-
-Set persistently with `ags config set format json` if every invocation in your environment should default to JSON.
-
-> [!WARNING]
-> **Treat client secrets and access tokens like production credentials.**
-> - Store secrets in a secret manager (HashiCorp Vault, AWS Secrets Manager, GitHub Actions secrets, etc.). Never put them in source control or plain config files.
-> - Inject at runtime via `AGS_CLIENT_ID`, `AGS_CLIENT_SECRET`, or a short-lived `AGS_ACCESS_TOKEN`.
-> - Restrict the IAM client's permissions to the minimum required for the workload.
-> - Rotate client secrets periodically and on personnel changes.
-> - Avoid logging command lines that include credential-bearing flag values; the CLI redacts known secrets in its own output but upstream shells, CI logs, and downstream tooling may not.
+Operations that take a body accept `--json '<inline-json>'` or `--json @path/to/body.json`. Use `--skeleton` to print a starter template you can edit.
 
 ### Global flags
 
@@ -173,6 +162,14 @@ Global flags can appear anywhere in the command. The `format`, `no-color`, and `
 
 ## Authentication
 
+> [!WARNING]
+> **Treat client secrets and access tokens like production credentials.**
+> - Store secrets in a secret manager (HashiCorp Vault, AWS Secrets Manager, GitHub Actions secrets, etc.). Never put them in source control or plain config files.
+> - Inject at runtime via `AGS_CLIENT_ID`, `AGS_CLIENT_SECRET`, or a short-lived `AGS_ACCESS_TOKEN`.
+> - Restrict the IAM client's permissions to the minimum required for the workload.
+> - Rotate client secrets periodically and on personnel changes.
+> - Avoid logging command lines that include credential-bearing flag values; the CLI redacts known secrets in its own output but upstream shells, CI logs, and downstream tooling may not.
+
 AGS CLI supports two OAuth2 flows. Each requires a different type of IAM client, created in the AccelByte Admin Portal under **Platform Configuration → IAM Clients**.
 
 If your team already gave you a base URL and IAM client, skip client creation and go straight to the appropriate login flow below.
@@ -187,17 +184,6 @@ If your team already gave you a base URL and IAM client, skip client creation an
 > [!IMPORTANT]
 > Public IAM clients must have `http://127.0.0.1:8080` as a redirect URI. The CLI's authorization code flow uses a localhost callback on port 8080 (configurable with `--port`). Without this redirect URI, the browser login will fail with an OAuth error.
 
-> [!NOTE]
-> **Where to create your IAM client depends on your deployment.**
->
-> **Private cloud** (publisher and game namespaces):
-> - **Publisher-level IAM client**: SSO (Google, Apple, Discord, etc.) or email/password login. Best for cross-game work and publisher-level control.
-> - **Game-level IAM client**: email/password login. Best for single-game management.
->
-> **Shared cloud** (studio and game namespaces):
-> - **Studio-level IAM client**: not available.
-> - **Game-level IAM client**: email/password login.
-
 1. Go to your AccelByte Admin Portal
 2. Navigate to **Platform Configuration → IAM Clients**
 3. Create a new client:
@@ -205,6 +191,17 @@ If your team already gave you a base URL and IAM client, skip client creation an
    - For CI or automation: choose **Confidential** client type and note the client secret
 4. Add `http://127.0.0.1:8080` as a redirect URI (public clients only)
 5. Assign the permissions your CLI usage requires
+
+> [!NOTE]
+> **Where to create your IAM client depends on your deployment.**
+>
+> **Private cloud:**
+> - **Publisher-level IAM client**: SSO or email/password login. Best for cross-game management.
+> - **Game-level IAM client**: email/password login. Best for single-game management.
+>
+> **Shared cloud:**
+> - **Studio-level IAM client**: not available.
+> - **Game-level IAM client**: email/password login.
 
 ### Authorization code flow (public client)
 
