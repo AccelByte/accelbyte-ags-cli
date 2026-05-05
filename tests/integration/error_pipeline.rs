@@ -142,7 +142,7 @@ fn test_classify_404_error() {
         .hint
         .as_deref()
         .unwrap_or("")
-        .contains("ags iam users list"));
+        .contains("ags iam users search"));
 }
 
 /// Unmapped 404s must singularize the resource name (e.g. "users" -> "User not found") for natural language output

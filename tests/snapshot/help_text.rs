@@ -71,8 +71,8 @@ fn test_root_help() {
 
     Examples:
       ags auth login
-      ags iam users list --namespace my-game
-      ags platform item create --namespace my-game --json @item.json
+      ags iam users search --namespace my-game
+      ags platform items create --namespace my-game --store-id main --json @item.json
 
     Exit codes:
       0 = success
