@@ -296,20 +296,25 @@ pub fn resolve_namespace(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::config::{ENV_HOME, ENV_NAMESPACE, ENV_PROFILE, GlobalConfig, ProfileConfig};
+    use crate::runtime::config::{
+        GlobalConfig, ProfileConfig, ENV_HOME, ENV_NAMESPACE, ENV_PROFILE,
+    };
 
+    /// RAII guard that restores an environment variable after a test mutates it.
     struct TempEnvGuard {
         key: &'static str,
         original: Option<String>,
     }
 
     impl TempEnvGuard {
+        /// Set an environment variable for the lifetime of the guard.
         fn set(key: &'static str, value: &str) -> Self {
             let original = std::env::var(key).ok();
             std::env::set_var(key, value);
             Self { key, original }
         }
 
+        /// Clear an environment variable for the lifetime of the guard.
         fn clear(key: &'static str) -> Self {
             let original = std::env::var(key).ok();
             std::env::remove_var(key);
@@ -318,6 +323,7 @@ mod tests {
     }
 
     impl Drop for TempEnvGuard {
+        /// Restore the original environment variable value when the guard is dropped.
         fn drop(&mut self) {
             match &self.original {
                 Some(val) => std::env::set_var(self.key, val),
