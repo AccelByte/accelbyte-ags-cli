@@ -86,8 +86,10 @@ pub(super) fn parse_service_args(
 
     early_resolve_selected_method(&service_schema, internal, &positional_args, selectors)?;
 
-    let namespace_resolution =
-        crate::runtime::execution::resolve_namespace(flags.namespace.as_deref());
+    let namespace_resolution = crate::runtime::execution::resolve_namespace(
+        flags.namespace.as_deref(),
+        flags.profile.as_deref(),
+    );
     let effective_args = inject_namespace_if_needed(
         service_args,
         &namespace_resolution,
