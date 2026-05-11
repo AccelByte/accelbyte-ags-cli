@@ -265,16 +265,174 @@ impl ExecutionContext {
     }
 }
 
-/// Resolve namespace from flag or environment variable.
+/// Resolve namespace from flag, environment, or the active profile's config.
 ///
-/// Used for early Clap arg injection before full auth resolution.
-/// Profile config namespace resolution happens later in `ExecutionContext::resolve()`.
-pub fn resolve_namespace(namespace_flag: Option<&str>) -> Option<(String, NamespaceSource)> {
+/// Used for early Clap arg injection so that commands declaring `--namespace`
+/// as required can still satisfy that requirement from profile config without
+/// the user re-passing the flag.
+///
+/// Resolution order matches `ExecutionContext::resolve()`: `--namespace` flag,
+/// then `AGS_NAMESPACE` env var, then the namespace stored in the active
+/// profile. Errors loading config (corrupt or missing files) are silently
+/// treated as "no value" so a broken config never blocks CLI startup; Clap
+/// will then surface the missing-arg error.
+pub fn resolve_namespace(
+    namespace_flag: Option<&str>,
+    profile_flag: Option<&str>,
+) -> Option<(String, NamespaceSource)> {
     if let Some(namespace) = namespace_flag {
         return Some((namespace.to_string(), NamespaceSource::Flag));
     }
     if let Ok(namespace) = std::env::var(crate::runtime::config::ENV_NAMESPACE) {
         return Some((namespace, NamespaceSource::Environment));
     }
-    None
+    let profile = crate::runtime::config::resolve_profile_name(profile_flag).ok()?;
+    let profile_config = crate::runtime::config::ProfileConfig::load(&profile).ok()?;
+    profile_config
+        .namespace
+        .map(|namespace| (namespace, NamespaceSource::Configuration))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::config::{ENV_HOME, ENV_NAMESPACE, ENV_PROFILE, GlobalConfig, ProfileConfig};
+
+    struct TempEnvGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl TempEnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let original = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, original }
+        }
+
+        fn clear(key: &'static str) -> Self {
+            let original = std::env::var(key).ok();
+            std::env::remove_var(key);
+            Self { key, original }
+        }
+    }
+
+    impl Drop for TempEnvGuard {
+        fn drop(&mut self) {
+            match &self.original {
+                Some(val) => std::env::set_var(self.key, val),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    /// Profile config namespace is used when no flag or env override is present —
+    /// this is the bug the resolver was missing before.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_namespace_falls_back_to_profile_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(ENV_HOME, tmp.path().to_str().unwrap());
+        let _ns = TempEnvGuard::clear(ENV_NAMESPACE);
+        let _profile = TempEnvGuard::clear(ENV_PROFILE);
+
+        GlobalConfig {
+            active_profile: Some("default".to_string()),
+            ..Default::default()
+        }
+        .save()
+        .unwrap();
+        ProfileConfig {
+            namespace: Some("from-config".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let (namespace, source) = resolve_namespace(None, None).unwrap();
+        assert_eq!(namespace, "from-config");
+        assert_eq!(source, NamespaceSource::Configuration);
+    }
+
+    /// An explicit --namespace flag wins over a profile config value.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_namespace_flag_wins_over_profile_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(ENV_HOME, tmp.path().to_str().unwrap());
+        let _ns = TempEnvGuard::clear(ENV_NAMESPACE);
+        let _profile = TempEnvGuard::clear(ENV_PROFILE);
+
+        ProfileConfig {
+            namespace: Some("from-config".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let (namespace, source) = resolve_namespace(Some("from-flag"), None).unwrap();
+        assert_eq!(namespace, "from-flag");
+        assert_eq!(source, NamespaceSource::Flag);
+    }
+
+    /// AGS_NAMESPACE wins over a profile config value when no flag is supplied.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_namespace_env_wins_over_profile_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(ENV_HOME, tmp.path().to_str().unwrap());
+        let _ns = TempEnvGuard::set(ENV_NAMESPACE, "from-env");
+        let _profile = TempEnvGuard::clear(ENV_PROFILE);
+
+        ProfileConfig {
+            namespace: Some("from-config".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let (namespace, source) = resolve_namespace(None, None).unwrap();
+        assert_eq!(namespace, "from-env");
+        assert_eq!(source, NamespaceSource::Environment);
+    }
+
+    /// --profile selects a specific profile's namespace, ignoring the active profile.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_namespace_uses_explicit_profile_flag() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(ENV_HOME, tmp.path().to_str().unwrap());
+        let _ns = TempEnvGuard::clear(ENV_NAMESPACE);
+        let _profile = TempEnvGuard::clear(ENV_PROFILE);
+
+        ProfileConfig {
+            namespace: Some("default-ns".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+        ProfileConfig {
+            namespace: Some("staging-ns".to_string()),
+            ..Default::default()
+        }
+        .save("staging")
+        .unwrap();
+
+        let (namespace, source) = resolve_namespace(None, Some("staging")).unwrap();
+        assert_eq!(namespace, "staging-ns");
+        assert_eq!(source, NamespaceSource::Configuration);
+    }
+
+    /// With no flag, no env, and no config value, the resolver yields None so Clap
+    /// can surface the missing-arg error naturally.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_namespace_none_when_nothing_set() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(ENV_HOME, tmp.path().to_str().unwrap());
+        let _ns = TempEnvGuard::clear(ENV_NAMESPACE);
+        let _profile = TempEnvGuard::clear(ENV_PROFILE);
+
+        assert!(resolve_namespace(None, None).is_none());
+    }
 }
