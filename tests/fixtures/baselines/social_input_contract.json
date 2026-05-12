@@ -204,26 +204,6 @@
     },
     {
       "http_method": "GET",
-      "method": "export",
-      "parameters": [
-        {
-          "location": "path",
-          "name": "cycleId",
-          "required": true
-        },
-        {
-          "location": "path",
-          "name": "namespace",
-          "required": true
-        }
-      ],
-      "path": "/social/v1/public/namespaces/{namespace}/statCycles/{cycleId}",
-      "permissions": [],
-      "summary": "Retrieves a stat cycle",
-      "x_operation_id": "social/public/stat-cycles/v1/export"
-    },
-    {
-      "http_method": "GET",
       "method": "get",
       "parameters": [
         {
@@ -241,6 +221,26 @@
       "permissions": [],
       "summary": "Retrieves a stat cycle",
       "x_operation_id": "social/admin/stat-cycles/v1/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "cycleId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/social/v1/public/namespaces/{namespace}/statCycles/{cycleId}",
+      "permissions": [],
+      "summary": "Retrieves a stat cycle",
+      "x_operation_id": "social/public/stat-cycles/v1/get"
     },
     {
       "http_method": "POST",

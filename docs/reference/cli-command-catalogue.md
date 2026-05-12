@@ -5,7 +5,7 @@ Auto-generated from `specs/*.json.gz` via `scripts/generate_cli_command_catalogu
 Lists every operation the CLI dispatches. Deprecated operations and the `internal` resource are excluded. Each row corresponds to a concrete `--api-scope` / `--api-version` combination.
 
 **Services:** 24
-**Operations:** 1961
+**Operations:** 1962
 
 ## achievement
 
@@ -102,7 +102,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 
 - Spec name: `basic`
 - Resources: 5
-- Operations: 57
+- Operations: 58
 
 | Resource | Method | Scope | Version | HTTP | Path | Summary |
 |----------|--------|-------|---------|------|------|---------|
@@ -160,6 +160,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `profiles` | `update-custom-attributes` | public | v1 | PUT | `/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/customAttributes` | Updates custom attributes for a user |
 | `profiles` | `update-my` | public | v1 | PUT | `/basic/v1/public/namespaces/{namespace}/users/me/profiles` | Updates my profile |
 | `profiles` | `update-my-private-custom-attributes` | public | v1 | PUT | `/basic/v1/public/namespaces/{namespace}/users/me/profiles/privateCustomAttributes` | Updates my private custom attributes |
+| `profiles` | `update-my-zip-code` | public | v1 | PATCH | `/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode` | Updates my zip code |
 | `profiles` | `update-private-custom-attributes` | admin | v1 | PUT | `/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/privateCustomAttributes` | Updates private custom attributes for a user |
 | `profiles` | `update-status` | admin | v1 | PATCH | `/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/status` | Updates user profile status |
 | `profiles` | `update-status` | public | v1 | PATCH | `/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/status` | Updates user profile status |
@@ -1120,7 +1121,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 
 | Resource | Method | Scope | Version | HTTP | Path | Summary |
 |----------|--------|-------|---------|------|------|---------|
-| `blocks` | `symc` | public | v1 | PATCH | `/lobby/sync/namespaces/{namespace}/me/block` | Syncs the current user's blocked list with linked native first-party platform accounts |
+| `blocks` | `sync` | public | v1 | PATCH | `/lobby/sync/namespaces/{namespace}/me/block` | Syncs the current user's blocked list with linked native first-party platform accounts |
 | `config` | `export` | admin | v1 | GET | `/lobby/v1/admin/config/namespaces/{namespace}/export` | Exports the lobby configuration to a JSON file |
 | `config` | `get` | admin | v1 | GET | `/lobby/v1/admin/config/namespaces/{namespace}` | Retrieves the configuration for a specified namespace |
 | `config` | `get-log` | admin | v1 | GET | `/lobby/v1/admin/config/log` | Retrieves the current log configuration |
@@ -1963,8 +1964,8 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `stat-cycles` | `create` | admin | v1 | POST | `/social/v1/admin/namespaces/{namespace}/statCycles` | Creates a stat cycle |
 | `stat-cycles` | `delete` | admin | v1 | DELETE | `/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}` | Deletes stat cycle |
 | `stat-cycles` | `export` | admin | v1 | GET | `/social/v1/admin/namespaces/{namespace}/statCycles/export` | Exports all stat cycle configurations |
-| `stat-cycles` | `export` | public | v1 | GET | `/social/v1/public/namespaces/{namespace}/statCycles/{cycleId}` | Retrieves a stat cycle |
 | `stat-cycles` | `get` | admin | v1 | GET | `/social/v1/admin/namespaces/{namespace}/statCycles/{cycleId}` | Retrieves a stat cycle |
+| `stat-cycles` | `get` | public | v1 | GET | `/social/v1/public/namespaces/{namespace}/statCycles/{cycleId}` | Retrieves a stat cycle |
 | `stat-cycles` | `import` | admin | v1 | POST | `/social/v1/admin/namespaces/{namespace}/statCycles/import` | Imports stat cycle configurations |
 | `stat-cycles` | `list` | admin | v1 | GET | `/social/v1/admin/namespaces/{namespace}/statCycles` | Lists stat cycles |
 | `stat-cycles` | `list` | public | v1 | GET | `/social/v1/public/namespaces/{namespace}/statCycles` | Lists stat cycles |

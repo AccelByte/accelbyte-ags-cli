@@ -987,6 +987,21 @@
       "x_operation_id": "basic/public/profiles/v1/update-my-private-custom-attributes"
     },
     {
+      "http_method": "PATCH",
+      "method": "update-my-zip-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode",
+      "permissions": [],
+      "summary": "Updates my zip code",
+      "x_operation_id": "basic/public/profiles/v1/update-my-zip-code"
+    },
+    {
       "http_method": "PUT",
       "method": "update-private-custom-attributes",
       "parameters": [
