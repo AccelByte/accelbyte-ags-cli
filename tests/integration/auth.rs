@@ -3,6 +3,8 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use ags::runtime::auth::tokens as service;
 
+use crate::common::env_guard::TempEnvGuard;
+
 const TEST_CLIENT_ID: &str = "test-client-id";
 const TEST_CLIENT_SECRET: &str = "test-client-secret";
 
@@ -408,4 +410,123 @@ fn test_auth_login_rejects_invalid_base_url_without_panic() {
             .code(predicates::ord::ne(101))
             .stderr(contains("Invalid base URL").and(contains("panicked").not()));
     }
+}
+
+/// Client-credentials self-heals: when the stored token is stale and the
+/// stored refresh token is rejected by the server, probe_existing_session
+/// returns None (after clearing the stale state), and the subsequent
+/// client-credentials grant succeeds.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_client_credentials_self_heals_on_refresh_rejection() {
+    use ags::runtime::auth::store::{self, TokenData};
+    use ags::runtime::config::ProfileConfig;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+    let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+    let server = MockServer::start().await;
+
+    // Refresh attempt: server rejects.
+    Mock::given(method("POST"))
+        .and(path("/iam/v3/oauth/token"))
+        .and(body_string_contains("grant_type=refresh_token"))
+        .respond_with(ResponseTemplate::new(401).set_body_string(
+            r#"{"error":"invalid_grant","error_description":"refresh token expired"}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    // Client-credentials grant: succeeds.
+    Mock::given(method("POST"))
+        .and(path("/iam/v3/oauth/token"))
+        .and(body_string_contains("grant_type=client_credentials"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"access_token":"fresh-cc-token","expires_in":3600,"token_type":"Bearer"}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let profile = "default";
+    ProfileConfig {
+        base_url: Some(server.uri()),
+        client_id: Some(TEST_CLIENT_ID.to_string()),
+        ..Default::default()
+    }
+    .save(profile)
+    .unwrap();
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    store::store_token_data(
+        profile,
+        &TokenData {
+            access_token: "expired".to_string(),
+            expires_at: now.saturating_sub(60),
+            refresh_token: Some("dead-refresh".to_string()),
+            refresh_expires_at: Some(now + 86_400),
+            grant_type: Some(ags::protocol::request::GrantType::ClientCredentials),
+        },
+    )
+    .unwrap();
+
+    /// Sink that drops every progress event — tests don't care about the stream.
+    struct TestSink;
+    impl ags::protocol::event::ProgressSink for TestSink {
+        /// Drop every event.
+        fn on_event(&mut self, _event: ags::protocol::event::ProgressEvent) {}
+    }
+
+    let client = reqwest::Client::new();
+    let mut sink = TestSink;
+
+    // Step 1: probe runs first (as the CLI handler now does). Expected: None
+    // because the refresh was rejected. The stored token must have been
+    // cleared as a side effect.
+    let probed = ags::runtime::auth::operations::probe_existing_session(
+        &client,
+        profile,
+        server.uri(),
+        TEST_CLIENT_ID.to_string(),
+        "client credentials",
+        &mut sink,
+    )
+    .await
+    .unwrap();
+    assert!(
+        probed.is_none(),
+        "probe should return None after rejection, got {probed:?}"
+    );
+    assert!(
+        store::get_token_data(profile).unwrap().is_none(),
+        "stale token data should have been cleared by the probe"
+    );
+
+    // Step 2: probe returned None → caller proceeds with fresh grant.
+    let outcome = ags::runtime::auth::operations::login_with_client_credentials(
+        &client,
+        ags::runtime::auth::operations::ClientCredentialsLogin {
+            profile: profile.to_string(),
+            base_url: server.uri(),
+            client_id: TEST_CLIENT_ID.to_string(),
+            client_secret: TEST_CLIENT_SECRET.to_string(),
+        },
+        &mut sink,
+    )
+    .await
+    .unwrap();
+
+    use ags::runtime::auth::operations::LoginOutcomeKind;
+    assert!(
+        matches!(outcome.kind, LoginOutcomeKind::LoggedIn),
+        "expected LoggedIn from fresh grant, got {:?}",
+        outcome.kind
+    );
+
+    let stored = store::get_token_data(profile).unwrap().unwrap();
+    assert_eq!(stored.access_token, "fresh-cc-token");
 }

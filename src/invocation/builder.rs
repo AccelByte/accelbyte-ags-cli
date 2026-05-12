@@ -469,7 +469,10 @@ fn build_login_subcommand() -> Command {
              \x20   Base URL:       --base-url → AGS_BASE_URL → config → prompt\n\
              \x20   Client ID:      --client-id → AGS_CLIENT_ID → config → prompt\n\
              \x20   Client Secret:  --client-secret → AGS_CLIENT_SECRET → keychain → prompt\n\n\
-             \x20 With --format json, outputs {\"status\": \"authenticated\"} on success.",
+             \x20 With --format json, outputs one of:\n\
+             \x20   {\"status\": \"logged_in\"}             — fresh successful grant\n\
+             \x20   {\"status\": \"already_authenticated\"} — probe found a valid session\n\
+             \x20   {\"status\": \"refreshed\"}             — probe refreshed an expired token",
         )
         .arg(
             Arg::new("grant")

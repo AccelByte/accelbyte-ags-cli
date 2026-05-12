@@ -7,7 +7,8 @@ use crate::frontend::style;
 use crate::frontend::RenderOptions;
 use crate::frontend::RenderedOutput;
 use crate::protocol::output::{
-    AuthActionData, AuthOutput, AuthStatusData, AuthView, LogoutData, Presence, TokenState,
+    AuthActionData, AuthActionStatus, AuthOutput, AuthStatusData, AuthView, LogoutData, Presence,
+    TokenState,
 };
 
 /// Render auth command output as human-readable text
@@ -37,10 +38,18 @@ fn render_auth_view_text(view: &AuthView) -> (String, Option<String>) {
             ),
             Some(render_attention_details(data)),
         ),
-        AuthView::LoginSuccess(data) => (
-            style::success("Authenticated", style::is_stdout_enabled()),
-            Some(render_login_success_details(data)),
-        ),
+        AuthView::LoginSuccess(data) => {
+            let headline_text = match data.status {
+                AuthActionStatus::LoggedIn | AuthActionStatus::AlreadyAuthenticated => {
+                    "Authenticated"
+                }
+                AuthActionStatus::Refreshed => "Session refreshed",
+            };
+            (
+                style::success(headline_text, style::is_stdout_enabled()),
+                Some(render_login_success_details(data)),
+            )
+        }
         AuthView::LogoutSuccess(data) => (
             style::success("Credentials cleared", style::is_stdout_enabled()),
             Some(render_logout_details(data)),

@@ -86,19 +86,6 @@ async fn handle_auth_login(
             handle_login_with_client_credentials(matches, flags, profile, runtime, frontend).await
         }
         GrantType::AuthorizationCode => {
-            // Authorization code login opens a browser and prints instructions
-            // to stderr. That is incompatible with any non-interactive mode:
-            // --no-input, or --format json which is inherently machine-driven.
-            if flags.is_no_input
-                || flags.format == Some(crate::protocol::request::OutputFormat::Json)
-            {
-                return Err(CliError::Usage {
-                    message: "Authorization code flow requires browser interaction and cannot run non-interactively.\n\
-                     Use '--grant client-credentials' for headless authentication."
-                        .to_string(),
-                    metadata: None,
-                });
-            }
             handle_login_with_browser(matches, flags, profile, runtime, frontend).await
         }
     }
@@ -111,7 +98,7 @@ async fn handle_auth_login(
 /// the token exchange + persistence to `operations::login_with_authorization_code`.
 async fn handle_login_with_browser(
     matches: &ArgMatches,
-    _flags: &GlobalFlags,
+    flags: &GlobalFlags,
     profile: &str,
     runtime: &crate::runtime::Runtime,
     frontend: &mut dyn crate::frontend::Frontend,
@@ -123,23 +110,56 @@ async fn handle_login_with_browser(
         .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or(8080);
 
+    // Non-interactive modes can't drive the browser flow, but they CAN still
+    // benefit from the probe (a valid stored session means no browser is
+    // needed). So we resolve identity → probe → reject only if both fail.
+    let is_prompt_blocked =
+        flags.is_no_input || flags.format == Some(crate::protocol::request::OutputFormat::Json);
+
     let base_url = resolve_login_value(
         flag_base_url,
         crate::runtime::auth::credentials::resolve_base_url_value(profile),
-        false,
+        is_prompt_blocked,
         "Enter Base URL (e.g. https://demo.accelbyte.io): ",
         "Base URL is required.",
-        "When reading from stdin, --base-url or AGS_BASE_URL must be provided.",
+        "Provide --base-url or set AGS_BASE_URL when running non-interactively.",
     )?;
 
     let client_id = resolve_login_value(
         flag_client_id,
         crate::runtime::auth::credentials::resolve_client_id_value(profile),
-        false,
+        is_prompt_blocked,
         "Enter Client ID: ",
         "Client ID is required.",
-        "When reading from stdin, --client-id or AGS_CLIENT_ID must be provided.",
+        "Provide --client-id or set AGS_CLIENT_ID when running non-interactively.",
     )?;
+
+    // Probe BEFORE binding the callback port or printing any browser URL.
+    // If the user already has a usable (or refreshable) session, we report
+    // that and stop here — no browser tab, no callback wait.
+    if let Some(view) = runtime
+        .auth_probe_existing_session(
+            profile,
+            base_url.clone(),
+            client_id.clone(),
+            "authorization code",
+            frontend.progress_sink(),
+        )
+        .await?
+    {
+        return Ok(CommandOutput::Auth(AuthOutput { view }));
+    }
+
+    // Probe didn't short-circuit and the browser flow needs a TTY. Reject
+    // cleanly instead of opening a browser the caller can't drive.
+    if is_prompt_blocked {
+        return Err(CliError::Usage {
+            message: "Authorization code flow requires browser interaction and cannot run non-interactively.\n\
+                     Use '--grant client-credentials' for headless authentication."
+                .to_string(),
+            metadata: None,
+        });
+    }
 
     // Generate PKCE pair and state
     let (code_verifier, code_challenge) = oauth::generate_pkce_pair();
@@ -203,7 +223,9 @@ async fn handle_login_with_client_credentials(
         );
     }
 
-    let is_prompt_blocked = flags.is_no_input || flag_client_secret_stdin;
+    let is_prompt_blocked = flags.is_no_input
+        || flag_client_secret_stdin
+        || flags.format == Some(crate::protocol::request::OutputFormat::Json);
 
     let base_url = resolve_login_value(
         flag_base_url,
@@ -222,6 +244,21 @@ async fn handle_login_with_client_credentials(
         "Client ID is required.",
         "Provide --client-id or set AGS_CLIENT_ID when using --no-input.",
     )?;
+
+    // Probe BEFORE prompting for the client secret. If the existing session
+    // is good (or can be refreshed), we don't need the secret at all.
+    if let Some(view) = runtime
+        .auth_probe_existing_session(
+            profile,
+            base_url.clone(),
+            client_id.clone(),
+            "client credentials",
+            frontend.progress_sink(),
+        )
+        .await?
+    {
+        return Ok(CommandOutput::Auth(AuthOutput { view }));
+    }
 
     let client_secret = resolve_client_secret_for_login(
         profile,

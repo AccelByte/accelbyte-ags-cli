@@ -18,48 +18,13 @@
 
 #![allow(clippy::await_holding_lock)]
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use ags::runtime::auth::session as service;
 use ags::runtime::auth::store::{self, TokenData};
 use ags::runtime::config::ProfileConfig;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-struct TempEnvGuard {
-    key: &'static str,
-    original: Option<String>,
-}
-
-impl TempEnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, original }
-    }
-
-    fn remove(key: &'static str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, original }
-    }
-}
-
-impl Drop for TempEnvGuard {
-    fn drop(&mut self) {
-        match &self.original {
-            Some(val) => std::env::set_var(self.key, val),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
-fn now_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-}
+use crate::common::env_guard::{now_secs, TempEnvGuard};
 
 /// Ten concurrent `resolve_access_token` calls with a stale access token
 /// must make exactly ONE refresh request — losers wait on the in-flight

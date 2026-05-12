@@ -4,6 +4,9 @@ pub mod file_system;
 pub mod output_sink;
 pub mod strings;
 
+#[cfg(test)]
+pub(crate) mod test_helpers;
+
 pub use file_system::FileLock;
 
 static LOCK_CONTENTION_REPORTER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();

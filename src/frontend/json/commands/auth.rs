@@ -46,8 +46,9 @@ fn render_auth_view_json(view: &AuthView) -> Result<String, CliError> {
         }
         AuthView::LoginSuccess(data) => {
             let status = match data.status {
-                AuthActionStatus::LoggedIn => "logged in",
-                AuthActionStatus::AlreadyAuthenticated => "already authenticated",
+                AuthActionStatus::LoggedIn => "logged_in",
+                AuthActionStatus::AlreadyAuthenticated => "already_authenticated",
+                AuthActionStatus::Refreshed => "refreshed",
             };
             serde_json::json!({ "status": status })
         }

@@ -1,34 +1,7 @@
 use ags::runtime::config::ProfileConfig;
 use ags::runtime::execution::ResolutionInput;
 
-/// RAII guard that sets an env var and restores the original value on drop.
-struct TempEnvGuard {
-    key: &'static str,
-    original: Option<String>,
-}
-
-impl TempEnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, original }
-    }
-
-    fn remove(key: &'static str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, original }
-    }
-}
-
-impl Drop for TempEnvGuard {
-    fn drop(&mut self) {
-        match &self.original {
-            Some(val) => std::env::set_var(self.key, val),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
+use crate::common::env_guard::TempEnvGuard;
 
 /// --namespace flag overrides env vars and config to give explicit invocations deterministic behavior
 #[tokio::test]

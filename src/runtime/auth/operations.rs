@@ -57,9 +57,10 @@ pub struct LoginOutcome {
     /// Friendly login-type label, e.g. `"client credentials"` or
     /// `"authorization code"`. Used by the renderer to display the login type.
     pub login_type: &'static str,
-    /// Token lifetime in seconds. `0` if the user was already authenticated
-    /// (no new token was fetched).
-    pub expires_in_secs: u64,
+    /// Token lifetime in seconds for `LoggedIn` and `Refreshed`. `None` when
+    /// no new token was fetched (`AlreadyAuthenticated`), since the stored
+    /// token's remaining lifetime is reported through the `tip` instead.
+    pub expires_in_secs: Option<u64>,
 }
 
 /// What the login function actually did.
@@ -70,6 +71,9 @@ pub enum LoginOutcomeKind {
     /// A valid (or refreshable) session already existed; no work was done.
     /// `tip` is the message to surface to the user.
     AlreadyAuthenticated { tip: String },
+    /// The stored access token was stale and was refreshed in place — no
+    /// fresh OAuth flow was run.
+    Refreshed,
 }
 
 /// Result of clearing credentials for a single profile.
@@ -137,8 +141,9 @@ pub enum RefreshTokenState {
     Missing,
 }
 
-/// Perform a client-credentials grant login. Returns an `AlreadyAuthenticated`
-/// outcome (no work done) if a valid or refreshable session already exists.
+/// Perform a client-credentials grant login. The caller is responsible for
+/// calling [`probe_existing_session`] first so we don't issue a redundant
+/// grant when a usable session already exists.
 pub async fn login_with_client_credentials(
     client: &Client,
     request: ClientCredentialsLogin,
@@ -146,16 +151,6 @@ pub async fn login_with_client_credentials(
 ) -> Result<LoginOutcome, RuntimeError> {
     use crate::protocol::event::ProgressEvent;
     use crate::support::unix_now;
-
-    if let Some(tip) = check_already_authenticated(&request.profile) {
-        return Ok(LoginOutcome {
-            kind: LoginOutcomeKind::AlreadyAuthenticated { tip },
-            base_url: request.base_url,
-            client_id: request.client_id,
-            login_type: "client credentials",
-            expires_in_secs: 0,
-        });
-    }
 
     sink.on_event(ProgressEvent::Started {
         message: "Authenticating (client credentials)...".to_string(),
@@ -198,12 +193,14 @@ pub async fn login_with_client_credentials(
         base_url: request.base_url,
         client_id: request.client_id,
         login_type: "client credentials",
-        expires_in_secs: token_result.expires_in,
+        expires_in_secs: Some(token_result.expires_in),
     })
 }
 
 /// Complete an authorization-code grant login. The caller is responsible for
-/// obtaining the `code` and `code_verifier` from the OAuth callback server.
+/// (a) obtaining the `code` and `code_verifier` from the OAuth callback
+/// server and (b) calling [`probe_existing_session`] first so we don't run
+/// the browser flow when a refreshable session already exists.
 pub async fn login_with_authorization_code(
     client: &Client,
     request: AuthorizationCodeLogin,
@@ -211,16 +208,6 @@ pub async fn login_with_authorization_code(
 ) -> Result<LoginOutcome, RuntimeError> {
     use crate::protocol::event::ProgressEvent;
     use crate::support::unix_now;
-
-    if let Some(tip) = check_already_authenticated(&request.profile) {
-        return Ok(LoginOutcome {
-            kind: LoginOutcomeKind::AlreadyAuthenticated { tip },
-            base_url: request.base_url,
-            client_id: request.client_id,
-            login_type: "authorization code",
-            expires_in_secs: 0,
-        });
-    }
 
     sink.on_event(ProgressEvent::Started {
         message: "Authenticating (authorization code)...".to_string(),
@@ -265,7 +252,7 @@ pub async fn login_with_authorization_code(
         base_url: request.base_url,
         client_id: request.client_id,
         login_type: "authorization code",
-        expires_in_secs: token_result.expires_in,
+        expires_in_secs: Some(token_result.expires_in),
     })
 }
 
@@ -418,10 +405,46 @@ fn refresh_token_state(
 
 // ── Internal helpers ──
 
+/// True if the profile's stored base URL and client ID match the requested
+/// values, or if either side is absent (no stored value to compare against).
+/// A mismatch means the stored token belongs to a different identity than
+/// the caller is asking to log into, so the probe must not short-circuit.
+///
+/// If the profile config cannot be loaded (corruption, permissions), we
+/// cannot verify identity, so refuse to short-circuit — the stored token
+/// may have been minted for a different base URL or client ID, and using
+/// it against the caller's requested target could leak a dev token to
+/// prod (or vice versa).
+fn stored_identity_matches(
+    profile: &str,
+    requested_base_url: &str,
+    requested_client_id: &str,
+) -> bool {
+    use crate::runtime::config::ProfileConfig;
+
+    let Ok(config) = ProfileConfig::load(profile) else {
+        return false;
+    };
+    if let Some(stored) = config.base_url.as_deref() {
+        if stored != requested_base_url {
+            return false;
+        }
+    }
+    if let Some(stored) = config.client_id.as_deref() {
+        if stored != requested_client_id {
+            return false;
+        }
+    }
+    true
+}
+
 /// Inspect stored token data and return a "you are already authenticated" tip
-/// if a usable session exists. Returns `None` if the user should proceed with
-/// a fresh login.
-fn check_already_authenticated(profile: &str) -> Option<String> {
+/// if the access token is comfortably within its expiry window. Returns `None`
+/// when the caller should probe for a refreshable session or proceed with a
+/// fresh login — the refresh-token branch that previously lived in
+/// `check_already_authenticated` moved to `session::try_refresh_stored_session`,
+/// invoked via `probe_existing_session`.
+fn existing_access_token_still_valid(profile: &str) -> Option<String> {
     use crate::support::unix_now;
 
     let token_data = store::get_token_data(profile).ok()??;
@@ -435,19 +458,79 @@ fn check_already_authenticated(profile: &str) -> Option<String> {
         ));
     }
 
-    let has_refresh = token_data.refresh_token.is_some()
-        && token_data
-            .refresh_expires_at
-            .map(|exp| now < exp)
-            .unwrap_or(true);
+    None
+}
 
-    if has_refresh {
-        return Some(
-            "Session is active (token will auto-refresh on next API call). Run 'ags auth logout' first to re-authenticate.".to_string()
-        );
+/// Probe whether the profile already has a usable session, refreshing in
+/// place if the access token is stale but the refresh token still works.
+///
+/// Returns:
+/// - `Ok(Some(AlreadyAuthenticated))` — access token still comfortably valid;
+///   caller should not start a fresh flow.
+/// - `Ok(Some(Refreshed))` — access token was stale but the refresh token
+///   was successfully used to mint a fresh one; new token already persisted;
+///   caller should not start a fresh flow.
+/// - `Ok(None)` — caller must proceed with a fresh OAuth or grant flow. Any
+///   stale stored token has already been cleared via best-effort delete; an
+///   informational `ProgressEvent::Message` was emitted to the sink if
+///   `None` is due to a server-side refresh rejection.
+/// - `Err(_)` — transport-level failure during the probe (e.g. network down);
+///   caller should propagate the error and abort.
+pub async fn probe_existing_session(
+    client: &Client,
+    profile: &str,
+    base_url: String,
+    client_id: String,
+    login_type: &'static str,
+    sink: &mut dyn ProgressSink,
+) -> Result<Option<LoginOutcome>, RuntimeError> {
+    use crate::protocol::event::ProgressEvent;
+
+    // The stored token was minted for the profile's stored identity. If the
+    // caller is asking to log into a different base URL or client ID, the
+    // stored session isn't a match — fall through to a fresh flow.
+    if !stored_identity_matches(profile, &base_url, &client_id) {
+        return Ok(None);
     }
 
-    None
+    if let Some(tip) = existing_access_token_still_valid(profile) {
+        return Ok(Some(LoginOutcome {
+            kind: LoginOutcomeKind::AlreadyAuthenticated { tip },
+            base_url,
+            client_id,
+            login_type,
+            expires_in_secs: None,
+        }));
+    }
+
+    match session::try_refresh_stored_session(client, profile).await? {
+        session::RefreshOutcome::Refreshed {
+            expires_in_secs, ..
+        } => Ok(Some(LoginOutcome {
+            kind: LoginOutcomeKind::Refreshed,
+            base_url,
+            client_id,
+            login_type,
+            expires_in_secs: Some(expires_in_secs),
+        })),
+        session::RefreshOutcome::Rejected { .. } => {
+            sink.on_event(ProgressEvent::Message {
+                text: "Existing session was invalid — starting fresh login...".to_string(),
+            });
+            // Best-effort clear. If this fails (keychain locked, read-only
+            // config dir) the rejected token will keep coming back on every
+            // invocation, so surface the failure rather than swallowing it —
+            // the next login flow will still proceed and overwrite the
+            // stored token on success.
+            if let Err(error) = store::delete_token_data_async(profile).await {
+                sink.on_event(ProgressEvent::Message {
+                    text: format!("Warning: could not clear stale session data: {error}"),
+                });
+            }
+            Ok(None)
+        }
+        session::RefreshOutcome::Unavailable { .. } => Ok(None),
+    }
 }
 
 /// Persist a successful login: write token data, save base URL + client ID,
@@ -568,5 +651,447 @@ mod tests {
 
         std::env::remove_var("AGS_HOME");
         std::env::remove_var("AGS_NO_KEYCHAIN");
+    }
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use crate::protocol::event::{ProgressEvent, ProgressSink};
+    use crate::runtime::auth::store::TokenData;
+    use crate::runtime::config::ProfileConfig;
+    use crate::support::test_helpers::{now_secs, TempEnvGuard};
+    use wiremock::matchers::{body_string_contains, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Test sink that captures every emitted progress message for assertions.
+    #[derive(Default)]
+    struct CapturingSink {
+        messages: Vec<String>,
+    }
+
+    impl ProgressSink for CapturingSink {
+        /// Capture message events; drop other events.
+        fn on_event(&mut self, event: ProgressEvent) {
+            if let ProgressEvent::Message { text } = event {
+                self.messages.push(text);
+            }
+        }
+    }
+
+    /// A fresh stored access token shortcuts straight to AlreadyAuthenticated
+    /// with no network call.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_already_authenticated_when_access_fresh() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some("https://unused.invalid".to_string()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("rt".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            "https://unused.invalid".to_string(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        match outcome {
+            Some(LoginOutcome {
+                kind: LoginOutcomeKind::AlreadyAuthenticated { tip },
+                ..
+            }) => {
+                assert!(tip.contains("Already authenticated"));
+            }
+            other => panic!("expected AlreadyAuthenticated, got {other:?}"),
+        }
+        assert!(
+            sink.messages.is_empty(),
+            "no progress messages expected, got {:?}",
+            sink.messages
+        );
+    }
+
+    /// Successful refresh: probe returns Refreshed and the stored token is
+    /// updated.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_refreshed_when_refresh_succeeds() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .and(body_string_contains("grant_type=refresh_token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"new-access","expires_in":3600,"token_type":"Bearer","refresh_token":"rotated","refresh_expires_in":7200}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some(server.uri()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("valid-rt".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            server.uri(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            matches!(
+                outcome,
+                Some(LoginOutcome {
+                    kind: LoginOutcomeKind::Refreshed,
+                    ..
+                })
+            ),
+            "expected Refreshed, got {outcome:?}"
+        );
+        let stored = store::get_token_data(profile).unwrap().unwrap();
+        assert_eq!(stored.access_token, "new-access");
+        assert!(
+            sink.messages.is_empty(),
+            "no probe-failure message expected on success, got {:?}",
+            sink.messages
+        );
+    }
+
+    /// Rejection path: probe returns None, emits the user-facing message,
+    /// and deletes the stale stored token data.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_none_and_clears_state_on_rejection() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .and(body_string_contains("grant_type=refresh_token"))
+            .respond_with(ResponseTemplate::new(401).set_body_string(
+                r#"{"error":"invalid_grant","error_description":"refresh expired"}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some(server.uri()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("dead-rt".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            server.uri(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(outcome.is_none(), "expected None, got {outcome:?}");
+        assert!(
+            store::get_token_data(profile).unwrap().is_none(),
+            "stale token data must be cleared on probe rejection"
+        );
+        assert!(
+            sink.messages
+                .iter()
+                .any(|m| m.contains("Existing session was invalid")),
+            "expected probe-failure message, got {:?}",
+            sink.messages
+        );
+    }
+
+    /// Unavailable path (no refresh token): probe returns None, no message
+    /// is emitted, and any stored token is left alone (it's already useless
+    /// but we don't proactively clear).
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_none_silently_when_unavailable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some("https://unused.invalid".to_string()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            "https://unused.invalid".to_string(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(outcome.is_none(), "expected None, got {outcome:?}");
+        assert!(
+            sink.messages.is_empty(),
+            "no message expected for Unavailable, got {:?}",
+            sink.messages
+        );
+    }
+
+    /// Probe rejection must not delete the profile's saved base_url /
+    /// client_id — only the token data. Otherwise users would have to
+    /// reconfigure after every server-side session expiry.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_rejection_preserves_profile_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(
+                ResponseTemplate::new(401).set_body_string(r#"{"error":"invalid_grant"}"#),
+            )
+            .mount(&server)
+            .await;
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some(server.uri()),
+            client_id: Some("cid".to_string()),
+            namespace: Some("preserved-ns".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("dead-rt".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let _ = probe_existing_session(
+            &client,
+            profile,
+            server.uri(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        let cfg = ProfileConfig::load(profile).unwrap();
+        assert_eq!(cfg.base_url.as_deref(), Some(server.uri().as_str()));
+        assert_eq!(cfg.client_id.as_deref(), Some("cid"));
+        assert_eq!(cfg.namespace.as_deref(), Some("preserved-ns"));
+    }
+
+    /// When the caller asks to log into a base URL that differs from the
+    /// stored one, the probe must NOT short-circuit — the stored token
+    /// belongs to a different identity.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_none_when_base_url_differs_from_stored() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some("https://dev.example.com".to_string()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("rt".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            "https://demo.example.com".to_string(),
+            "cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            outcome.is_none(),
+            "expected None when base_url differs, got {outcome:?}"
+        );
+    }
+
+    /// When the caller asks to log in with a client ID that differs from
+    /// the stored one, the probe must NOT short-circuit.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_none_when_client_id_differs_from_stored() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        let profile = "default";
+        ProfileConfig {
+            base_url: Some("https://dev.example.com".to_string()),
+            client_id: Some("original-cid".to_string()),
+            ..Default::default()
+        }
+        .save(profile)
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            profile,
+            &TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("rt".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            profile,
+            "https://dev.example.com".to_string(),
+            "different-cid".to_string(),
+            "authorization code",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            outcome.is_none(),
+            "expected None when client_id differs, got {outcome:?}"
+        );
     }
 }

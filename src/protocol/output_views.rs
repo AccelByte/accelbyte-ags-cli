@@ -147,6 +147,8 @@ pub enum AuthActionStatus {
     LoggedIn,
     /// Login was a no-op because valid credentials already exist.
     AlreadyAuthenticated,
+    /// Login refreshed a stale session in place; no fresh OAuth ran.
+    Refreshed,
 }
 
 /// Data from a successful login action for the confirmation display.
