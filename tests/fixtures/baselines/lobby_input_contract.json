@@ -2,7 +2,7 @@
   "blocks": [
     {
       "http_method": "PATCH",
-      "method": "symc",
+      "method": "sync",
       "parameters": [
         {
           "location": "path",
@@ -13,7 +13,7 @@
       "path": "/lobby/sync/namespaces/{namespace}/me/block",
       "permissions": [],
       "summary": "Syncs the current user's blocked list with linked native first-party platform accounts",
-      "x_operation_id": "lobby/public/blocks/v1/symc"
+      "x_operation_id": "lobby/public/blocks/v1/sync"
     }
   ],
   "config": [

@@ -52,8 +52,20 @@ pub fn parse_spec(service_name: &str, spec: &SwaggerSpec) -> ServiceSchema {
                 continue;
             };
 
-            let parts: Vec<&str> = x_operation_id.splitn(5, '/').collect();
-            if parts.len() < 5 {
+            // Expect exactly 5 segments: service/scope/resource/version/method.
+            // Both underflow (too few) and overflow (a stray slash that pushes
+            // the method into a 6th segment) are spec bugs. Without this
+            // check, `splitn` would silently fold the overflow into `parts[4]`
+            // and the version-parse below would fail-and-continue, dropping
+            // the operation from the CLI surface with no signal.
+            let parts: Vec<&str> = x_operation_id.split('/').collect();
+            if parts.len() != 5 {
+                debug_assert!(
+                    false,
+                    "x-operationId must have exactly 5 segments \
+                     (service/scope/resource/version/method), got {} in '{x_operation_id}'",
+                    parts.len(),
+                );
                 continue;
             }
             let scope = parts[1].to_string();
@@ -62,14 +74,22 @@ pub fn parse_spec(service_name: &str, spec: &SwaggerSpec) -> ServiceSchema {
                 continue;
             }
             let method_name = parts[4].to_string();
-            // Parse the version integer from "v1", "v2", etc. Skip the
-            // operation entirely on a non-numeric segment rather than
-            // coercing to 0 — a `0` here would create a ghost contract
-            // selectable as `--api-version v0` and could collide with a
-            // sibling on the duplicate-key panic.
+            // Parse the version integer from "v1", "v2", etc. A non-numeric
+            // segment here means the spec is malformed — assert in debug so it
+            // surfaces during development, skip in release so one bad op does
+            // not poison the whole service. Coercing to 0 would create a
+            // ghost contract selectable as `--api-version v0`.
             let api_version: ApiVersion = match parts[3].parse() {
                 Ok(v) => v,
-                Err(_) => continue,
+                Err(_) => {
+                    debug_assert!(
+                        false,
+                        "x-operationId version segment must be numeric (e.g. 'v1' style is allowed \
+                         only if ApiVersion parses it), got '{}' in '{x_operation_id}'",
+                        parts[3],
+                    );
+                    continue;
+                }
             };
 
             let http_method_upper = http_method_name.to_uppercase();
@@ -749,11 +769,98 @@ mod tests {
         assert!(names.contains(&"prefs"));
     }
 
-    /// Malformed `x-operationId` values should be skipped instead of panicking.
+    /// An `x-operationId` with fewer than 5 segments is malformed and should
+    /// trip the debug assertion so spec drift surfaces during development.
     #[test]
-    fn test_skips_malformed_x_operation_id() {
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "x-operationId must have exactly 5 segments")]
+    fn test_parser_underflow_x_operation_id_asserts_in_debug() {
+        let spec = spec_from(&[("/api/v1/bans", "get", "too/few/parts", false, "")]);
+        let _ = parse_spec("test", &spec);
+    }
+
+    /// In release builds, underflow x-operationId values are skipped so one
+    /// bad entry does not poison the whole service.
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn test_parser_underflow_x_operation_id_skips_in_release() {
         let spec = spec_from(&[
             ("/api/v1/bans", "get", "too/few/parts", false, ""),
+            ("/api/v1/users", "get", "svc/admin/users/v1/list", false, ""),
+        ]);
+        let service = parse_spec("test", &spec);
+        assert_eq!(service.resources.len(), 1);
+        assert_eq!(service.resources[0].name, "users");
+    }
+
+    /// An `x-operationId` with more than 5 segments — a real spec bug seen in
+    /// `basic/public/profiles/update/v1/my-zip-code` where a stray slash split
+    /// the method name — must trip the debug assertion. Previously this was
+    /// silently dropped because `splitn(5, '/')` folded the overflow into the
+    /// last segment and the version-parse fail path skipped the op.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "x-operationId must have exactly 5 segments")]
+    fn test_parser_overflow_x_operation_id_asserts_in_debug() {
+        let spec = spec_from(&[(
+            "/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode",
+            "put",
+            "basic/public/profiles/update/v1/my-zip-code",
+            false,
+            "",
+        )]);
+        let _ = parse_spec("basic", &spec);
+    }
+
+    /// In release builds, overflow x-operationId values are skipped (the
+    /// operation is omitted from the CLI surface) rather than panicking.
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn test_parser_overflow_x_operation_id_skips_in_release() {
+        let spec = spec_from(&[
+            (
+                "/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode",
+                "put",
+                "basic/public/profiles/update/v1/my-zip-code",
+                false,
+                "",
+            ),
+            (
+                "/api/v1/users",
+                "get",
+                "svc/admin/users/v1/list",
+                false,
+                "",
+            ),
+        ]);
+        let service = parse_spec("basic", &spec);
+        assert_eq!(service.resources.len(), 1);
+        assert_eq!(service.resources[0].name, "users");
+    }
+
+    /// A non-numeric version segment in an otherwise well-shaped (5-segment)
+    /// `x-operationId` should trip the debug assertion as a spec bug.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "x-operationId version segment must be numeric")]
+    fn test_parser_non_numeric_version_asserts_in_debug() {
+        let spec = spec_from(&[(
+            "/api/v1/bans",
+            "get",
+            "svc/admin/bans/vX/list",
+            false,
+            "",
+        )]);
+        let _ = parse_spec("test", &spec);
+    }
+
+    /// In release builds, a non-numeric version segment skips the operation
+    /// instead of panicking — the rest of the service still loads.
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn test_parser_non_numeric_version_skips_in_release() {
+        let spec = spec_from(&[
+            ("/api/v1/bans", "get", "svc/admin/bans/vX/list", false, ""),
             ("/api/v1/users", "get", "svc/admin/users/v1/list", false, ""),
         ]);
         let service = parse_spec("test", &spec);
