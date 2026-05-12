@@ -1,33 +1,7 @@
 use ags::runtime::config::{self, ProfileConfig};
 use ags::runtime::execution::ResolutionInput;
 
-struct TempEnvGuard {
-    key: &'static str,
-    original: Option<String>,
-}
-
-impl TempEnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, original }
-    }
-
-    fn remove(key: &'static str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, original }
-    }
-}
-
-impl Drop for TempEnvGuard {
-    fn drop(&mut self) {
-        match &self.original {
-            Some(val) => std::env::set_var(self.key, val),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
+use crate::common::env_guard::TempEnvGuard;
 
 /// Two profiles with different namespaces resolve independently
 #[tokio::test]

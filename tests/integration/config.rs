@@ -1,26 +1,6 @@
 use ags::runtime::config::{self, ConfigScope, GlobalConfig, ProfileConfig};
 
-struct TempEnvGuard {
-    key: &'static str,
-    original: Option<String>,
-}
-
-impl TempEnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, original }
-    }
-}
-
-impl Drop for TempEnvGuard {
-    fn drop(&mut self) {
-        match &self.original {
-            Some(val) => std::env::set_var(self.key, val),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
+use crate::common::env_guard::TempEnvGuard;
 
 /// Profile config values round-trip through the type-owned accessors.
 #[test]

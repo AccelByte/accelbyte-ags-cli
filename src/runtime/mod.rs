@@ -25,28 +25,40 @@ pub struct Runtime {
     pub(crate) catalogue: Catalogue,
     pub(crate) context: ExecutionContext,
     pub(crate) http_client: Box<dyn HttpClient>,
+    /// Concrete reqwest client used by auth flows (token exchange, probe,
+    /// refresh). Shares the user-configured timeout with `http_client` so
+    /// `--timeout` applies uniformly across dispatch and auth.
+    pub(crate) reqwest_client: reqwest::Client,
 }
 
 impl Runtime {
-    /// Build a runtime from a resolved execution context and any `HttpClient`
-    /// implementation. Use this constructor for test injection or alternate
-    /// transports; production callers typically use [`Runtime::from_reqwest`].
-    pub(crate) fn new(context: ExecutionContext, http_client: Box<dyn HttpClient>) -> Self {
+    /// Build a runtime from a resolved execution context, an `HttpClient`
+    /// implementation, and the concrete `reqwest::Client` used for auth.
+    /// Use this for test injection or alternate dispatch transports;
+    /// production callers typically use [`Runtime::from_reqwest`].
+    pub(crate) fn new(
+        context: ExecutionContext,
+        http_client: Box<dyn HttpClient>,
+        reqwest_client: reqwest::Client,
+    ) -> Self {
         Self {
             catalogue: Catalogue::new(),
             context,
             http_client,
+            reqwest_client,
         }
     }
 
     /// Convenience constructor that wraps a real `reqwest::Client` in the
-    /// production `ReqwestHttpClient` adapter.
+    /// production `ReqwestHttpClient` adapter and retains the original for
+    /// auth flows that need the concrete type.
     pub fn from_reqwest(context: ExecutionContext, http_client: reqwest::Client) -> Self {
         Self::new(
             context,
             Box::new(crate::runtime::dispatch::http::ReqwestHttpClient::new(
-                http_client,
+                http_client.clone(),
             )),
+            http_client,
         )
     }
 }
@@ -71,6 +83,6 @@ mod constructor_tests {
     #[test]
     fn test_runtime_new_accepts_dyn_http_client() {
         let ctx = ExecutionContext::default();
-        let _runtime = Runtime::new(ctx, Box::new(DummyClient));
+        let _runtime = Runtime::new(ctx, Box::new(DummyClient), reqwest::Client::new());
     }
 }

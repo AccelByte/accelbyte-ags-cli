@@ -55,6 +55,31 @@ impl crate::runtime::Runtime {
         }))
     }
 
+    /// Probe whether `profile` has a usable session. Returns `Some(AuthView)` if
+    /// the user is already covered (either still-valid or just-refreshed) and
+    /// the caller should NOT start a fresh login flow. Returns `None` when a
+    /// fresh flow is required.
+    pub async fn auth_probe_existing_session(
+        &self,
+        profile: &str,
+        base_url: String,
+        client_id: String,
+        login_type: &'static str,
+        sink: &mut dyn crate::protocol::event::ProgressSink,
+    ) -> Result<Option<crate::protocol::output::AuthView>, crate::protocol::error::RuntimeError>
+    {
+        let outcome = crate::runtime::auth::operations::probe_existing_session(
+            &self.reqwest_client,
+            profile,
+            base_url,
+            client_id,
+            login_type,
+            sink,
+        )
+        .await?;
+        Ok(outcome.map(login_outcome_to_view))
+    }
+
     /// Complete the authorization-code flow by exchanging `code` for a token and persisting it.
     pub async fn auth_login_authorization_code(
         &self,
@@ -67,9 +92,8 @@ impl crate::runtime::Runtime {
     ) -> Result<crate::protocol::output::AuthView, RuntimeError> {
         use crate::runtime::auth::operations;
 
-        let http_client = crate::runtime::dispatch::http::build_http_client(None)?;
         let outcome = operations::login_with_authorization_code(
-            &http_client,
+            &self.reqwest_client,
             operations::AuthorizationCodeLogin {
                 profile: profile.to_string(),
                 base_url,
@@ -95,9 +119,8 @@ impl crate::runtime::Runtime {
     ) -> Result<crate::protocol::output::AuthView, RuntimeError> {
         use crate::runtime::auth::operations;
 
-        let http_client = crate::runtime::dispatch::http::build_http_client(None)?;
         let outcome = operations::login_with_client_credentials(
-            &http_client,
+            &self.reqwest_client,
             operations::ClientCredentialsLogin {
                 profile: profile.to_string(),
                 base_url,
@@ -288,7 +311,15 @@ fn login_outcome_to_view(
             base_url: Some(outcome.base_url),
             login_type: Some(outcome.login_type.to_string()),
             client_id: Some(outcome.client_id),
-            token_expires_in_secs: Some(outcome.expires_in_secs),
+            token_expires_in_secs: outcome.expires_in_secs,
+            tip: None,
+        }),
+        LoginOutcomeKind::Refreshed => AuthView::LoginSuccess(AuthActionData {
+            status: AuthActionStatus::Refreshed,
+            base_url: Some(outcome.base_url),
+            login_type: Some(outcome.login_type.to_string()),
+            client_id: Some(outcome.client_id),
+            token_expires_in_secs: outcome.expires_in_secs,
             tip: None,
         }),
     }
