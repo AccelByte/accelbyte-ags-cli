@@ -815,8 +815,9 @@ async fn test_login_json_rejects_when_no_existing_session() {
     );
     // JSON error envelopes are emitted on stderr (see `JsonFrontend::render_error`).
     let stderr = String::from_utf8_lossy(&output.stderr);
-    let parsed: serde_json::Value = serde_json::from_str(stderr.trim())
-        .unwrap_or_else(|e| panic!("expected JSON error envelope on stderr\nstderr: {stderr}\nerror: {e}"));
+    let parsed: serde_json::Value = serde_json::from_str(stderr.trim()).unwrap_or_else(|e| {
+        panic!("expected JSON error envelope on stderr\nstderr: {stderr}\nerror: {e}")
+    });
     let error = find_string_field(&parsed, "error")
         .unwrap_or_else(|| panic!("could not find an 'error' string field in JSON: {parsed}"));
     assert!(
