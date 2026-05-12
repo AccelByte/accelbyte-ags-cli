@@ -825,13 +825,7 @@ mod tests {
                 false,
                 "",
             ),
-            (
-                "/api/v1/users",
-                "get",
-                "svc/admin/users/v1/list",
-                false,
-                "",
-            ),
+            ("/api/v1/users", "get", "svc/admin/users/v1/list", false, ""),
         ]);
         let service = parse_spec("basic", &spec);
         assert_eq!(service.resources.len(), 1);
@@ -844,13 +838,7 @@ mod tests {
     #[cfg(debug_assertions)]
     #[should_panic(expected = "x-operationId version segment must be numeric")]
     fn test_parser_non_numeric_version_asserts_in_debug() {
-        let spec = spec_from(&[(
-            "/api/v1/bans",
-            "get",
-            "svc/admin/bans/vX/list",
-            false,
-            "",
-        )]);
+        let spec = spec_from(&[("/api/v1/bans", "get", "svc/admin/bans/vX/list", false, "")]);
         let _ = parse_spec("test", &spec);
     }
 
