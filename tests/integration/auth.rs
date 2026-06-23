@@ -15,6 +15,12 @@ fn expected_basic_auth() -> String {
     format!("Basic {encoded}")
 }
 
+fn expected_public_basic_auth() -> String {
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode("test-client-id:");
+    format!("Basic {encoded}")
+}
+
 fn token_response_json(access_token: &str, expires_in: u64) -> String {
     format!(
         r#"{{"access_token":"{access_token}","expires_in":{expires_in},"token_type":"Bearer"}}"#
@@ -295,6 +301,58 @@ async fn test_refresh_token_sends_correct_request() {
     assert_eq!(result.access_token, "new-access-token");
     assert_eq!(result.expires_in, 3600);
     assert_eq!(result.refresh_token.as_deref(), Some("new-refresh-token"));
+}
+
+/// Public-client refresh must send Basic auth with an empty secret.
+#[tokio::test]
+async fn test_refresh_token_public_client_sends_basic_auth_with_empty_secret() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/iam/v3/oauth/token"))
+        .and(header(
+            "Authorization",
+            expected_public_basic_auth().as_str(),
+        ))
+        .and(body_string_contains("grant_type=refresh_token"))
+        .and(body_string_contains("refresh_token=my-refresh-token"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(token_response_with_refresh(
+                "new-access-token",
+                3600,
+                "new-refresh-token",
+                86400,
+            )),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = reqwest::Client::new();
+
+    let result = service::fetch_refresh_token(
+        &client,
+        &server.uri(),
+        TEST_CLIENT_ID,
+        None,
+        "my-refresh-token",
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.access_token, "new-access-token");
+    assert_eq!(result.refresh_token.as_deref(), Some("new-refresh-token"));
+
+    let requests = server.received_requests().await.unwrap();
+    let request = requests
+        .iter()
+        .find(|request| request.url.path() == "/iam/v3/oauth/token")
+        .expect("refresh request captured");
+    let body = std::str::from_utf8(&request.body).expect("form body is UTF-8");
+    assert!(
+        !body.contains("client_id="),
+        "public-client refresh must not duplicate client_id in the form body"
+    );
 }
 
 /// Expired refresh tokens must produce a clear error so the caller can fall back to a full re-login
