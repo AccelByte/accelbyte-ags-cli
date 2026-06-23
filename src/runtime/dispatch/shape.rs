@@ -33,6 +33,7 @@ pub(crate) fn normalize_label(key: &str) -> String {
         "emailAddress" => return "Email".to_string(),
         "displayName" => return "Display Name".to_string(),
         "userName" => return "Username".to_string(),
+        "appName" => return "App Name".to_string(),
         "namespace" => return "Namespace".to_string(),
         "enable" => return "Enabled".to_string(),
         _ => {}
@@ -80,7 +81,7 @@ pub(crate) fn normalize_value(value: &Value) -> Option<String> {
 fn field_priority(key: &str) -> u8 {
     match key {
         "id" | "userId" | "clientId" | "roleId" | "namespaceId" => 0,
-        "name" | "displayName" | "userName" | "emailAddress" => 1,
+        "name" | "displayName" | "userName" | "emailAddress" | "appName" => 1,
         "status" | "enabled" | "active" | "verified" | "emailVerified" | "banned" => 2,
         "namespace" | "platform" | "platformId" => 3,
         "createdBy" | "updatedBy" | "deletedBy" => 4,
@@ -383,6 +384,7 @@ pub(crate) fn dedupe_heading_field(
 const HEADING_NAME_KEYS: &[&str] = &[
     "displayName",
     "name",
+    "appName",
     "clientName",
     "userName",
     "emailAddress",
@@ -762,6 +764,32 @@ mod tests {
         assert_eq!(table.rows[0], vec!["user-1", "Alice", "alice@example.com"]);
         // Display Name must be "—", not "bob@example.com" shifted left
         assert_eq!(table.rows[1], vec!["user-2", "—", "bob@example.com"]);
+    }
+
+    #[test]
+    fn test_build_list_table_app_name_precedes_status_and_timestamps() {
+        let items = vec![json!({
+            "appId": "app-001",
+            "appName": "my-service",
+            "appStatus": "running",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "namespace": "my-game"
+        })];
+        let table = build_list_table(&items, "App", &CommandIntent::List, false);
+        let app_name_pos = table
+            .headers
+            .iter()
+            .position(|h| h == "App Name")
+            .expect("App Name header present");
+        let created_pos = table
+            .headers
+            .iter()
+            .position(|h| h == "Created")
+            .expect("Created header present");
+        assert!(
+            app_name_pos < created_pos,
+            "appName should sort before createdAt"
+        );
     }
 
     /// An array of bare scalars (the `{"regions": [...]}` shape, unwrapped) is
