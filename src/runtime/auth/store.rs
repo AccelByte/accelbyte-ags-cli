@@ -13,20 +13,28 @@ use super::locking;
 const KEYRING_USER: &str = "client-secret";
 const KEYRING_TOKEN_USER: &str = "token-data";
 
-/// Conservative UTF-8 byte-length proxy for the Windows Credential Manager
-/// password limit (~2560 UTF-16 chars). For every valid Unicode codepoint,
-/// UTF-8 byte count ≥ UTF-16 code unit count, so checking byte length is
-/// always at least as strict as the OS limit — we may occasionally route a
-/// multi-byte UTF-8 payload to file storage even though Windows would have
-/// accepted it, but we never permit a token that would be truncated.
+/// Windows Credential Manager's maximum credential-blob size, in bytes
+/// (`CRED_MAX_CREDENTIAL_BLOB_SIZE` = 2560). The `keyring` crate's
+/// `windows-native` backend stores the password as a UTF-16 blob and rejects
+/// (`Error::TooLong`) any value whose UTF-16 byte length exceeds this — see
+/// keyring's `windows.rs`: `password.encode_utf16().count() * 2 > LIMIT`.
 const WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES: usize = 2560;
 
+/// Byte length of `s` once UTF-16 encoded — the size Windows Credential Manager
+/// actually measures the blob against (2 bytes per BMP code unit). This matches
+/// keyring's own length check. Using UTF-8 `str::len()` here would be 2× too
+/// lenient for ASCII: a token JSON between ~1281 and 2560 chars would pass the
+/// guard, reach the keychain, fail the write, and silently fall back to file
+/// storage — leaving a stale keychain entry that shadows the fresh token.
+fn credman_blob_bytes(s: &str) -> usize {
+    s.encode_utf16().count() * 2
+}
+
 /// Return whether `json` is too large to safely store in Windows Credential
-/// Manager. See `WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES` for the byte-vs-UTF-16
-/// rationale. Always returns false on non-Windows hosts, since other keychain
-/// backends do not have this limit.
+/// Manager (so the caller must route it to file storage). Always false on
+/// non-Windows hosts, whose keychain backends have no such limit.
 fn exceeds_windows_credman_limit(json: &str) -> bool {
-    cfg!(windows) && json.len() > WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES
+    cfg!(windows) && credman_blob_bytes(json) > WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES
 }
 
 /// Build the keychain service name scoped to a profile
@@ -189,6 +197,19 @@ fn token_file_path(profile: &str) -> Result<std::path::PathBuf, RuntimeError> {
     Ok(config::profile_dir(profile)?.join("token.json"))
 }
 
+/// Best-effort delete of the profile's keychain token entry. Called on every
+/// file-storage fallback so a stale keychain entry can never shadow the fresh
+/// file token on a later keychain-first [`get_token_data`] read. No-op when the
+/// keychain is disabled; ignores `NoEntry` and any delete error.
+fn clear_keychain_token_entry(profile: &str) {
+    if config::is_keychain_disabled() {
+        return;
+    }
+    if let Ok(entry) = keychain_entry(profile, KEYRING_TOKEN_USER) {
+        let _ = entry.delete_credential();
+    }
+}
+
 /// Result of attempting to persist token data, with an optional warning the
 /// caller can surface to the user (e.g. when the keychain rejected the write
 /// and we fell back to file storage).
@@ -200,8 +221,9 @@ pub struct StoreOutcome {
 /// Store token data. Tries keychain first, falls back to file with a warning on failure.
 ///
 /// Token blobs can exceed platform keychain limits (notably Windows Credential Manager's
-/// 2560-char limit for UTF-16 encoded passwords). Rather than failing login, any keychain
-/// write failure falls back to file storage with a visible warning.
+/// 2560-byte limit — ~1280 chars — for UTF-16 encoded passwords). Rather than failing
+/// login, any keychain write failure falls back to file storage with a visible warning,
+/// after clearing any stale keychain entry so it can't shadow the file token on read.
 pub fn store_token_data(
     profile: &str,
     token_data: &TokenData,
@@ -219,18 +241,10 @@ pub(crate) fn store_token_data_unlocked(
 
     let mut warning: Option<String> = None;
 
-    // On Windows, Credential Manager silently truncates passwords above
-    // ~2560 chars. Skip the keychain attempt entirely for over-limit
+    // On Windows, Credential Manager rejects passwords whose UTF-16 blob
+    // exceeds ~2560 bytes. Skip the keychain attempt entirely for over-limit
     // tokens and route to file fallback with an explanatory warning.
-    // Best-effort delete any pre-existing keychain entry so a later
-    // get_token_data does not return a stale value (e.g. from a token
-    // stored before this guard existed).
     if exceeds_windows_credman_limit(&json) {
-        if !config::is_keychain_disabled() {
-            if let Ok(entry) = keychain_entry(profile, KEYRING_TOKEN_USER) {
-                let _ = entry.delete_credential();
-            }
-        }
         warning = Some(format!(
             "Token exceeds the Windows Credential Manager limit ({WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES} bytes); \
              storing in file fallback.\n\
@@ -249,6 +263,15 @@ pub(crate) fn store_token_data_unlocked(
             }
         }
     }
+
+    // Reaching here means the token is NOT being stored in the keychain (it was
+    // over-limit, the keychain is disabled, or the keychain write failed). Clear
+    // any pre-existing keychain entry first, so a keychain-first `get_token_data`
+    // cannot return a STALE token (old access AND old refresh token) that shadows
+    // the fresh value we are about to write to the file. Without this, a rotated
+    // refresh token from the stale entry is sent on the next refresh and the
+    // server rejects it ("Session expired and token refresh failed").
+    clear_keychain_token_entry(profile);
 
     // Fall back to file
     let path = token_file_path(profile)?;
@@ -494,6 +517,70 @@ mod tests {
     fn test_exceeds_windows_credman_limit_returns_false_below_threshold() {
         let small = "a".repeat(100);
         assert!(!super::exceeds_windows_credman_limit(&small));
+    }
+
+    /// The credman blob size is the UTF-16 byte length (2 bytes per ASCII char) —
+    /// the size keyring/Windows actually measures against the 2560-byte limit.
+    #[test]
+    fn test_credman_blob_bytes_is_twice_ascii_length() {
+        assert_eq!(super::credman_blob_bytes(""), 0);
+        assert_eq!(super::credman_blob_bytes("abcd"), 8);
+    }
+
+    /// Regression guard for the reported Windows refresh failure: a 1300-char
+    /// ASCII token JSON is 1300 UTF-8 bytes — the old `str::len()` guard saw
+    /// `1300 <= 2560` and kept it in the keychain — but its UTF-16 blob is 2600
+    /// bytes, which keyring's `windows-native` backend rejects. The corrected
+    /// size measure must report it as over-limit so it routes to file storage.
+    #[test]
+    fn test_token_in_utf16_dead_zone_exceeds_real_credman_limit() {
+        let json = "a".repeat(1300);
+        assert!(
+            json.len() <= super::WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES,
+            "precondition: the old UTF-8-byte guard would have passed this token"
+        );
+        assert!(
+            super::credman_blob_bytes(&json) > super::WINDOWS_CREDMAN_PASSWORD_LIMIT_BYTES,
+            "the real UTF-16 blob exceeds the credman limit"
+        );
+    }
+
+    /// On Windows, a token in the UTF-16 dead zone (UTF-8 len under the limit,
+    /// UTF-16 blob over it) must now trip the guard so it routes to file rather
+    /// than failing the keychain write and silently leaving a stale entry.
+    #[test]
+    #[cfg(windows)]
+    fn test_exceeds_windows_credman_limit_true_in_utf16_dead_zone() {
+        let json = "a".repeat(1300);
+        assert!(super::exceeds_windows_credman_limit(&json));
+    }
+
+    /// The file fallback round-trips the refresh token intact. Directly guards
+    /// the reported failure mode (a refresh token must survive storage and read
+    /// back unchanged). Exercises the unified fallback path that now clears any
+    /// stale keychain entry before writing the file.
+    #[test]
+    #[serial_test::serial]
+    fn test_store_then_get_round_trips_refresh_token_via_file_fallback() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var(crate::runtime::config::ENV_HOME, tmp.path());
+        std::env::set_var(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+
+        let token = TokenData {
+            access_token: "access-xyz".to_string(),
+            expires_at: 9_999_999_999,
+            refresh_token: Some("refresh-abc".to_string()),
+            refresh_expires_at: Some(9_999_999_999),
+            grant_type: Some(crate::protocol::request::GrantType::AuthorizationCode),
+        };
+        store_token_data("default", &token).unwrap();
+
+        let read = get_token_data("default").unwrap().expect("token stored");
+        assert_eq!(read.refresh_token.as_deref(), Some("refresh-abc"));
+        assert_eq!(read.access_token, "access-xyz");
+
+        std::env::remove_var(crate::runtime::config::ENV_HOME);
+        std::env::remove_var(crate::runtime::config::ENV_NO_KEYCHAIN);
     }
 
     /// On Windows, oversized tokens trip the limit so callers fall back to the file store
