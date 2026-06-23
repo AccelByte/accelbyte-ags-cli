@@ -42,23 +42,69 @@ fn keyring_service(profile: &str) -> String {
     format!("ags:accelbyte.io:{profile}")
 }
 
-/// Only fall back to file storage when the platform keychain is unavailable.
-fn should_fallback_to_file(error: &KeyringError) -> bool {
+/// Returns `true` when an **operation** on an already-initialized keychain entry
+/// (`get_password` / `set_password` / `delete_credential`) failed because the
+/// backing store became inaccessible (`NoStorageAccess`) — e.g. the keychain was
+/// locked, or the secret-service daemon stopped, after `Entry::new` had already
+/// succeeded.
+///
+/// Kept deliberately narrow: every inner operation `match` arm uses this as a
+/// race-condition safety net so a backend that disappears mid-operation falls
+/// through to file storage, while genuine read/write failures on a working
+/// keychain (`PlatformFailure`, `BadEncoding`, …) still surface as errors.
+///
+/// For the broader *init-time* test, see [`is_keychain_init_unavailable`].
+fn is_keychain_unavailable(error: &KeyringError) -> bool {
     matches!(error, KeyringError::NoStorageAccess(_))
 }
 
-/// Create a keyring entry scoped to a profile.
-fn keychain_entry(profile: &str, user: &str) -> Result<keyring::Entry, RuntimeError> {
+/// Returns `true` when an error from `keyring::Entry::new` means this platform
+/// has no usable keychain backend, so the caller should fall back to file
+/// storage instead of failing.
+///
+/// Broader than [`is_keychain_unavailable`]: at init time we never obtained a
+/// handle to operate on, so any *environmental* failure should route to file
+/// storage rather than block the command —
+/// - `NoStorageAccess` — no secret-service / D-Bus daemon (e.g. WSL2).
+/// - `PlatformFailure` — the platform store exists but cannot be initialized,
+///   e.g. the Linux keyutils syscall returning `ENOSYS` inside a container
+///   (surfaces as `Platform secure storage failure: Unknown(38)`), or a
+///   seccomp-blocked syscall surfacing as `Unknown(1)` (EPERM).
+///
+/// Other variants (`Invalid`, `TooLong`, …) indicate a malformed entry — a
+/// programming error rather than a missing backend — and are still surfaced.
+///
+/// `pub(crate)` so [`crate::runtime::diagnostics::checks`] can classify the
+/// keychain-access probe with the same rule.
+pub(crate) fn is_keychain_init_unavailable(error: &KeyringError) -> bool {
+    matches!(
+        error,
+        KeyringError::NoStorageAccess(_) | KeyringError::PlatformFailure(_)
+    )
+}
+
+/// Create a keyring entry, or return `None` when the platform has no usable
+/// keychain backend (see [`is_keychain_init_unavailable`]). Any other
+/// initialization failure (a malformed service/user) is an `Err`.
+///
+/// Preferred for operations with a file fallback: a missing backend at init time
+/// routes straight to file storage, exactly as [`is_keychain_unavailable`]
+/// routes a `NoStorageAccess` error from a later `get_password` / `set_password`.
+fn keychain_entry_opt(profile: &str, user: &str) -> Result<Option<keyring::Entry>, RuntimeError> {
     let service = keyring_service(profile);
-    keyring::Entry::new(&service, user).map_err(|error| RuntimeError {
-        kind: RuntimeErrorKind::Internal,
-        message: format!(
-            "Failed to initialize OS keychain entry for '{user}' (profile '{profile}'): {error}"
-        ),
-        details: None,
-        hint: None,
-        trace: None,
-    })
+    match keyring::Entry::new(&service, user) {
+        Ok(entry) => Ok(Some(entry)),
+        Err(error) if is_keychain_init_unavailable(&error) => Ok(None),
+        Err(error) => Err(RuntimeError {
+            kind: RuntimeErrorKind::Internal,
+            message: format!(
+                "Failed to initialize OS keychain entry for '{user}' (profile '{profile}'): {error}"
+            ),
+            details: None,
+            hint: None,
+            trace: None,
+        }),
+    }
 }
 
 /// Stored token data including refresh token.
@@ -84,16 +130,18 @@ fn secret_file_path(profile: &str) -> Result<std::path::PathBuf, RuntimeError> {
 /// Store a client secret. Tries keychain first, falls back to file.
 pub fn store_secret(profile: &str, secret: &str) -> Result<(), RuntimeError> {
     if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_USER)?;
-        match entry.set_password(secret) {
-            Ok(()) => return Ok(()),
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
-                    resource: AuthResource::ClientSecret,
-                    operation: StorageOperation::Write,
-                    source: error,
-                }));
+        if let Some(entry) = keychain_entry_opt(profile, KEYRING_USER)? {
+            match entry.set_password(secret) {
+                Ok(()) => return Ok(()),
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
+                        resource: AuthResource::ClientSecret,
+                        operation: StorageOperation::Write,
+                        source: error,
+                    }));
+                }
             }
         }
     }
@@ -129,17 +177,19 @@ pub fn store_secret(profile: &str, secret: &str) -> Result<(), RuntimeError> {
 /// `String` allocation visible in core dumps or swap).
 pub fn get_secret(profile: &str) -> Result<Option<Zeroizing<String>>, RuntimeError> {
     if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_USER)?;
-        match entry.get_password() {
-            Ok(secret) => return Ok(Some(Zeroizing::new(secret))),
-            Err(KeyringError::NoEntry) => {}
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
-                    resource: AuthResource::ClientSecret,
-                    operation: StorageOperation::Read,
-                    source: error,
-                }));
+        if let Some(entry) = keychain_entry_opt(profile, KEYRING_USER)? {
+            match entry.get_password() {
+                Ok(secret) => return Ok(Some(Zeroizing::new(secret))),
+                Err(KeyringError::NoEntry) => {}
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
+                        resource: AuthResource::ClientSecret,
+                        operation: StorageOperation::Read,
+                        source: error,
+                    }));
+                }
             }
         }
     }
@@ -164,16 +214,18 @@ pub fn get_secret(profile: &str) -> Result<Option<Zeroizing<String>>, RuntimeErr
 /// Delete client secret from keychain and file.
 pub fn delete_secret(profile: &str) -> Result<(), RuntimeError> {
     if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_USER)?;
-        match entry.delete_credential() {
-            Ok(()) | Err(KeyringError::NoEntry) => {}
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
-                    resource: AuthResource::ClientSecret,
-                    operation: StorageOperation::Delete,
-                    source: error,
-                }));
+        if let Some(entry) = keychain_entry_opt(profile, KEYRING_USER)? {
+            match entry.delete_credential() {
+                Ok(()) | Err(KeyringError::NoEntry) => {}
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
+                        resource: AuthResource::ClientSecret,
+                        operation: StorageOperation::Delete,
+                        source: error,
+                    }));
+                }
             }
         }
     }
@@ -205,7 +257,7 @@ fn clear_keychain_token_entry(profile: &str) {
     if config::is_keychain_disabled() {
         return;
     }
-    if let Ok(entry) = keychain_entry(profile, KEYRING_TOKEN_USER) {
+    if let Ok(Some(entry)) = keychain_entry_opt(profile, KEYRING_TOKEN_USER) {
         let _ = entry.delete_credential();
     }
 }
@@ -251,15 +303,29 @@ pub(crate) fn store_token_data_unlocked(
              Set AGS_NO_KEYCHAIN=1 to skip keychain and suppress this warning."
         ));
     } else if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_TOKEN_USER)?;
-        match entry.set_password(&json) {
-            Ok(()) => return Ok(StoreOutcome { warning: None }),
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                warning = Some(format!(
-                    "OS keychain write failed, falling back to file storage: {error}\n\
+        match keychain_entry_opt(profile, KEYRING_TOKEN_USER)? {
+            Some(entry) => match entry.set_password(&json) {
+                Ok(()) => return Ok(StoreOutcome { warning: None }),
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    warning = Some(format!(
+                        "OS keychain write failed, falling back to file storage: {error}\n\
+                         Set AGS_NO_KEYCHAIN=1 to skip keychain and suppress this warning."
+                    ));
+                }
+            },
+            // No usable keychain backend at init (none present, or it failed to
+            // initialize — e.g. keyutils ENOSYS in a container). Fall back to
+            // file with the same one-time, suppressible hint the other
+            // keychain-skip paths emit, so the user knows the token is not in
+            // the keychain and can opt out of the probe entirely.
+            None => {
+                warning = Some(
+                    "OS keychain unavailable, storing token in file fallback.\n\
                      Set AGS_NO_KEYCHAIN=1 to skip keychain and suppress this warning."
-                ));
+                        .to_string(),
+                );
             }
         }
     }
@@ -302,21 +368,23 @@ pub(crate) fn store_token_data_unlocked(
 pub fn get_token_data(profile: &str) -> Result<Option<TokenData>, RuntimeError> {
     // Try keychain first
     if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_TOKEN_USER)?;
-        match entry.get_password() {
-            Ok(json) => {
-                let token_data = serde_json::from_str::<TokenData>(&json)
-                    .map_err(|e| RuntimeError::from(AuthError::KeychainTokenParseFailed(e)))?;
-                return Ok(Some(token_data));
-            }
-            Err(KeyringError::NoEntry) => {}
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
-                    resource: AuthResource::Token,
-                    operation: StorageOperation::Read,
-                    source: error,
-                }));
+        if let Some(entry) = keychain_entry_opt(profile, KEYRING_TOKEN_USER)? {
+            match entry.get_password() {
+                Ok(json) => {
+                    let token_data = serde_json::from_str::<TokenData>(&json)
+                        .map_err(|e| RuntimeError::from(AuthError::KeychainTokenParseFailed(e)))?;
+                    return Ok(Some(token_data));
+                }
+                Err(KeyringError::NoEntry) => {}
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
+                        resource: AuthResource::Token,
+                        operation: StorageOperation::Read,
+                        source: error,
+                    }));
+                }
             }
         }
     }
@@ -347,16 +415,18 @@ pub fn delete_token_data(profile: &str) -> Result<(), RuntimeError> {
 pub(crate) fn delete_token_data_unlocked(profile: &str) -> Result<(), RuntimeError> {
     // Try keychain
     if !config::is_keychain_disabled() {
-        let entry = keychain_entry(profile, KEYRING_TOKEN_USER)?;
-        match entry.delete_credential() {
-            Ok(()) | Err(KeyringError::NoEntry) => {}
-            Err(error) if should_fallback_to_file(&error) => {}
-            Err(error) => {
-                return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
-                    resource: AuthResource::Token,
-                    operation: StorageOperation::Delete,
-                    source: error,
-                }));
+        if let Some(entry) = keychain_entry_opt(profile, KEYRING_TOKEN_USER)? {
+            match entry.delete_credential() {
+                Ok(()) | Err(KeyringError::NoEntry) => {}
+                // Race: backend disappeared between Entry::new and this call.
+                Err(error) if is_keychain_unavailable(&error) => {}
+                Err(error) => {
+                    return Err(RuntimeError::from(AuthError::KeychainOperationFailed {
+                        resource: AuthResource::Token,
+                        operation: StorageOperation::Delete,
+                        source: error,
+                    }));
+                }
             }
         }
     }
@@ -464,15 +534,54 @@ pub async fn delete_secret_async(profile: &str) -> Result<(), RuntimeError> {
 mod tests {
     use super::*;
 
-    /// File fallback is only allowed when the platform keychain is unavailable.
+    /// Operation-time fallback is narrow: only `NoStorageAccess` (the backend
+    /// went away after `Entry::new` succeeded) routes to file. A
+    /// `PlatformFailure` on a working keychain is a genuine error and must surface.
     #[test]
-    fn test_should_fallback_to_file_only_for_no_storage_access() {
+    fn test_is_keychain_unavailable_only_for_no_storage_access() {
         let unavailable = KeyringError::NoStorageAccess(Box::new(std::io::Error::other("locked")));
         let other_failure = KeyringError::PlatformFailure(Box::new(std::io::Error::other("boom")));
 
-        assert!(should_fallback_to_file(&unavailable));
-        assert!(!should_fallback_to_file(&other_failure));
-        assert!(!should_fallback_to_file(&KeyringError::NoEntry));
+        assert!(is_keychain_unavailable(&unavailable));
+        assert!(!is_keychain_unavailable(&other_failure));
+        assert!(!is_keychain_unavailable(&KeyringError::NoEntry));
+    }
+
+    /// Init-time fallback is broader: any *environmental* `Entry::new` failure
+    /// routes to file storage. Covers the regression where `ags auth login`
+    /// hard-failed in a container instead of falling back to file.
+    ///
+    /// Both container failure modes reach us as `PlatformFailure`: the Linux
+    /// keyutils backend maps the failing `keyctl` errno through
+    /// `linux_keyutils::from_errno`, which names only a handful of errnos
+    /// (notably `EACCES` → `AccessDenied`) and sends everything else to
+    /// `Unknown(errno)` → keyring `PlatformFailure`. So:
+    /// - **ENOSYS (38)** — syscall absent (customer's stripped environment).
+    /// - **EPERM (1)** — syscall blocked by the default Docker seccomp profile.
+    ///
+    /// Both must fall back; malformed-entry variants are still surfaced.
+    #[test]
+    fn test_is_keychain_init_unavailable_covers_storage_and_platform_failures() {
+        let no_storage = KeyringError::NoStorageAccess(Box::new(std::io::Error::other("no d-bus")));
+        let enosys = KeyringError::PlatformFailure(Box::new(std::io::Error::other("Unknown(38)")));
+        // Default Docker seccomp blocks keyctl/add_key, surfacing as EPERM.
+        let eperm = KeyringError::PlatformFailure(Box::new(std::io::Error::other("Unknown(1)")));
+
+        // Every environmental failure routes to file fallback at init time.
+        assert!(is_keychain_init_unavailable(&no_storage));
+        assert!(is_keychain_init_unavailable(&enosys));
+        assert!(is_keychain_init_unavailable(&eperm));
+
+        // Malformed entries are a programming error, not a missing backend.
+        assert!(!is_keychain_init_unavailable(&KeyringError::Invalid(
+            "user".into(),
+            "empty".into()
+        )));
+        assert!(!is_keychain_init_unavailable(&KeyringError::TooLong(
+            "password".into(),
+            2560
+        )));
+        assert!(!is_keychain_init_unavailable(&KeyringError::NoEntry));
     }
 
     /// Different profiles produce different keychain service names.
