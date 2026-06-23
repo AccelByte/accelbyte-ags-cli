@@ -401,6 +401,12 @@ pub(crate) fn assess_keychain_access() -> CheckResult {
                 ),
             }
         }
+        // No usable keychain backend at init: NoStorageAccess (e.g. WSL2
+        // without D-Bus) or PlatformFailure (e.g. keyutils ENOSYS in a
+        // container). File fallback is automatic — not an error condition.
+        Err(e) if store::is_keychain_init_unavailable(&e) => {
+            ID.pass("No keychain backend (using file fallback)")
+        }
         Err(e) => ID.warning_with_hint(
             format!("unavailable, using file fallback: {e}"),
             "Set AGS_NO_KEYCHAIN=1 to suppress this warning",

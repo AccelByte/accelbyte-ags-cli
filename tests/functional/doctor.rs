@@ -110,3 +110,58 @@ fn test_doctor_all_json_has_multiple_profiles() {
         );
     }
 }
+
+/// Regression: on platforms without a keychain backend (e.g. WSL2 without D-Bus,
+/// or a container where the keyutils syscall is absent/blocked), a missing stored
+/// token must produce a Warning, not a Fail, when client credentials are present.
+/// Before the fix, Entry::new returning NoStorageAccess/PlatformFailure propagated
+/// as a RuntimeError, causing the Auth tier to Fail and the Network tier to be
+/// skipped with "earlier tier failed" even though auth was possible.
+#[test]
+fn test_doctor_missing_token_with_client_creds_is_warning_not_fail() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let output = ags()
+        .env("AGS_HOME", tmp.path())
+        .env("AGS_BASE_URL", "https://example.accelbyte.io/")
+        .env("AGS_CLIENT_ID", "aaaabbbbccccddddeeeeffffaaaabbbb")
+        .env("AGS_CLIENT_SECRET", "some-secret")
+        // Intentionally no AGS_NO_KEYCHAIN — exercises the real keychain init path.
+        .args(["doctor", "--offline", "--format", "json"])
+        .output()
+        .unwrap();
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("valid JSON output");
+    let checks = json["profiles"][0]["checks"]
+        .as_array()
+        .expect("checks array");
+
+    let cred_check = checks
+        .iter()
+        .find(|c| c["name"] == "credential-state")
+        .expect("credential-state check must be present");
+    assert_eq!(
+        cred_check["status"], "pass",
+        "credential-state must Pass when AGS_CLIENT_SECRET is present"
+    );
+
+    let token_check = checks
+        .iter()
+        .find(|c| c["name"] == "token-state")
+        .expect("token-state check must be present");
+    assert_ne!(
+        token_check["status"], "fail",
+        "token-state must not Fail when no token is stored but client credentials are present"
+    );
+
+    // Network tier is skipped via --offline. Its skip reason must reflect offline
+    // mode, not an Auth tier failure — confirming the Auth tier did not Fail.
+    for check in checks.iter().filter(|c| c["tier"] == "network") {
+        assert_ne!(
+            check["message"].as_str().unwrap_or(""),
+            "skipped (earlier tier failed)",
+            "Network tier must not report 'earlier tier failed' when client credentials are present"
+        );
+    }
+}
