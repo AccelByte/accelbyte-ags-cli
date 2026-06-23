@@ -239,7 +239,10 @@ pub(crate) struct PaginationHint {
 
 /// Classified shape of a JSON response body for choosing the right renderer.
 pub(crate) enum ResponseShape<'a> {
-    Array(&'a Vec<Value>),
+    /// An array of items, plus the object key it was unwrapped from (e.g.
+    /// `regions` for `{"regions": [...]}`), or `None` for a bare top-level
+    /// array. The key names the single column when items are scalars.
+    Array(&'a Vec<Value>, Option<&'a str>),
     PaginatedList(&'a Vec<Value>, PaginationHint),
     SingleObject(&'a serde_json::Map<String, Value>),
     Scalar,
@@ -248,7 +251,7 @@ pub(crate) enum ResponseShape<'a> {
 /// Classify a JSON body as array, paginated list, single object, or scalar.
 pub(crate) fn detect_shape(body: &Value) -> ResponseShape<'_> {
     match body {
-        Value::Array(items) => ResponseShape::Array(items),
+        Value::Array(items) => ResponseShape::Array(items, None),
         Value::Object(object) => {
             if let Some(Value::Array(items)) = object.get("data") {
                 let total = object.get("totalData").and_then(|v| v.as_u64());
@@ -274,8 +277,9 @@ pub(crate) fn detect_shape(body: &Value) -> ResponseShape<'_> {
                 .filter(|(_, v)| matches!(v, Value::Array(a) if !a.is_empty()))
                 .collect();
             if arrays.len() == 1 && scalar_count <= 2 {
-                if let Value::Array(items) = arrays[0].1 {
-                    return ResponseShape::Array(items);
+                let (key, value) = arrays[0];
+                if let Value::Array(items) = value {
+                    return ResponseShape::Array(items, Some(key.as_str()));
                 }
             }
 
@@ -291,9 +295,12 @@ pub(crate) struct ListTable {
     pub rows: Vec<Vec<String>>,
 }
 
-/// Build column headers and rows from an array of JSON objects.
+/// Build column headers and rows from an array of items. Arrays of objects
+/// derive their columns from the objects' fields; an array of bare scalars
+/// renders as a single column titled `scalar_header`.
 pub(crate) fn build_list_table(
     items: &[Value],
+    scalar_header: &str,
     intent: &CommandIntent,
     is_verbose: bool,
 ) -> ListTable {
@@ -310,9 +317,23 @@ pub(crate) fn build_list_table(
     }
 
     if headers.is_empty() {
+        // No object fields anywhere — render the items as a single scalar
+        // column (e.g. a list of region strings). An array of objects that
+        // all suppress their fields, or a genuinely empty list, still yields
+        // no rows and renders as the empty-collection view.
+        let rows: Vec<Vec<String>> = items
+            .iter()
+            .filter_map(|item| normalize_value(item).map(|value| vec![value]))
+            .collect();
+        if rows.is_empty() {
+            return ListTable {
+                headers,
+                rows: Vec::new(),
+            };
+        }
         return ListTable {
-            headers,
-            rows: Vec::new(),
+            headers: vec![scalar_header.to_string()],
+            rows,
         };
     }
 
@@ -394,12 +415,19 @@ pub fn shape_response(
     let intent = CommandIntent::from_operation(operation);
 
     match detect_shape(body) {
-        ResponseShape::Array(items) => {
-            shape_collection(items, None, &intent, is_verbose, operation, resource_name)
-        }
+        ResponseShape::Array(items, scalar_key) => shape_collection(
+            items,
+            None,
+            scalar_key,
+            &intent,
+            is_verbose,
+            operation,
+            resource_name,
+        ),
         ResponseShape::PaginatedList(items, pagination) => shape_collection(
             items,
             Some(pagination),
+            None,
             &intent,
             is_verbose,
             operation,
@@ -420,13 +448,20 @@ pub fn shape_response(
 fn shape_collection(
     items: &[Value],
     pagination: Option<PaginationHint>,
+    scalar_key: Option<&str>,
     intent: &CommandIntent,
     is_verbose: bool,
     operation: &OperationSchema,
     resource_name: &str,
 ) -> CommandResult {
-    let table = build_list_table(items, intent, is_verbose);
     let noun = derive_noun_from_method(&operation.name, resource_name);
+    // When the items are bare scalars (e.g. `{"regions": ["us-east-1", ...]}`)
+    // there are no object fields to derive columns from. Label the single
+    // column after the key it was unwrapped from, falling back to the noun.
+    let scalar_header = scalar_key
+        .map(normalize_label)
+        .unwrap_or_else(|| capitalize_first(&noun));
+    let table = build_list_table(items, &scalar_header, intent, is_verbose);
 
     let columns = table
         .headers
@@ -562,7 +597,7 @@ mod tests {
     #[test]
     fn test_detect_shape_array() {
         let body = json!([1, 2, 3]);
-        assert!(matches!(detect_shape(&body), ResponseShape::Array(_)));
+        assert!(matches!(detect_shape(&body), ResponseShape::Array(..)));
     }
 
     /// `{ data: [...], paging: ... }` envelopes are detected as a paginated list
@@ -640,7 +675,7 @@ mod tests {
     #[test]
     fn test_detect_shape_single_array_envelope() {
         let body = json!({"bans": [{"id": "b1"}, {"id": "b2"}]});
-        assert!(matches!(detect_shape(&body), ResponseShape::Array(_)));
+        assert!(matches!(detect_shape(&body), ResponseShape::Array(..)));
     }
 
     /// A method like `get-ban` strips the verb prefix to derive the noun "ban"
@@ -721,11 +756,58 @@ mod tests {
                 "emailAddress": "bob@example.com"
             }),
         ];
-        let table = build_list_table(&items, &CommandIntent::List, false);
+        let table = build_list_table(&items, "Value", &CommandIntent::List, false);
 
         assert_eq!(table.headers, vec!["User ID", "Display Name", "Email"]);
         assert_eq!(table.rows[0], vec!["user-1", "Alice", "alice@example.com"]);
         // Display Name must be "—", not "bob@example.com" shifted left
         assert_eq!(table.rows[1], vec!["user-2", "—", "bob@example.com"]);
+    }
+
+    /// An array of bare scalars (the `{"regions": [...]}` shape, unwrapped) is
+    /// rendered as a single column named after the source key, not dropped.
+    #[test]
+    fn test_build_list_table_scalar_array_uses_named_column() {
+        let items = vec![json!("us-east-1"), json!("eu-west-1")];
+        let table = build_list_table(&items, "Regions", &CommandIntent::List, false);
+        assert_eq!(table.headers, vec!["Regions"]);
+        assert_eq!(table.rows, vec![vec!["us-east-1"], vec!["eu-west-1"]]);
+    }
+
+    /// End-to-end: a `{"regions": [strings]}` body shapes into a Collection
+    /// with a single "Regions" column — the regression guard for the empty
+    /// list rendering bug.
+    #[test]
+    fn test_shape_response_regions_scalar_array_collection() {
+        use crate::protocol::catalogue::{ApiVersion, HttpMethod, MutationClass, OperationId};
+        let body = json!({ "regions": ["us-east-1", "eu-west-1"] });
+        let operation = OperationSchema {
+            id: OperationId::new("ams/admin/info/v1/list-regions"),
+            name: "list-regions".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: "/regions".to_string(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        };
+        let result = shape_response(&body, &operation, "region", false);
+        let CommandResult::Collection(collection) = result else {
+            panic!("expected Collection, got {result:?}");
+        };
+        assert_eq!(collection.columns.len(), 1);
+        assert_eq!(collection.columns[0].label, "Regions");
+        assert_eq!(collection.rows.len(), 2);
+        assert_eq!(
+            collection.rows[0].cells,
+            vec![FieldValue::Text("us-east-1".to_string())]
+        );
     }
 }
