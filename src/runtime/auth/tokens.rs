@@ -123,8 +123,8 @@ pub async fn fetch_client_credentials_token(
 
 /// Fetch a token via refresh token grant.
 ///
-/// For confidential clients, sends Basic auth with client_id:client_secret.
-/// For public clients (no secret), sends client_id in the form body.
+/// Sends Basic auth with `client_id:client_secret` for confidential clients
+/// and `client_id:` for public clients.
 pub async fn fetch_refresh_token(
     client: &Client,
     base_url: &str,
@@ -135,17 +135,12 @@ pub async fn fetch_refresh_token(
     let url = token_url(base_url).map_err(RuntimeError::from)?;
 
     let mut request = client.post(url);
-    if let Some(secret) = client_secret {
-        request = request.basic_auth(client_id, Some(secret));
-    }
+    request = request.basic_auth(client_id, Some(client_secret.unwrap_or("")));
 
-    let mut form_params = vec![
+    let form_params = vec![
         ("grant_type", "refresh_token"),
         ("refresh_token", refresh_token),
     ];
-    if client_secret.is_none() {
-        form_params.push(("client_id", client_id));
-    }
 
     let response = request
         .form(&form_params)
