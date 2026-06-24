@@ -1,5 +1,122 @@
 {
+  "app-ui": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/app-ui",
+      "permissions": [],
+      "summary": "Creates an App UI instance",
+      "x_operation_id": "csm/admin/app-ui/v1/create"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "appUiName",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/app-ui/{appUiName}",
+      "permissions": [],
+      "summary": "Deletes an App UI instance",
+      "x_operation_id": "csm/admin/app-ui/v1/delete"
+    },
+    {
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "name",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/app-ui",
+      "permissions": [],
+      "summary": "Lists all App UI instances in a namespace",
+      "x_operation_id": "csm/admin/app-ui/v1/list"
+    },
+    {
+      "http_method": "POST",
+      "method": "upload-assets",
+      "parameters": [
+        {
+          "location": "form_data",
+          "name": "file",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "appUiName",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "version",
+          "required": false
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/app-ui/{appUiName}/files/upload",
+      "permissions": [],
+      "summary": "Uploads App UI assets as a ZIP archive",
+      "x_operation_id": "csm/admin/app-ui/v1/upload-assets"
+    }
+  ],
   "apps": [
+    {
+      "http_method": "POST",
+      "method": "apply",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/apply",
+      "permissions": [],
+      "summary": "Creates or updates an Extend app from a declarative spec",
+      "x_operation_id": "csm/admin/apps/v2/apply"
+    },
     {
       "http_method": "POST",
       "method": "create",
@@ -500,6 +617,28 @@
       "x_operation_id": "csm/admin/deployments/v2/list"
     }
   ],
+  "files": [
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "filePath",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/files/{filePath}",
+      "permissions": [],
+      "summary": "Retrieves a hosted static file",
+      "x_operation_id": "csm/admin/files/v1/get"
+    }
+  ],
   "images": [
     {
       "http_method": "DELETE",
@@ -545,6 +684,218 @@
       "permissions": [],
       "summary": "Lists container images for the app",
       "x_operation_id": "csm/admin/images/v2/list"
+    }
+  ],
+  "key-value": [
+    {
+      "http_method": "POST",
+      "method": "create-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters",
+      "permissions": [],
+      "summary": "Creates Key-Value Cluster",
+      "x_operation_id": "csm/admin/key-value/v2/create-cluster"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-credentials",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/credentials",
+      "permissions": [],
+      "summary": "Generates a Key-Value credential for an integrated Extend app",
+      "x_operation_id": "csm/admin/key-value/v2/create-credentials"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-integration",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations",
+      "permissions": [],
+      "summary": "Integrates an Extend app with a Key-Value cluster",
+      "x_operation_id": "csm/admin/key-value/v2/create-integration"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/{resourceId}",
+      "permissions": [],
+      "summary": "Deletes the Key-Value cluster",
+      "x_operation_id": "csm/admin/key-value/v2/delete-cluster"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-integration",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations",
+      "permissions": [],
+      "summary": "Removes an Extend app's Key-Value integration",
+      "x_operation_id": "csm/admin/key-value/v2/delete-integration"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/cluster/{resourceId}",
+      "permissions": [],
+      "summary": "Retrieves Key-Value cluster information",
+      "x_operation_id": "csm/admin/key-value/v2/get-cluster"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-integration",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations",
+      "permissions": [],
+      "summary": "Retrieves an Extend app's Key-Value integration",
+      "x_operation_id": "csm/admin/key-value/v2/get-integration"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-limit-config",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/limitconfig",
+      "permissions": [],
+      "summary": "Retrieves Key-Value cluster limit configuration",
+      "x_operation_id": "csm/admin/key-value/v2/get-limit-config"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-clusters",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "refresh",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters",
+      "permissions": [],
+      "summary": "Lists Key-Value clusters",
+      "x_operation_id": "csm/admin/key-value/v2/list-clusters"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-integrations",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/{resourceId}/integrations",
+      "permissions": [],
+      "summary": "Lists Extend apps integrated with a Key-Value cluster",
+      "x_operation_id": "csm/admin/key-value/v2/list-integrations"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/{resourceId}",
+      "permissions": [],
+      "summary": "Updates Key-Value cluster configuration",
+      "x_operation_id": "csm/admin/key-value/v2/update-cluster"
     }
   ],
   "nosql": [
@@ -598,9 +949,9 @@
           "required": true
         }
       ],
-      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/crendentials",
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/credentials",
       "permissions": [],
-      "summary": "Creates a new database credential for the customer",
+      "summary": "Creates a NoSQL database credential for an Extend app",
       "x_operation_id": "csm/admin/nosql/v2/create-credentials"
     },
     {
@@ -800,6 +1151,218 @@
       "permissions": [],
       "summary": "Retrieves service messages",
       "x_operation_id": "csm/public/service-messages/v1/list"
+    }
+  ],
+  "sql": [
+    {
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases",
+      "permissions": [],
+      "summary": "Creates SQL Database for Extend App",
+      "x_operation_id": "csm/admin/sql/v2/create"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters",
+      "permissions": [],
+      "summary": "Creates SQL Cluster",
+      "x_operation_id": "csm/admin/sql/v2/create-cluster"
+    },
+    {
+      "http_method": "POST",
+      "method": "create-credentials",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/credentials",
+      "permissions": [],
+      "summary": "Creates a SQL database credential for an Extend app",
+      "x_operation_id": "csm/admin/sql/v2/create-credentials"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases",
+      "permissions": [],
+      "summary": "Deletes SQL Database for Extend App",
+      "x_operation_id": "csm/admin/sql/v2/delete"
+    },
+    {
+      "http_method": "DELETE",
+      "method": "delete-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters",
+      "permissions": [],
+      "summary": "Deletes the SQL cluster",
+      "x_operation_id": "csm/admin/sql/v2/delete-cluster"
+    },
+    {
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases",
+      "permissions": [],
+      "summary": "Retrieves the SQL database for an Extend app",
+      "x_operation_id": "csm/admin/sql/v2/get"
+    },
+    {
+      "http_method": "GET",
+      "method": "get-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters",
+      "permissions": [],
+      "summary": "Retrieves SQL cluster information",
+      "x_operation_id": "csm/admin/sql/v2/get-cluster"
+    },
+    {
+      "http_method": "GET",
+      "method": "list-apps",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "resourceId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "appName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "gameNamespace",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/{resourceId}/apps",
+      "permissions": [],
+      "summary": "Lists Extend apps using a SQL cluster",
+      "x_operation_id": "csm/admin/sql/v2/list-apps"
+    },
+    {
+      "http_method": "PUT",
+      "method": "start-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters/start",
+      "permissions": [],
+      "summary": "Starts the SQL cluster",
+      "x_operation_id": "csm/admin/sql/v2/start-cluster"
+    },
+    {
+      "http_method": "PUT",
+      "method": "stop-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters/stop",
+      "permissions": [],
+      "summary": "Stops the SQL cluster",
+      "x_operation_id": "csm/admin/sql/v2/stop-cluster"
+    },
+    {
+      "http_method": "PUT",
+      "method": "update-cluster",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v2/admin/namespaces/{namespace}/sql/clusters",
+      "permissions": [],
+      "summary": "Updates SQL cluster configuration",
+      "x_operation_id": "csm/admin/sql/v2/update-cluster"
     }
   ],
   "subscriptions": [

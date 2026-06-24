@@ -16,7 +16,7 @@ pub(crate) fn requires_confirmation(http_method: HttpMethod, operation_name: &st
         HttpMethod::Post | HttpMethod::Put | HttpMethod::Patch
     ) {
         const RISKY_KEYWORDS: &[&str] = &[
-            "delete", "ban", "revoke", "reset", "disable", "remove", "force",
+            "delete", "ban", "revoke", "reset", "disable", "remove", "force", "stop",
         ];
         let lowered_name = operation_name.to_ascii_lowercase();
         return RISKY_KEYWORDS
@@ -91,5 +91,12 @@ mod tests {
     fn test_keyword_match_is_case_insensitive() {
         assert!(requires_confirmation(HttpMethod::Post, "Ban-User"));
         assert!(requires_confirmation(HttpMethod::Post, "RESET-PASSWORD"));
+    }
+
+    /// Stopping a cluster is disruptive and confirms, while starting one does not
+    #[test]
+    fn test_stop_cluster_triggers_confirmation() {
+        assert!(requires_confirmation(HttpMethod::Put, "stop-cluster"));
+        assert!(!requires_confirmation(HttpMethod::Put, "start-cluster"));
     }
 }

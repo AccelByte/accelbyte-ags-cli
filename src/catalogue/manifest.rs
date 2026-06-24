@@ -360,6 +360,7 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "Protected user records with restricted access",
     ),
     // csm
+    ("csm", "app-ui", "App UI hosting and asset management"),
     ("csm", "apps", "Custom service application lifecycle"),
     (
         "csm",
@@ -367,7 +368,13 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "Service configuration variables and secrets",
     ),
     ("csm", "deployments", "Service deployment management"),
+    ("csm", "files", "Hosted static file access"),
     ("csm", "images", "Container image registry and management"),
+    (
+        "csm",
+        "key-value",
+        "Key-Value store configuration and management",
+    ),
     (
         "csm",
         "nosql",
@@ -379,6 +386,7 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "service-messages",
         "Service messaging and notifications",
     ),
+    ("csm", "sql", "SQL database configuration and management"),
     (
         "csm",
         "subscriptions",
