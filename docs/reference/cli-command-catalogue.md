@@ -5,7 +5,7 @@ Auto-generated from `specs/*.json.gz` via `scripts/generate_cli_command_catalogu
 Lists every operation the CLI dispatches. Deprecated operations and the `internal` resource are excluded. Each row corresponds to a concrete `--api-scope` / `--api-version` combination.
 
 **Services:** 24
-**Operations:** 1962
+**Operations:** 1990
 
 ## achievement
 
@@ -393,11 +393,16 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 ## csm
 
 - Spec name: `csm`
-- Resources: 9
-- Operations: 52
+- Resources: 13
+- Operations: 80
 
 | Resource | Method | Scope | Version | HTTP | Path | Summary |
 |----------|--------|-------|---------|------|------|---------|
+| `app-ui` | `create` | admin | v1 | POST | `/csm/v1/admin/namespaces/{namespace}/app-ui` | Creates an App UI instance |
+| `app-ui` | `delete` | admin | v1 | DELETE | `/csm/v1/admin/namespaces/{namespace}/app-ui/{appUiName}` | Deletes an App UI instance |
+| `app-ui` | `list` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/app-ui` | Lists all App UI instances in a namespace |
+| `app-ui` | `upload-assets` | admin | v1 | POST | `/csm/v1/admin/namespaces/{namespace}/app-ui/{appUiName}/files/upload` | Uploads App UI assets as a ZIP archive |
+| `apps` | `apply` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/apply` | Creates or updates an Extend app from a declarative spec |
 | `apps` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Creates a new extend app |
 | `apps` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Deletes the extend app by name |
 | `apps` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Retrieves the extend app by name |
@@ -420,11 +425,23 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `deployments` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Deletes a deployment by ID |
 | `deployments` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Retrieves a deployment by ID |
 | `deployments` | `list` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/deployments` | Fetches the List of Deployments |
+| `files` | `get` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/files/{filePath}` | Retrieves a hosted static file |
 | `images` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/images` | Deletes app images |
 | `images` | `list` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/images` | Lists container images for the app |
+| `key-value` | `create-cluster` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters` | Creates Key-Value Cluster |
+| `key-value` | `create-credentials` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/credentials` | Generates a Key-Value credential for an integrated Extend app |
+| `key-value` | `create-integration` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations` | Integrates an Extend app with a Key-Value cluster |
+| `key-value` | `delete-cluster` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/{resourceId}` | Deletes the Key-Value cluster |
+| `key-value` | `delete-integration` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations` | Removes an Extend app's Key-Value integration |
+| `key-value` | `get-cluster` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/keyvalue/cluster/{resourceId}` | Retrieves Key-Value cluster information |
+| `key-value` | `get-integration` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations` | Retrieves an Extend app's Key-Value integration |
+| `key-value` | `get-limit-config` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/limitconfig` | Retrieves Key-Value cluster limit configuration |
+| `key-value` | `list-clusters` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters` | Lists Key-Value clusters |
+| `key-value` | `list-integrations` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/keyvalue/{resourceId}/integrations` | Lists Extend apps integrated with a Key-Value cluster |
+| `key-value` | `update-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters/{resourceId}` | Updates Key-Value cluster configuration |
 | `nosql` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases` | Creates NoSQL Database for Extend App |
 | `nosql` | `create-cluster` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/nosql/clusters` | Creates NoSQL Cluster |
-| `nosql` | `create-credentials` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/crendentials` | Creates a new database credential for the customer |
+| `nosql` | `create-credentials` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/credentials` | Creates a NoSQL database credential for an Extend app |
 | `nosql` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases` | Deletes NoSQL Database for Extend App |
 | `nosql` | `delete-cluster` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/nosql/clusters` | Deletes the NoSQL cluster |
 | `nosql` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/nosql/databases` | Retrieves the NoSQL database for the extend app |
@@ -436,6 +453,17 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `nosql` | `update-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/nosql/clusters` | Updates the NoSQL cluster configuration |
 | `resource-limits` | `list` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/resources/limits` | Retrieves configurable resource limits for extend apps |
 | `service-messages` | `list` | public | v1 | GET | `/csm/v1/messages` | Retrieves service messages |
+| `sql` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases` | Creates SQL Database for Extend App |
+| `sql` | `create-cluster` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/sql/clusters` | Creates SQL Cluster |
+| `sql` | `create-credentials` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/credentials` | Creates a SQL database credential for an Extend app |
+| `sql` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases` | Deletes SQL Database for Extend App |
+| `sql` | `delete-cluster` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/sql/clusters` | Deletes the SQL cluster |
+| `sql` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases` | Retrieves the SQL database for an Extend app |
+| `sql` | `get-cluster` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/sql/clusters` | Retrieves SQL cluster information |
+| `sql` | `list-apps` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/sql/{resourceId}/apps` | Lists Extend apps using a SQL cluster |
+| `sql` | `start-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/sql/clusters/start` | Starts the SQL cluster |
+| `sql` | `stop-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/sql/clusters/stop` | Stops the SQL cluster |
+| `sql` | `update-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/sql/clusters` | Updates SQL cluster configuration |
 | `subscriptions` | `add` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions` | Subscribes users to app notifications |
 | `subscriptions` | `add-my` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/subscriptions/me` | Subscribes the authenticated user to app notifications |
 | `subscriptions` | `delete` | admin | v3 | DELETE | `/csm/v3/admin/namespaces/{namespace}/apps/{app}/subscriptions` | Removes a user's notification subscription by user ID or email |
