@@ -1,0 +1,28 @@
+---
+source: crates/accelbyte-ags-cli/src/frontend/terminal/fullscreen/phases/confirm.rs
+expression: text
+---
+┌ Step 1 ──────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  Create user                                                                 │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+┌ POST /iam/v3/admin/namespaces/{namespace}/users ─────────────────────────────┐
+│                                                                              │
+│    namespace:      dev                                                       │
+│    email:          a@b.com                                                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│    [ Confirm ]                                                               │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘

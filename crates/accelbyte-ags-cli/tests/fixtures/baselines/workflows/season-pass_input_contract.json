@@ -1,0 +1,60 @@
+{
+  "inputs": [
+    {
+      "name": "currency-code",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "end",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "2099-12-31T23:59:59Z"
+    },
+    {
+      "name": "free-reward-item-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "namespace",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "premium-reward-item-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "season-name",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "Season 1"
+    },
+    {
+      "name": "start",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "2020-01-01T00:00:00Z"
+    },
+    {
+      "name": "store-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    }
+  ]
+}

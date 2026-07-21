@@ -1,0 +1,18 @@
+{
+  "inputs": [
+    {
+      "name": "currency-code",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "GOLD"
+    },
+    {
+      "name": "namespace",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    }
+  ]
+}

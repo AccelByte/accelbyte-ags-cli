@@ -1,0 +1,36 @@
+{
+  "inputs": [
+    {
+      "name": "namespace",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "search-by",
+      "type": "string",
+      "required": false,
+      "enum_values": [
+        "emailAddress",
+        "displayName",
+        "uniqueDisplayName"
+      ],
+      "default": "emailAddress"
+    },
+    {
+      "name": "search-query",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "user-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    }
+  ]
+}

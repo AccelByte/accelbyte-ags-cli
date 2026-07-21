@@ -1,0 +1,9 @@
+---
+source: crates/accelbyte-ags-cli/src/frontend/terminal/fullscreen/nav.rs
+expression: nav_to_text(&phase)
+---
+┌ Navigation ──────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  [Tab] move · [Enter] edit/cycle · [←/→] select · [s] skip · [Esc] cancel    │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘

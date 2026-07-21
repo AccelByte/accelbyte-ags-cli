@@ -2,120 +2,197 @@
 
 A Rust CLI that dynamically generates commands from AccelByte's 24 OpenAPI 2.0 specs.
 
-## Source layout
+## Workflows
+
+Workflows are runtime-owned sequences of API operations. A single command
+(`ags <service> <resource> <method>`) is internally a 1-step synthesised workflow;
+`ags workflow run <id>` runs a registered multi-step workflow. The shared
+engine lives in `crates/ags-runtime/src/runtime/workflows/`; built-in
+workflows are in `runtime/workflows/builtins/`. See
+`docs/private/workflow-protocol.md`.
+
+## Workspace layout
+
+Three crates under `crates/`. Dependency direction is strictly `accelbyte-ags-cli → ags-runtime → ags-protocol`. Reverse edges are forbidden.
+
+### `ags-protocol/` — leaf crate (serde, serde_json, thiserror only)
+
+Typed protocol contracts shared across crates.
 
 ```
-src/
-├── main.rs                      # Entry point: SIGPIPE reset, Tokio bootstrap, delegates to invocation::run
-├── lib.rs                       # Library root (for integration tests)
-├── catalogue/                   # OpenAPI spec loading, parsing, caching
-│   ├── bundled.rs               # Bundled spec loading (include_bytes! + gzip)
-│   ├── cache.rs                 # On-disk parsed-schema cache I/O
-│   ├── manifest.rs              # 24-service allowlist + display names + descriptions
-│   ├── memory_cache.rs          # In-process cache of parsed ServiceSchema values
-│   ├── openapi.rs               # OpenAPI 2.0 (Swagger) wire types used by the parser
-│   ├── parser.rs                # SwaggerSpec → ServiceSchema (driven by x-operationId)
-│   ├── repository.rs            # Orchestrates bundled + cache + memory_cache loads
-│   └── skeleton.rs              # Request body template generation
-├── errors.rs                    # CliError enum, ErrorMetadata, exit codes
-├── invocation/                  # CLI layer: flag parsing, command tree, routing
-│   ├── builder.rs               # Dynamic Clap tree from ServiceSchema
-│   ├── errors.rs                # Invocation error types
-│   ├── flags.rs                 # GlobalFlags, pre-scan, namespace resolution
-│   ├── resolve.rs               # Resolves --api-scope/--api-version to a concrete contract
-│   ├── router.rs                # Page-limit parsing and per-command dispatch
-│   └── commands/                # Command handlers
-│       ├── auth/                # Auth subcommands
-│       │   ├── mod.rs           # Login/logout/status dispatch
-│       │   └── oauth.rs         # OAuth callback server for browser flow
-│       ├── completions.rs       # Shell completion generation
-│       ├── config.rs            # Config get/set/unset dispatch
-│       ├── describe/            # Machine-readable command introspection
-│       │   ├── mod.rs           # `ags describe` command dispatch
-│       │   └── envelope.rs      # JSON envelope shapes for describe output
-│       ├── doctor.rs            # Diagnostic check dispatch
-│       ├── profile.rs           # Profile CRUD dispatch
-│       ├── refresh_specs.rs     # `ags refresh-specs` subcommand dispatch
-│       ├── service/             # Dynamic service-command pipeline
-│       │   ├── mod.rs           # Top-level service handler (parse → dispatch)
-│       │   ├── clap_tree.rs     # Clap subtree construction for a service
-│       │   ├── dispatch.rs      # Dry-run, confirmation, and execution
-│       │   ├── help.rs          # Contextual help rendering
-│       │   ├── parser.rs        # Args → ParsedServiceCommand
-│       │   └── request.rs       # ParsedServiceCommand → CommandRequest
-│       └── version.rs           # Version output dispatch
-├── protocol/                    # Boundary types between invocation and runtime
-│   ├── catalogue.rs             # Catalogue query/result types
-│   ├── config.rs                # Config operation types
-│   ├── diagnostics.rs           # Diagnostic check types
-│   ├── error.rs                 # Protocol-level error types
-│   ├── event.rs                 # Runtime event types
-│   ├── output.rs                # Structured output envelope
-│   ├── output_views.rs          # View/payload types attached to command outputs
-│   ├── request.rs               # API request types
-│   └── result.rs                # Operation result types
-├── frontend/                    # All user-facing output
-│   ├── render.rs                # Top-level CommandOutput → RenderedOutput dispatch
-│   ├── templates.rs             # Backend-agnostic response templates
-│   ├── presenters/              # Format-neutral presentation helpers
-│   │   ├── auth.rs              # Auth-source labels, token-state views
-│   │   └── service.rs           # Dry-run and API-response views
-│   ├── human/                   # Human-readable frontend
-│   │   ├── frontend.rs          # impl Frontend for HumanFrontend
-│   │   ├── progress.rs          # Status lines and spinner helpers
-│   │   ├── prompt.rs            # Interactive confirmation prompts
-│   │   ├── templates.rs         # ANSI-applying text adapters
-│   │   └── commands/            # Per-command human renderers
-│   ├── json/                    # Machine-readable JSON frontend
-│   │   ├── frontend.rs          # impl Frontend for JsonFrontend
-│   │   ├── progress.rs          # Noop progress sink for JSON mode
-│   │   └── commands/            # Per-command JSON emitters
-│   ├── style/                   # Styling subsystem
-│   │   ├── ansi.rs              # ANSI backend: colour functions, respects NO_COLOR
-│   │   ├── span.rs              # StyledSpan / StyledLine IR
-│   │   ├── text.rs              # Symbol constants (✔ ✖ › …)
-│   │   └── tone.rs              # Tone enum (semantic style vocabulary)
-├── runtime/                     # All business logic and external interaction
-│   ├── cleanup.rs               # Startup cleanup of stale temp files
-│   ├── completions.rs           # Completion script generation
-│   ├── execution.rs             # Top-level command execution coordinator
-│   ├── auth/                    # OAuth2 flows, credential storage, sessions
-│   │   ├── credentials.rs       # Client/base URL credential resolution
-│   │   ├── errors.rs            # AuthError domain type
-│   │   ├── locking.rs           # Cross-process token lock coordination
-│   │   ├── operations.rs        # Login, logout, status operations
-│   │   ├── session.rs           # Access-token lifecycle policy
-│   │   ├── store.rs             # OS keychain/file token persistence
-│   │   └── tokens.rs            # OAuth token endpoint types and calls
-│   ├── config/                  # Configuration management
-│   │   ├── environment.rs       # AGS_* environment variables and defaults
-│   │   ├── errors.rs            # Config-layer error helpers
-│   │   ├── keys.rs              # Config key definitions and validation
-│   │   ├── paths.rs             # Config and cache path derivation
-│   │   └── store.rs             # ConfigStore, GlobalConfig, ProfileConfig
-│   ├── diagnostics/             # Health checks and troubleshooting
-│   │   ├── checks.rs            # Individual diagnostic checks
-│   │   └── runner.rs            # Diagnostic runner and reporting
-│   ├── dispatch/                # API call execution and error classification
-│   │   ├── classify.rs          # HTTP status + error code → user-friendly message
-│   │   ├── confirmation.rs      # Confirmation rules for risky operations
-│   │   ├── error_codes.rs       # AccelByte error code lookup table
-│   │   ├── execute.rs           # Main API call execution pipeline
-│   │   ├── http.rs              # HTTP client and request execution
-│   │   ├── pagination.rs        # Paginated response handling
-│   │   ├── path.rs              # Path placeholder substitution
-│   │   └── shape.rs             # Response shape detection and normalization
-│   └── facade/                  # High-level orchestration
-│       ├── auth.rs              # Auth facade
-│       ├── config.rs            # Config facade
-│       ├── diagnostics.rs       # Diagnostics facade
-│       ├── profile.rs           # Profile facade
-│       └── service.rs           # Service call facade
-└── support/                     # Shared utilities
-    ├── file_system.rs           # Restricted writes, advisory locks, temp cleanup
-    ├── mod.rs                   # Time, TTY, and small shared helpers
-    ├── output_sink.rs           # Stdout/file destination resolution and writes
-    └── strings.rs               # Naming, sanitization, and display transforms
+crates/ags-protocol/src/
+├── lib.rs                       # Crate root: re-exports every protocol module
+├── catalogue.rs                 # ServiceId, OperationId, ServiceSchema, command catalogue types
+├── config.rs                    # Config operation types
+├── diagnostics.rs               # Diagnostic check types
+├── error.rs                     # RuntimeError, ErrorMetadata, SuggestionKind
+├── event.rs                     # Runtime event types (progress, lifecycle)
+├── output.rs                    # Structured output envelope
+├── output_views.rs              # View/payload types attached to command outputs
+├── request.rs                   # API request types, GrantType, CommandFormat
+├── result.rs                    # Operation result types
+└── workflow.rs                  # Workflow contract types: definitions, steps, bindings, inputs, options_source
+```
+
+### `ags-runtime/` — business logic, depends on ags-protocol
+
+```
+crates/ags-runtime/
+├── specs/                       # 24 gzip-compressed OpenAPI 2.0 specs, bundled via include_bytes!
+└── src/
+    ├── lib.rs                   # Crate root: pub mod runtime; catalogue; support;
+    ├── catalogue/               # OpenAPI spec loading, parsing, caching
+    │   ├── bundled.rs           # Bundled spec loading (include_bytes! + gzip)
+    │   ├── cache.rs             # On-disk parsed-schema cache I/O
+    │   ├── manifest.rs          # 24-service allowlist + display names + descriptions
+    │   ├── memory_cache.rs      # In-process cache of parsed ServiceSchema values
+    │   ├── openapi.rs           # OpenAPI 2.0 (Swagger) wire types used by the parser
+    │   ├── parser.rs            # SwaggerSpec → ServiceSchema (driven by x-operationId)
+    │   ├── repository.rs        # Orchestrates bundled + cache + memory_cache loads
+    │   └── skeleton.rs          # Request body template generation
+    ├── runtime/                 # All business logic and external interaction
+    │   ├── cleanup.rs           # Startup cleanup of stale temp files
+    │   ├── execution.rs         # Top-level command execution coordinator
+    │   ├── auth/                # OAuth2 flows, credential storage, sessions
+    │   │   ├── credentials.rs   # Client/base URL credential resolution
+    │   │   ├── errors.rs        # AuthError domain type
+    │   │   ├── locking.rs       # Cross-process token lock coordination
+    │   │   ├── operations.rs    # Login, logout, status operations
+    │   │   ├── session.rs       # Access-token lifecycle policy
+    │   │   ├── store.rs         # OS keychain/file token persistence
+    │   │   └── tokens.rs        # OAuth token endpoint types and calls
+    │   ├── config/              # Configuration management
+    │   │   ├── environment.rs   # AGS_* environment variables and defaults
+    │   │   ├── errors.rs        # Config-layer error helpers
+    │   │   ├── keys.rs          # Config key definitions and validation
+    │   │   ├── paths.rs         # Config and cache path derivation
+    │   │   └── store.rs         # ConfigStore, GlobalConfig, ProfileConfig
+    │   ├── diagnostics/         # Health checks and troubleshooting
+    │   │   ├── checks.rs        # Individual diagnostic checks
+    │   │   └── runner.rs        # Diagnostic runner and reporting
+    │   ├── dispatch/            # API call execution and error classification
+    │   │   ├── classify.rs      # HTTP status + error code → user-friendly message
+    │   │   ├── confirmation.rs  # Confirmation rules for risky operations
+    │   │   ├── error_codes/     # AccelByte error code lookup tables (one file per service)
+    │   │   ├── execute.rs       # Main API call execution pipeline
+    │   │   ├── http.rs          # HTTP client and request execution (incl. network_error helper)
+    │   │   ├── pagination.rs    # Paginated response handling
+    │   │   ├── path.rs          # Path placeholder substitution
+    │   │   └── shape.rs         # Response shape detection and normalization
+    │   ├── facade/              # High-level orchestration consumed by invocation
+    │   │   ├── auth.rs          # Auth facade
+    │   │   ├── config.rs        # Config facade
+    │   │   ├── diagnostics.rs   # Diagnostics facade
+    │   │   ├── profile.rs       # Profile facade
+    │   │   └── service.rs       # Service call facade
+    │   └── workflows/           # Workflow engine (data types live in ags-protocol::workflow)
+    │       ├── synthesised.rs   # Build a 1-step workflow from a single CLI command
+    │       ├── auto_derive.rs   # Expand a step's OpenAPI schema into auto-derived input fields
+    │       ├── compile.rs       # WorkflowDefinition → CompiledWorkflow (validates bindings, options_source, nested paths)
+    │       ├── resolve.rs       # Compute inputs still to gather; assemble the dispatch request
+    │       ├── executor.rs      # Drive a compiled workflow: gather → confirm → dispatch → capture
+    │       ├── options.rs       # Dynamic-enum option resolution (run a GET, project response → choices)
+    │       ├── jsonpath.rs      # JSONPath subset for transforms and capture paths
+    │       ├── nested_path.rs   # Parser for nested-field binding paths (`data.x[0].y`)
+    │       ├── dry_run.rs       # Synthesise placeholder step outputs for --dry-run previews
+    │       └── builtins/        # Registered built-in workflows (competitive_multiplayer.rs) + registry
+    └── support/                 # Shared utilities (also used by frontend)
+        ├── mod.rs               # Time, TTY, and small shared helpers
+        ├── file_system.rs       # Restricted writes, advisory locks, temp cleanup, FileLock
+        ├── output_sink.rs       # Stdout/file destination resolution; OutputSinkError
+        ├── strings.rs           # Naming, sanitization, and display transforms
+        └── test_helpers.rs      # Shared test fixtures (cfg(test))
+```
+
+### `accelbyte-ags-cli/` — produces the `ags` binary, depends on both
+
+```
+crates/accelbyte-ags-cli/
+├── src/
+│   ├── main.rs                  # Entry point: SIGPIPE reset, Tokio bootstrap, delegates to invocation::run
+│   ├── lib.rs                   # Library root (for integration tests)
+│   ├── errors.rs                # CliError enum, ErrorView, exit codes
+│   ├── invocation/              # CLI layer: flag parsing, command tree, routing
+│   │   ├── builder.rs           # Dynamic Clap tree from ServiceSchema
+│   │   ├── clap_helpers.rs      # Reusable clap value-parser and argument builders
+│   │   ├── completions_generator.rs  # Completion script generation (clap_complete)
+│   │   ├── errors.rs            # Invocation error types
+│   │   ├── flags.rs             # GlobalFlags, pre-scan, namespace resolution
+│   │   ├── context.rs           # Frontend context: consumer kind + interaction surface resolution
+│   │   ├── policy.rs            # (route, shape) → base surface decision matrix
+│   │   ├── shape.rs             # Interaction-shape classification
+│   │   ├── workflows.rs         # Bridge between parsed CLI commands and the workflow executor
+│   │   ├── phase_execution.rs   # Shared post-prologue lifecycle for phase-owned runs
+│   │   ├── resolve.rs           # Resolves --api-scope/--api-version to a concrete contract
+│   │   ├── router.rs            # Root-route classification + page-limit parsing
+│   │   ├── routes/              # Root execution routes
+│   │   │   ├── auth/            # `ags auth ...` route ownership + OAuth callback server
+│   │   │   ├── service/         # Dynamic service-command route (parse → synthesize → execute)
+│   │   │   ├── builtin/         # Root help/version + built-in command route
+│   │   │   └── workflow/        # `ags workflow run ...` route ownership
+│   │   └── handlers/            # Leaf handlers invoked by the routes
+│   │       ├── completions.rs   # `ags completions` dispatch
+│   │       ├── config.rs        # Config get/set/unset dispatch
+│   │       ├── describe/        # `ags describe` — machine-readable introspection
+│   │       ├── doctor.rs        # Diagnostic check dispatch
+│   │       ├── profile.rs       # Profile CRUD dispatch
+│   │       ├── refresh_specs.rs # `ags refresh-specs` subcommand dispatch
+│   │       └── version.rs       # Version output dispatch
+│   └── frontend/                # All user-facing output, split by responsibility
+│       ├── mod.rs               # Frontend/ExecutionInteraction traits, surface selectors, RenderFormat
+│       ├── event.rs             # Frontend lifecycle and progress event types
+│       ├── sink.rs              # FrontendSink: bridges runtime ProgressSink to Frontend events
+│       ├── streams.rs           # UiSink: stderr-only writes for UI chrome (spinners, prompts, hints)
+│       ├── dynamic_options.rs   # DynamicOptionResolver trait + ProductionResolver (dynamic-enum picker bridge)
+│       ├── output/              # Output-format rendering: dispatch + text serialization
+│       │   ├── render.rs        # Shared CommandOutput → RenderedOutput dispatch
+│       │   ├── templates.rs     # Backend-agnostic response templates
+│       │   ├── human/           # Human-readable output rendering
+│       │   │   ├── templates.rs # ANSI-applying text adapters over core templates
+│       │   │   └── commands/    # Per-command human renderers
+│       │   └── json/            # Machine-readable JSON output rendering
+│       │       ├── frontend.rs  # impl Frontend for JsonFrontend
+│       │       └── commands/    # Per-command JSON emitters
+│       ├── terminal/            # Terminal interaction surfaces
+│       │   ├── machine_json.rs  # JsonInteraction: JSON workflow contract seam
+│       │   ├── form_runner.rs   # Surface-agnostic form ↔ JSON-editor ↔ confirm driver (Press-only key reads)
+│       │   ├── plain/           # Plain (line-oriented) terminal surface
+│       │   │   ├── frontend.rs  # impl Frontend for PlainFrontend
+│       │   │   ├── interaction.rs # PlainInteraction workflow interaction
+│       │   │   ├── progress.rs  # Status lines and spinner helpers
+│       │   │   └── prompt.rs    # Interactive confirmation prompts
+│       │   ├── inline/          # Inline (stderr-viewport) TUI surface
+│       │   │   ├── frontend.rs  # impl Frontend for InlineFrontend
+│       │   │   ├── interaction.rs # InlineInteraction workflow interaction
+│       │   │   ├── form.rs      # Inline form widget (fields, focus, hints)
+│       │   │   ├── form_builder.rs # Build form fields from workflow inputs
+│       │   │   ├── json_editor/ # Structured JSON request-body editor
+│       │   │   ├── lifecycle.rs # Inline-viewport acquisition and teardown
+│       │   │   ├── progress_state.rs # Inline-viewport progress state and redraw
+│       │   │   ├── session.rs   # InlineSession: shared live-terminal handle
+│       │   │   └── phases/      # Per-phase inline UI (form, confirm, confirm_card, result)
+│       │   └── fullscreen/      # Fullscreen alt-screen workflow TUI (§13 four-region layout)
+│       │       ├── frontend.rs  # impl Frontend for FullscreenFrontend + dismiss loop
+│       │       ├── interaction.rs # FullscreenInteraction: gather/confirm/picker in-layout
+│       │       ├── surface.rs   # FullscreenSurface: owns the terminal + render model
+│       │       ├── lifecycle.rs # Alt-screen acquire/release
+│       │       ├── layout.rs    # §13 region split (header / main / summary / nav)
+│       │       ├── nav.rs       # Contextual keymap nav bar
+│       │       ├── step_strip.rs # Header step strip
+│       │       ├── summary.rs   # Summary panel
+│       │       ├── support/     # Briefing inline-format (**bold**, `code`) helpers
+│       │       └── phases/      # Per-phase main-area widgets: briefing, fields, confirm,
+│       │                        #   enum_picker (dynamic-enum modal), json_edit, running, result, error
+│       ├── presenters/          # Format-neutral presentation helpers
+│       │   ├── auth.rs          # Auth-source labels, token-state views
+│       │   └── service.rs       # Dry-run and API-response views
+│       └── style/               # Styling subsystem
+│           ├── ansi.rs          # ANSI backend: colour functions, respects NO_COLOR
+│           ├── span.rs          # StyledSpan / StyledLine IR
+│           ├── text.rs          # Symbol constants (✔ ✖ › …)
+│           └── tone.rs          # Tone enum (semantic style vocabulary)
+└── tests/                       # Integration tests — functional/, integration/, contract_input/,
+                                 # contract_output/, snapshot/, security/, performance/, architecture
 ```
 
 All project conventions, coding rules, design standards, testing, and gotchas are in [CONTRIBUTING.md](CONTRIBUTING.md). Read it before making changes.

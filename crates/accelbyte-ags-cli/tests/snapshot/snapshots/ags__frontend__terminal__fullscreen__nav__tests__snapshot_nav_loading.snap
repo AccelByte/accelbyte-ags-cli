@@ -1,0 +1,9 @@
+---
+source: crates/accelbyte-ags-cli/src/frontend/terminal/fullscreen/nav.rs
+expression: loading_to_text()
+---
+┌ Navigation ──────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  [Esc] cancel                                                                │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘

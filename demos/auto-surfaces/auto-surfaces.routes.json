@@ -1,0 +1,25 @@
+[
+  {
+    "method": "POST",
+    "path": "/iam/v3/oauth/token",
+    "status": 200,
+    "delay": 1.0,
+    "body": { "access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600 }
+  },
+
+  {
+    "method": "POST",
+    "path": "/iam/v4/admin/roles/{roleId}/permissions",
+    "status": 200,
+    "delay": 0.6,
+    "body": {
+      "roleId": "b3f1c2d4-5e6a-4789-9abc-1d2e3f4a5b6c",
+      "roleName": "Support Agent",
+      "adminRole": false,
+      "isWildcard": false,
+      "permissions": [
+        { "action": 2, "resource": "NAMESPACE:demo:USER" }
+      ]
+    }
+  }
+]

@@ -27,12 +27,17 @@ Thumbs.db
 *.profdata
 lcov.info
 
+# Brainstorming companion working directory (HTML mockups, session state)
+.superpowers/
+
 # Claude Code workspace — only settings.json and the qa-test skill are tracked
 .claude/*
 !.claude/settings.json
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/qa-test/
+!.claude/skills/vhs-demo/
+!.claude/skills/spec-update/
 
 # Docs — only the reference folder is tracked
 docs/*

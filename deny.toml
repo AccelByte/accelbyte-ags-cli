@@ -10,7 +10,11 @@ targets = [
 ]
 
 [advisories]
-ignore = []
+ignore = [
+    # paste is unmaintained (RUSTSEC-2024-0436) but carries no security vuln and
+    # has no drop-in replacement path — ratatui pins it. Revisit if ratatui drops it.
+    "RUSTSEC-2024-0436",
+]
 db-urls = ["https://github.com/rustsec/advisory-db"]
 
 [licenses]
@@ -34,6 +38,9 @@ allow = [
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# ags-protocol / ags-runtime are internal workspace crates referenced by path
+# (versionless), which reads as a wildcard; allow that for path deps only.
+allow-wildcard-paths = true
 deny = []
 
 [sources]

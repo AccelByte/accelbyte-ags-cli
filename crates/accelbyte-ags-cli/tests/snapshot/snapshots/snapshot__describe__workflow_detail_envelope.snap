@@ -1,0 +1,154 @@
+---
+source: tests/snapshot/describe.rs
+expression: "&json"
+---
+{
+  "data": {
+    "description": "Stand up competitive matchmaking with dedicated servers: a skill stat, a match ruleset, a session template, a match pool, an AMS fleet, and the session template wired to the fleet. Matches start only when teams are exactly full (no under-filled sessions) — appropriate for ranked play.",
+    "id": "competitive-multiplayer",
+    "inputs": [
+      {
+        "default": null,
+        "description": "Your game's AccelByte namespace. This is the same value used by the global --namespace flag.",
+        "dynamic": false,
+        "enum_values": null,
+        "name": "namespace",
+        "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": 4,
+        "description": "How many players make up one team. Teams are symmetric, so with the default teamCount of 2, setting this to 4 produces 4v4 matches. The matchmaker only starts a match when every team is exactly full.",
+        "dynamic": false,
+        "enum_values": null,
+        "name": "players-per-team",
+        "required": false,
+        "sensitive": false,
+        "type": "integer"
+      },
+      {
+        "default": 2,
+        "description": "How many teams compete in each match. Defaults to 2 for the classic X v X format. Increase this value for free-for-all formats. For example, 4 teams of 3 makes a 12-player free-for-all.",
+        "dynamic": false,
+        "enum_values": null,
+        "name": "team-count",
+        "required": false,
+        "sensitive": false,
+        "type": "integer"
+      },
+      {
+        "default": null,
+        "description": "The UUID of an AMS image. An image is the server build for your game which you must upload using the AMS CLI. If you've already uploaded an image you can find it using `ags ams images list`. If you haven't uploaded an image yet you should exit this workflow and upload it first.",
+        "dynamic": true,
+        "enum_values": null,
+        "name": "fleet-image-id",
+        "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": null,
+        "description": "The region the AMS fleet will run in. Run `ags ams info list-regions` to see the regions configured for your account.",
+        "dynamic": true,
+        "enum_values": null,
+        "name": "fleet-region",
+        "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": null,
+        "description": "The UUID of an AMS instance type. The instance type determines the per-server VM size. Run `ags ams info list-supported-instances` to see the instance types configured for your account.",
+        "dynamic": true,
+        "enum_values": null,
+        "name": "fleet-instance-id",
+        "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": "mmr",
+        "description": "The identifier of the skill stat the matchmaker groups players by. AGS matchmaking defaults to using distance-based Matchmaking Rating (MMR).",
+        "dynamic": false,
+        "enum_values": null,
+        "name": "stat-code",
+        "required": false,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": "ranked",
+        "description": "Prefixes the names of every resource this workflow creates (ruleset, session template, match pool, fleet, and claim key). With the default value `ranked`, you get names like `ranked-ruleset`, `ranked-fleet`, and so on.",
+        "dynamic": false,
+        "enum_values": null,
+        "name": "resource-prefix",
+        "required": false,
+        "sensitive": false,
+        "type": "string"
+      }
+    ],
+    "intent": "matchmaking ranked competitive dedicated servers AMS match pool",
+    "name": "Set up competitive multiplayer",
+    "steps": [
+      {
+        "dependencies": [],
+        "description": "Creates the player skill statistic the matchmaker reads when grouping players.",
+        "id": "create-stat",
+        "operation": "social/admin/stat-definitions/v1/create",
+        "service": "social"
+      },
+      {
+        "dependencies": [],
+        "description": "Defines the matchmaking rules: how the stat is compared and the tolerances the matchmaker may relax over time.",
+        "id": "create-ruleset",
+        "operation": "matchmaking/admin/rule-sets/v1/create",
+        "service": "match2"
+      },
+      {
+        "dependencies": [],
+        "description": "Creates the session template the matchmaker hands successful matches to. It carries the player slot configuration, joinability, and reconnect policy.",
+        "id": "create-session-template",
+        "operation": "session/admin/templates/v1/create",
+        "service": "session"
+      },
+      {
+        "dependencies": [
+          "create-ruleset",
+          "create-session-template"
+        ],
+        "description": "Creates the match pool that ties the ruleset and session template together. Players queue into this pool and the matchmaker forms parties from it.",
+        "id": "create-match-pool",
+        "operation": "matchmaking/admin/match-pools/v1/create",
+        "service": "match2"
+      },
+      {
+        "dependencies": [],
+        "description": "Spins up the dedicated server fleet that hosts matches, attaching the image and instance type, and registering a claim key for the session template.",
+        "id": "create-ams-fleet",
+        "operation": "ams/admin/fleets/v1/create",
+        "service": "ams"
+      },
+      {
+        "dependencies": [
+          "create-session-template",
+          "create-ams-fleet"
+        ],
+        "description": "Wires the session template to the fleet's claim key so successful matches reserve a server from the fleet you just created.",
+        "id": "update-session-template",
+        "operation": "session/admin/templates/v1/update",
+        "service": "session"
+      }
+    ]
+  },
+  "generated_by": {
+    "cli": "ags",
+    "version": "[version]"
+  },
+  "kind": "workflow",
+  "path": [
+    "workflow",
+    "competitive-multiplayer"
+  ],
+  "schema_version": "1"
+}

@@ -50,163 +50,63 @@ cargo run -- refresh-specs       # Re-parse every bundled spec
 
 ### Regenerating the demo reel
 
-The README GIF is produced from `demo/reel.tape` using [VHS](https://github.com/charmbracelet/vhs) driven against a local mock server. To regenerate after tape or server changes:
+The README GIF is produced from `demos/onboarding/onboarding.tape` using [VHS](https://github.com/charmbracelet/vhs) driven against a local mock server. To regenerate after tape or mock changes:
 
 ```
 brew install vhs        # or see charmbracelet/vhs for other platforms
-./demo/record.sh
+./demos/record.sh onboarding
 ```
 
-This rebuilds the CLI in release mode, starts `demo/demo-server.py` on localhost:8765, drives the tape, and writes `demo/reel.gif`. Commit the updated GIF alongside any tape or server changes.
+This rebuilds the CLI in release mode, starts `demos/engine/mock-server.py` with the demo's routes on localhost:8765, drives the tape, and writes `demos/onboarding/onboarding.gif`. Commit the updated GIF alongside any tape or routes changes.
+
+New demos are authored with the `vhs-demo` skill, which grounds the tape and mock in `ags describe`. Each demo lives in `demos/<name>/` (`<name>.tape` + `<name>.routes.json`) and records via `./demos/record.sh <name>`.
 
 ## Architecture
 
-```
-src/
-├── main.rs                      # Entry point: SIGPIPE reset, Tokio bootstrap, delegates to invocation::run
-├── lib.rs                       # Library root (for integration tests)
-├── catalogue/                   # OpenAPI spec loading, parsing, caching
-│   ├── bundled.rs               # Bundled spec loading (include_bytes! + gzip)
-│   ├── cache.rs                 # On-disk parsed-schema cache I/O
-│   ├── manifest.rs              # 24-service allowlist + display names + descriptions
-│   ├── memory_cache.rs          # In-process cache of parsed ServiceSchema values
-│   ├── openapi.rs               # OpenAPI 2.0 (Swagger) wire types used by the parser
-│   ├── parser.rs                # SwaggerSpec → ServiceSchema (driven by x-operationId)
-│   ├── repository.rs            # Orchestrates bundled + cache + memory_cache loads
-│   └── skeleton.rs              # Request body template generation
-├── errors.rs                    # CliError enum, ErrorMetadata, exit codes
-├── invocation/                  # CLI layer: flag parsing, command tree, routing
-│   ├── builder.rs               # Dynamic Clap tree from ServiceSchema
-│   ├── errors.rs                # Invocation error types
-│   ├── flags.rs                 # GlobalFlags, pre-scan, namespace resolution
-│   ├── resolve.rs               # Resolves --api-scope/--api-version to a concrete contract
-│   ├── router.rs                # Page-limit parsing and per-command dispatch
-│   └── commands/                # Command handlers
-│       ├── auth/                # Auth subcommands
-│       │   ├── mod.rs           # Login/logout/status dispatch
-│       │   └── oauth.rs         # OAuth callback server for browser flow
-│       ├── completions.rs       # Shell completion generation
-│       ├── config.rs            # Config get/set/unset dispatch
-│       ├── describe/            # Machine-readable command introspection
-│       │   ├── mod.rs           # `ags describe` command dispatch
-│       │   └── envelope.rs      # JSON envelope shapes for describe output
-│       ├── doctor.rs            # Diagnostic check dispatch
-│       ├── profile.rs           # Profile CRUD dispatch
-│       ├── refresh_specs.rs     # `ags refresh-specs` subcommand dispatch
-│       ├── service/             # Dynamic service-command pipeline
-│       │   ├── mod.rs           # Top-level service handler (parse → dispatch)
-│       │   ├── clap_tree.rs     # Clap subtree construction for a service
-│       │   ├── dispatch.rs      # Dry-run, confirmation, and execution
-│       │   ├── help.rs          # Contextual help rendering
-│       │   ├── parser.rs        # Args → ParsedServiceCommand
-│       │   └── request.rs       # ParsedServiceCommand → CommandRequest
-│       └── version.rs           # Version output dispatch
-├── protocol/                    # Boundary types between invocation and runtime
-│   ├── catalogue.rs             # Catalogue query/result types
-│   ├── config.rs                # Config operation types
-│   ├── diagnostics.rs           # Diagnostic check types
-│   ├── error.rs                 # Protocol-level error types
-│   ├── event.rs                 # Runtime event types
-│   ├── output.rs                # Structured output envelope
-│   ├── output_views.rs          # View/payload types attached to command outputs
-│   ├── request.rs               # API request types
-│   └── result.rs                # Operation result types
-├── frontend/                    # User-facing I/O — output rendering, prompts, progress
-│   ├── render.rs                # Top-level CommandOutput → RenderedOutput dispatch
-│   ├── templates.rs             # Backend-agnostic templates (return StyledLine IR)
-│   ├── presenters/              # Format-neutral presentation helpers
-│   │   ├── auth.rs              # Auth-source labels, token-state views
-│   │   └── service.rs           # Dry-run and API-response views
-│   ├── style/                   # Semantic tones, styled-line IR, ANSI backend
-│   │   ├── ansi.rs              # Tone → ANSI, is_stdout/stderr_enabled, init
-│   │   ├── span.rs              # StyledSpan, StyledLine
-│   │   ├── text.rs              # Prefix symbol constants
-│   │   └── tone.rs              # Tone enum (Plain, Dim, Success, …)
-│   ├── human/                   # Human-readable frontend
-│   │   ├── frontend.rs          # impl Frontend for HumanFrontend
-│   │   ├── progress.rs          # StatusLine, StatusLineSink
-│   │   ├── prompt.rs            # Interactive confirmation prompts
-│   │   ├── templates.rs         # ANSI-applying text adapters (_text variants)
-│   │   └── commands/            # Per-command human renderers
-│   │       ├── auth.rs
-│   │       ├── completions.rs
-│   │       ├── config.rs
-│   │       ├── doctor.rs
-│   │       ├── profile.rs
-│   │       ├── refresh_specs.rs
-│   │       ├── service.rs       # API response rendering (tables, inspect)
-│   │       └── version.rs
-│   └── json/                    # Machine-readable JSON frontend
-│       ├── frontend.rs          # impl Frontend for JsonFrontend
-│       ├── progress.rs          # NoopProgressSink (JSON mode emits no progress)
-│       └── commands/            # Per-command JSON emitters
-├── runtime/                     # All business logic and external interaction
-│   ├── cleanup.rs               # Startup cleanup of stale temp files
-│   ├── completions.rs           # Completion script generation
-│   ├── execution.rs             # Top-level command execution coordinator
-│   ├── auth/                    # OAuth2 flows, credential storage, sessions
-│   │   ├── credentials.rs       # Client/base URL credential resolution
-│   │   ├── errors.rs            # AuthError domain type
-│   │   ├── locking.rs           # Cross-process token lock coordination
-│   │   ├── operations.rs        # Login, logout, status operations
-│   │   ├── session.rs           # Access-token lifecycle policy
-│   │   ├── store.rs             # OS keychain/file token persistence
-│   │   └── tokens.rs            # OAuth token endpoint types and calls
-│   ├── config/                  # Configuration management
-│   │   ├── environment.rs       # AGS_* environment variables and defaults
-│   │   ├── errors.rs            # Config-layer error helpers
-│   │   ├── keys.rs              # Config key definitions and validation
-│   │   ├── paths.rs             # Config and cache path derivation
-│   │   └── store.rs             # ConfigStore, GlobalConfig, ProfileConfig
-│   ├── diagnostics/             # Health checks and troubleshooting
-│   │   ├── checks.rs            # Individual diagnostic checks
-│   │   └── runner.rs            # Diagnostic runner and reporting
-│   ├── dispatch/                # API call execution and error classification
-│   │   ├── classify.rs          # HTTP status + error code → user-friendly message
-│   │   ├── confirmation.rs      # Confirmation rules for risky operations
-│   │   ├── error_codes.rs       # AccelByte error code lookup table
-│   │   ├── execute.rs           # Main API call execution pipeline
-│   │   ├── http.rs              # HTTP client and request execution
-│   │   ├── pagination.rs        # Paginated response handling
-│   │   ├── path.rs              # Path placeholder substitution
-│   │   └── shape.rs             # Response shape detection and normalization
-│   └── facade/                  # High-level orchestration
-│       ├── auth.rs              # Auth facade
-│       ├── config.rs            # Config facade
-│       ├── diagnostics.rs       # Diagnostics facade
-│       ├── profile.rs           # Profile facade
-│       └── service.rs           # Service call facade
-└── support/                     # Shared utilities
-    ├── file_system.rs           # Restricted writes, advisory locks, temp cleanup
-    ├── mod.rs                   # Time, TTY, and small shared helpers
-    ├── output_sink.rs           # Stdout/file destination resolution and writes
-    └── strings.rs               # Naming, sanitization, and display transforms
-```
+### Workspace layout
+
+This repository is a Cargo workspace with three crates under `crates/`:
+
+- `ags-protocol` — leaf crate containing the typed protocol contracts (request, result, event, error, output shapes, and the `catalogue` identifier/schema types). It may also hold pure **port traits** shared across crates — behavioural contracts with no logic that the runtime calls and the frontend implements (e.g. `WorkflowFrontend`), so neither side depends on the other. No `tokio`, `reqwest`, `clap`, or other CLI/HTTP deps. Backwards-compatible types only.
+- `ags-runtime` — depends on `ags-protocol`. Contains all business logic: command execution, auth, config, diagnostics, dispatch, the OpenAPI catalogue, and the shared `support` utilities (`output_sink`, `file_system`, `strings`, etc.).
+- `accelbyte-ags-cli` — depends on both. Produces the `ags` binary. Contains argv parsing (`invocation/`), rendering (`frontend/`), the top-level `CliError`, the `lib.rs`/`main.rs`, and all integration tests under `crates/accelbyte-ags-cli/tests/`.
+
+Dependency direction is strictly `accelbyte-ags-cli → ags-runtime → ags-protocol`. Reverse edges are forbidden and rejected by `cargo check --workspace`. When adding a new module, place it in the lowest crate that needs to expose it.
+
+`cargo test --workspace` from the repo root runs everything across all three crates. The `ags` binary builds with `cargo build -p accelbyte-ags-cli` (or `cargo run -p accelbyte-ags-cli -- <args>`).
 
 ### Architecture guardrails
 
 Each module has a single responsibility. Cross-module imports must follow the allowed dependency directions.
 
-| Module | Responsibility |
-|--------|----------------|
-| `catalogue` | OpenAPI spec loading, x-operationId-driven parsing, and caching |
-| `protocol` | Boundary types shared across modules — request, result, event, error, and output envelopes |
-| `invocation` | Turns user input into typed requests — argv parsing, flag extraction, command routing |
-| `runtime` | Owns execution — endpoint calls, auth, config, diagnostics, validation, workflow transitions |
-| `frontend` | Owns all user-visible formatting — tables, inspect views, JSON output, progress, colour |
-| `support` | Small shared utilities — filesystem helpers, string transforms, TTY/time utilities |
+| Module | Crate | Responsibility |
+|--------|-------|----------------|
+| `catalogue` | `ags-runtime` (types re-used from `ags-protocol`) | OpenAPI spec loading, x-operationId-driven parsing, and caching |
+| `protocol` | `ags-protocol` | Boundary types shared across crates — request, result, event, error, and output envelopes |
+| `invocation` | `accelbyte-ags-cli` | Turns user input into typed requests — argv parsing, flag extraction, command routing |
+| `runtime` | `ags-runtime` | Owns execution — endpoint calls, auth, config, diagnostics, validation, workflow transitions |
+| `frontend` | `accelbyte-ags-cli` | Owns all user-visible formatting — tables, inspect views, JSON output, progress, colour |
+| `support` | `ags-runtime` | Small shared utilities — filesystem helpers, string transforms, TTY/time utilities |
 
 **Forbidden dependencies:**
 
+Crate-level (enforced by `cargo check --workspace`):
+
+- `ags-protocol` must not depend on any other workspace crate
+- `ags-runtime` must not depend on `accelbyte-ags-cli`
+- `accelbyte-ags-cli` is the only crate allowed to expose `frontend` or `invocation`
+
+Module-level within a crate:
+
 - `runtime` must not depend on `frontend` or `invocation`
-- `frontend` must not depend on `runtime` or `invocation`
-- `catalogue` must not depend on any other application module
-- `support` must not depend on any other application module
+- `frontend` must not depend on `runtime`, `catalogue`, or `invocation`. It may use `support` utilities (`output_sink`, `strings`, TTY/time helpers). The workflow execution port (`WorkflowFrontend`, `WorkflowEvent`, `StepOutcome`, `RunOutcome`, `ResolvedOptions`) lives in `ags-protocol`, so the frontend implements the port without depending on `runtime`. **One sanctioned exception:** the production dynamic-enum resolver (`frontend/dynamic_options.rs::ProductionResolver`) calls `runtime::workflows::resolve_options` to run an interactive option fetch while animating a live spinner on the frontend surface. This is the single place the frontend bridges to `runtime`; it exists because the fetch and the surface spinner are inseparable, and it is kept behind the frontend-owned `DynamicOptionResolver` port
+- `catalogue` may import `runtime::config` (path helpers) and `support` (filesystem/string helpers), but must not depend on `frontend` or `invocation`
+- `support` must not depend on `runtime`, `catalogue`, `frontend`, or `invocation`
 
 **Operational rules:**
 
 - `runtime` must not print or prompt — all user-visible output flows as structured data through `frontend`
-- `frontend` must not call endpoints, execute commands, or decide what action to take
+- `frontend` must not call endpoints, execute commands, or decide what action to take (the one sanctioned exception is the dynamic-enum option fetch noted above)
 - `invocation` must not own business logic — it builds typed requests and lets `runtime` validate
 
 **Required invariants:**
@@ -219,10 +119,10 @@ Each module has a single responsibility. Cross-module imports must follow the al
 | File | Purpose |
 |------|---------|
 | `scripts/generate_cli_command_catalogue.py` | **Canonical Python reference** for the command catalogue. Rust must match its output exactly |
-| `src/runtime/dispatch/error_codes.rs` | AccelByte error code lookup table |
-| `src/runtime/dispatch/classify.rs` | Error classification pipeline: error code → HTTP status → user-friendly message |
-| `specs/*.json.gz` | All 24 gzip-compressed OpenAPI 2.0 specs bundled into the binary via `include_bytes!` |
-| `tests/fixtures/baselines/<service>_input_contract.json` | Per-service Python-generated reference data for parser validation |
+| `crates/ags-runtime/src/runtime/dispatch/error_codes/` | AccelByte error code lookup tables (one file per service) |
+| `crates/ags-runtime/src/runtime/dispatch/classify.rs` | Error classification pipeline: error code → HTTP status → user-friendly message |
+| `crates/ags-runtime/specs/*.json.gz` | All 24 gzip-compressed OpenAPI 2.0 specs bundled into the binary via `include_bytes!` |
+| `crates/accelbyte-ags-cli/tests/fixtures/baselines/<service>_input_contract.json` | Per-service Python-generated reference data for parser validation |
 
 ## Reference docs
 
@@ -269,19 +169,19 @@ Scopes match the top-level module structure:
 
 | Scope | Maps to |
 |-------|---------|
-| `catalogue` | `src/catalogue/` — spec loading, parsing, manifest, caching |
-| `invocation` | `src/invocation/` — CLI tree, flags, command handlers |
-| `protocol` | `src/protocol/` — boundary types between invocation and runtime |
-| `frontend` | `src/frontend/` — human/JSON frontends, progress, style, templates, command renderers |
-| `runtime` | `src/runtime/` — auth, config, diagnostics, dispatch, facade |
-| `support` | `src/support/` — file_system, strings, shared helpers |
+| `catalogue` | `crates/ags-runtime/src/catalogue/` — spec loading, parsing, manifest, caching |
+| `invocation` | `crates/accelbyte-ags-cli/src/invocation/` — CLI tree, flags, command handlers |
+| `protocol` | `crates/ags-protocol/src/` — boundary types shared across crates |
+| `frontend` | `crates/accelbyte-ags-cli/src/frontend/` — human/JSON frontends, progress, style, templates, command renderers |
+| `runtime` | `crates/ags-runtime/src/runtime/` — auth, config, diagnostics, dispatch, facade |
+| `support` | `crates/ags-runtime/src/support/` — file_system, strings, shared helpers |
 
 For root-level or cross-cutting changes:
 
 | Scope | When to use |
 |-------|-------------|
-| `errors` | `src/errors.rs` |
-| `specs` | `specs/` — bundled OpenAPI specs |
+| `errors` | `crates/accelbyte-ags-cli/src/errors.rs` |
+| `specs` | `crates/ags-runtime/specs/` — bundled OpenAPI specs |
 
 Omit the scope only when a commit genuinely spans the entire codebase (for example `chore: bump MSRV to 1.85`).
 
@@ -347,6 +247,23 @@ Test modules (`#[cfg(test)] mod tests`) sit at the bottom of the file. Within an
 - Only add an inline comment when the code does something unexpected, counter-intuitive, or requires context the reader cannot derive from the code alone
 - Do not narrate what the code is doing step by step
 
+### Terminal input (TUI)
+
+- **Act on key *presses* only.** Windows emits both a Press and a Release `KeyEvent` for every keystroke, so any reader that doesn't filter will register each input twice (a double-typed character, a double-submitted Enter). macOS/Linux only send Press, so this bug is invisible there — it must be guarded proactively.
+- Prefer reading keys through `frontend::terminal::form_runner::crossterm_next_key`, which already returns only `KeyEventKind::Press` events.
+- Any loop that calls `crossterm::event::read()` directly must skip non-press events before acting on them:
+
+  ```rust
+  if let Ok(Event::Key(key)) = event::read() {
+      if key.kind != crossterm::event::KeyEventKind::Press {
+          continue;
+      }
+      // … handle the keystroke
+  }
+  ```
+
+  Existing direct readers that follow this: the fullscreen dismiss loop (`fullscreen/frontend.rs`), the inline phase loop (`inline/phases/mod.rs`), and the dynamic-enum spinner loop (`dynamic_options.rs`).
+
 ### Security
 
 - **Path parameters**: Always use `strings::encode_url_path_segment()` when interpolating user input into URL path segments. Never use raw `str::replace` with unvalidated values.
@@ -369,12 +286,19 @@ cargo test --test snapshot                              # Snapshot tests
 cargo test --test security                              # Security tests
 cargo test --test performance                           # Performance tests (debug thresholds)
 cargo test --release --test performance -- --ignored    # Performance tests (release thresholds)
-cargo test --release --lib catalogue                    # Parser/catalogue release-mode fallback paths
+cargo test --release -p ags-runtime --lib catalogue     # Parser/catalogue release-mode fallback paths
 ```
 
-> **Note:** Some parser and catalogue tests are gated on `#[cfg(not(debug_assertions))]` and only run under `cargo test --release`. These cover the graceful-fallback paths for unsupported HTTP verbs, parameter locations, and value types. Run `cargo test --release --lib catalogue` when modifying parser error-handling code.
+> **Note:** Some parser and catalogue tests are gated on `#[cfg(not(debug_assertions))]` and only run under `cargo test --release`. These cover the graceful-fallback paths for unsupported HTTP verbs, parameter locations, and value types. Run `cargo test --release -p ags-runtime --lib catalogue` when modifying parser error-handling code.
 
-The input contract test loops over all 24 services. For each one it loads the bundled spec, parses it via `parser::parse_spec`, and compares the result against the per-service baseline at `tests/fixtures/baselines/<service>_input_contract.json`. Any drift from the Python reference causes the test to fail.
+The input contract tests loop over all 24 services. For each one they load the bundled spec, parse it via `parser::parse_spec`, and compare the result against the per-service baseline at `crates/accelbyte-ags-cli/tests/fixtures/baselines/<service>_input_contract.json`. The comparison is split into two tests:
+
+- **`test_no_breaking_changes`** — a one-way gate. Every resource, operation, parameter (`name`/`location`/`required`), `http_method`, `path`, and `has_request_body` recorded in the baseline must still be present and unchanged in the parse. Additions (new operations or parameters) are **tolerated**; removals or mutations **fail**. A failure here is a genuine breaking change — **do not regenerate the baselines to silence it**.
+- **`test_baseline_is_current`** — the freshness check. Any divergence from the baseline (including additions and summary changes) fails, signalling the baseline is stale. This is the only signal that should prompt regeneration — and only **after** `test_no_breaking_changes` is green:
+
+  ```bash
+  python3 scripts/generate_cli_command_catalogue.py --emit-baselines crates/accelbyte-ags-cli/tests/fixtures/baselines
+  ```
 
 ### Updating snapshots
 
@@ -405,10 +329,127 @@ The command catalogue and test baseline are generated from the raw OpenAPI specs
 python3 scripts/generate_cli_command_catalogue.py > docs/reference/cli-command-catalogue.md
 
 # Regenerate the per-service test baseline fixtures (JSON)
-python3 scripts/generate_cli_command_catalogue.py --emit-baselines tests/fixtures/baselines/
+python3 scripts/generate_cli_command_catalogue.py --emit-baselines crates/accelbyte-ags-cli/tests/fixtures/baselines/
 ```
 
-The Rust parser is tested against the per-service baselines to ensure it matches the Python reference exactly. If you change parser semantics in `src/catalogue/parser.rs` (or string helpers in `src/support/strings.rs`), regenerate the baselines and verify the diffs are intentional.
+The Rust parser is tested against the per-service baselines to ensure it matches the Python reference exactly. If you change parser semantics in `crates/ags-runtime/src/catalogue/parser.rs` (or string helpers in `crates/ags-runtime/src/support/strings.rs`), regenerate the baselines and verify the diffs are intentional.
+
+## Adding a Workflow
+
+Workflows are runtime-owned sequences of API operations defined in
+`crates/ags-runtime/src/runtime/workflows/`. Follow the steps below when
+adding a new built-in workflow. Use `builtins/competitive_multiplayer.rs` as
+the worked example throughout.
+
+### Location
+
+Create the workflow in a new file at
+`crates/ags-runtime/src/runtime/workflows/builtins/<kebab-name>.rs`, where
+`<kebab-name>` is the workflow's id in kebab-case (for example
+`competitive-multiplayer` → `competitive_multiplayer.rs` — note the
+underscore in the filename, kebab in the id).
+
+### Structure
+
+Each workflow file contains:
+
+- A `struct` holding a single `definition: WorkflowDefinition` field.
+- An `impl Workflow` that returns `&self.definition` from `definition()`.
+- A `fn build_definition() -> WorkflowDefinition` that constructs the
+  complete literal definition. Keep this function private; `new()` calls it.
+- Small private helpers that mirror those in `competitive_multiplayer.rs`:
+  - `literal(value: Value) -> BindingSource` — wraps a JSON value in a
+    non-sensitive `LiteralBinding`.
+  - `workflow_ref(input: &str) -> BindingSource` — produces a
+    `from: workflow/<input>` reference binding.
+  - `bind(field: &str, source: BindingSource) -> StepInputBinding` — pairs
+    a field name with its source.
+  - `step(id, description, service, operation, dependencies, inputs) -> StepDefinition` —
+    builds one step with `confirm: false` and no captured outputs by default.
+  - `input(name, description, required, default, schema) -> WorkflowInputSpec` —
+    declares one workflow-level input.
+  - `input_with_options(name, description, required, default, schema, options_source) -> WorkflowInputSpec` —
+    declares a **dynamic-enum** input whose choices are fetched at runtime. The
+    `OptionsSource` names a read-only (GET) catalogue operation, its parameter
+    bindings, and JSONPath projections (`items_path` → the array, `value` → each
+    choice's value, optional `label` → its display text). This is an interactive
+    affordance only: the fullscreen Phase-1 form renders it as a type-to-filter
+    modal picker, while non-interactive and `--format json` runs treat the input
+    as a plain string. `compile_workflow` validates the source (operation exists,
+    is GET, paths parse). See `fleetImageId` / `fleetRegion` / `fleetInstanceId`
+    in `competitive_multiplayer.rs`.
+
+If your workflow needs step-output capture, extend the `outputs` field on
+the relevant `StepDefinition` directly rather than adding a helper.
+
+### Registration
+
+Add a `registry.register(...)` call inside `register_builtins` in
+`crates/ags-runtime/src/runtime/workflows/builtins/mod.rs`. Also add the
+module declaration (`pub mod <name>;`) at the top of that file.
+`registry()` populates the process-wide registry through a `OnceLock` on
+first access; `register_builtins` is the init closure.
+
+### Bindings can target nested fields
+
+A `StepInputBinding` binds one operation field to one source. The field is
+usually a top-level path parameter, query parameter, or body field, but
+**nested-field paths are supported** via the wire form
+`field: "data.matching_rule[0].attribute"` — parsed by
+`workflows/nested_path.rs` and validated against the operation schema by
+`compile_workflow`. To supply a whole free-form object in one go, bind the
+top-level field as a single `literal(json!({...}))` value.
+
+### References
+
+Two reference forms are available:
+
+- `workflow_ref("input-name")` — re-uses a workflow-level input, declared in
+  the `inputs` vec of `WorkflowDefinition`.
+- For step-output references, construct the binding directly using
+  `BindingSource::Reference(ReferenceBinding { from: ReferenceTarget::Step { id }, output, transform })`.
+  The `from: step/<id>` source re-uses a captured output from an earlier step;
+  the earlier step must declare that capture in its `outputs` vec. No helper
+  function for this form exists in the built-in module — add one if your
+  workflow uses step outputs extensively.
+
+### Required fields
+
+Every required operation field must either be bound in `inputs` or will
+auto-derive into a gather slot (the runtime will prompt the user or fail
+under `--no-input`). The `compile_workflow` test (below) catches unbound
+required fields, so a failing test is a reliable signal that a binding is
+missing.
+
+### `confirm: true`
+
+Set `confirm: true` on a step only for risky operations — deletes, bans, or
+irreversible mutations. This follows the same policy as the `requires_confirmation`
+keyword in the dispatch layer. All steps in `competitive_multiplayer.rs` use
+`confirm: false` because they are non-risky creates and updates. Introduce
+`confirm: true` deliberately and document why in an inline comment.
+
+### Testing
+
+Add three tests inside a `#[cfg(test)] mod tests` block at the bottom of
+your workflow file:
+
+1. **Compile test** — calls `compile_workflow(workflow.definition(), &mut Catalogue::new())`
+   and asserts it succeeds, then checks the returned step ids match the
+   expected order. See `test_competitive_multiplayer_compiles` for the
+   pattern.
+
+2. **No unbound required fields** — iterates `compiled.steps`, filters
+   `step.auto_derived` to entries where `f.required` is true, and asserts the
+   slice is empty for every step. See `test_no_required_field_left_unbound`
+   for the pattern.
+
+3. **Offline dry-run end-to-end test** — add an integration test file under
+   `crates/accelbyte-ags-cli/tests/functional/` that runs the workflow with
+   `--dry-run` and all required inputs supplied, and asserts the expected
+   output (step previews, no network calls). Register it in
+   `crates/accelbyte-ags-cli/tests/functional.rs` via a `#[path = ...]`
+   attribute so it is picked up by `cargo test --test functional`.
 
 ## Key Design Decisions
 

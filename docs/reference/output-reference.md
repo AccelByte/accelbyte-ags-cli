@@ -934,9 +934,78 @@ def render_error(err, verbose=False):
     return "\n".join(lines)
 ```
 
-## 25. Canonical examples
+## 25. Workflow output shapes
 
-### 25.1 Progress + success
+`ags workflow run` produces one of two output variants depending on whether `--dry-run` is set.
+
+### 25.1 Live run — `CommandOutput::Workflow`
+
+After a successful live run the executor emits a `CommandOutput::Workflow` envelope containing:
+
+- `workflow_id` — the `WorkflowId` of the workflow that ran
+- `outputs` — a `BTreeMap<String, serde_json::Value>` mapping each `WorkflowOutputAlias.name` to its captured value; empty when the workflow declares no aliases
+- `step_summaries` — a `Vec<String>` with one summary line per completed step
+- `completion` — an optional resolved completion panel (`created` resources and `next_steps`) when the workflow authored one
+
+**Channel routing (human):** step summaries, a success header, and the completion panel are written to **stderr** as they complete. The outputs alias map (when non-empty) is written to **stdout** after all steps finish. The stderr content therefore appears before the stdout payload. When the alias map is empty, nothing is written to stdout.
+
+### 25.2 Dry run — `CommandOutput::WorkflowDryRun`
+
+With `--dry-run` the executor emits a `CommandOutput::WorkflowDryRun` envelope containing:
+
+- `workflow_id` — the `WorkflowId` of the workflow
+- `step_previews` — a `Vec<StepDryRunPreview>` with one entry per step in execution order
+
+Each `StepDryRunPreview` contains:
+
+- `step_id` — the step's stable string id
+- `step_index` — 0-based execution position
+- `command` — a `DryRunResult` with the HTTP method, URL, headers, query parameters, and body that would be sent (identical shape to single-command `--dry-run`)
+- `synthesised_outputs` — a `BTreeMap<String, serde_json::Value>` of typed placeholder values the executor injected into the workflow context for downstream `from: step/X` references during the dry run
+
+For `competitive-multiplayer` a `--dry-run` run produces six `StepDryRunPreview` entries — one per step. Because `competitive-multiplayer` uses only `from: workflow/X` references and declares no `outputs:`, all `synthesised_outputs` maps are empty for that workflow.
+
+### 25.3 JSON output mode (`--format json`)
+
+Under `--format json` the workflow runs non-interactively (all inputs from flags; `--yes` for confirm-gated steps; `--dry-run` exempt from confirmation) and the final envelope is serialised to **stdout** as a single JSON object. JSON mode emits nothing to stderr on success, so the envelope carries everything a consumer needs.
+
+**Live multi-step success:**
+
+```json
+{
+  "workflow": "competitive-multiplayer",
+  "status": "success",
+  "outputs": { "poolName": "ranked-1v1" },
+  "completion": {
+    "created": [ { "label": "Match pool", "value": "ranked-pool" } ],
+    "next_steps": [ { "description": "Inspect the match pool", "command": "ags matchmaking match-pools get --namespace dev --pool ranked-pool" } ]
+  }
+}
+```
+
+`outputs` is always present (an empty object when the workflow declares no aliases). `completion` is omitted entirely when the workflow authored none; when present, both `created` and `next_steps` are always emitted (each may be an empty array). There is no per-step list — a successful run executes every step, and the static step inventory is available from `ags describe workflow <id>`.
+
+**Dry run:**
+
+```json
+{
+  "workflow": "competitive-multiplayer",
+  "dry_run": true,
+  "steps": [
+    { "id": "create-stat", "method": "POST", "url": "https://…/stats", "headers": { "Authorization": "Bearer <token>" }, "query": {}, "body": { "statCode": "mmr" } }
+  ]
+}
+```
+
+Each step's request fields reuse the same shape as single-command `--dry-run` JSON; `id` is `StepDryRunPreview.step_id`. Every step object always includes `id`, `method`, `url`, `headers`, `query`, and `body`: `headers` and `query` are objects (empty `{}` when there are none), and `body` is `null` when the operation takes no request body. The `synthesised_outputs` placeholders shown in §25.2 are dry-run context-propagation scaffolding and are **intentionally omitted** from the JSON envelope — each step's request fields are sufficient for external consumers.
+
+**Single-step collapse:** a one-step workflow that declares no outputs emits the bare API response body (identical to running the equivalent single command), because the engine returns `CommandOutput::Service` rather than `CommandOutput::Workflow`.
+
+**Failure:** a missing required input (or any run failure) is rendered by the JSON frontend as an error envelope on **stderr** (`{ "error": <message>, "exit_code": <n>, … }`) with the underlying error's real exit code (Usage = 1, Auth = 2, Api = 3, Network = 4, Internal = 5). `--format json` does not imply `--yes`, so a live confirm-gated step without `--yes` fails the no-input precheck (exit 1).
+
+## 26. Canonical examples
+
+### 26.1 Progress + success
 
 ```text
 ∘ Authenticating...
@@ -945,14 +1014,14 @@ def render_error(err, verbose=False):
     Namespace: live
 ```
 
-### 25.2 Compact error
+### 26.2 Compact error
 
 ```text
 ✕ Namespace "prod" not found.
 → Fix: Run 'ags namespace list' to see available namespaces.
 ```
 
-### 25.3 Expanded error
+### 26.3 Expanded error
 
 ```text
 ✕ Failed to update leaderboard config.
@@ -961,14 +1030,14 @@ def render_error(err, verbose=False):
 → Fix: Fetch the latest config and retry with the new revision.
 ```
 
-### 25.4 Warning
+### 26.4 Warning
 
 ```text
 ! Using default namespace "demo".
 → Next: Pass '--namespace <name>' to target a different environment.
 ```
 
-### 25.5 Auth healthy
+### 26.5 Auth healthy
 
 ```text
 ✔ Authenticated
@@ -980,7 +1049,7 @@ def render_error(err, verbose=False):
     Refresh token: stored
 ```
 
-### 25.6 Auth broken
+### 26.6 Auth broken
 
 ```text
 ✕ Not authenticated
@@ -992,7 +1061,7 @@ def render_error(err, verbose=False):
 → Fix: Run 'ags auth login'.
 ```
 
-### 25.7 Successful service response
+### 26.7 Successful service response
 
 ```text
 ✔ Game session created.
@@ -1003,7 +1072,7 @@ def render_error(err, verbose=False):
     Created: 2026-03-20T10:23:11Z
 ```
 
-### 25.8 Inspect with section
+### 26.8 Inspect with section
 
 ```text
 › Dedicated server config
@@ -1016,3 +1085,73 @@ def render_error(err, verbose=False):
         Replicas: 3
         Port: 7777
 ```
+
+## 27. Describe envelope contract
+
+`ags describe` is machine-readable introspection. Its output is **always JSON** — it ignores `--format` and never renders human-oriented text. Every describe invocation (success or failure) emits a single envelope:
+
+```json
+{
+  "schema_version": "1",
+  "kind": "catalogue",
+  "path": ["iam", "users"],
+  "generated_by": { "cli": "ags", "version": "0.2.0" },
+  "data": { … }
+}
+```
+
+- `schema_version` — the envelope **shape** version (currently `"1"`).
+- `kind` — the discriminator for the `data` shape (see §27.1).
+- `path` — the describe path the envelope answers, as a string array (`[]` at the root).
+- `generated_by.cli` / `generated_by.version` — the emitting binary and its `CARGO_PKG_VERSION`.
+- `data` — a payload whose shape is determined **entirely by `kind`**.
+
+### 27.1 `kind` is the discriminator — branch on it
+
+`kind` is the single source of truth for the `data` shape. Consumers MUST branch on `kind` and MUST NOT assume a uniform, `children`-bearing shape, and MUST NOT terminate a tree walk on depth alone. The describe tree is **not** a uniform fixed-depth tree: leaf shapes have always existed (`command`, `error`), and the `workflow` subtree is shallower than the service subtree.
+
+The full set of `kind` values:
+
+| Route | `kind` | `data.node_type` | `data.children` |
+|---|---|---|---|
+| `ags describe` | `catalogue` | `root` | yes — services + the `workflow` node |
+| `ags describe <service>` | `catalogue` | `service` | yes — resources |
+| `ags describe <service> <resource>` | `catalogue` | `resource` | yes — methods |
+| `ags describe workflow` | `catalogue` | `workflow-catalogue` | yes — workflows |
+| `ags describe <service> <resource> <method>` | `command` | *(none)* | **no** |
+| `ags describe workflow <id>` | `workflow` | *(none)* | **no** |
+| any unknown or invalid path | `error` | *(none)* | **no** |
+
+Per-`kind` `data` payloads:
+
+- **`catalogue`** — `node_type`, `name`, `summary`, `children[]`. Each child is `{ node_type, name, path, summary }`, where `path` is the argument vector to re-invoke describe for that child. Child `node_type` is `service` or `workflow-catalogue` (under `root`), `resource` (under a service), `method` (under a resource), or `workflow` (under `workflow-catalogue`).
+- **`command`** — `command`, `default_scope`, `scopes{}` (the full scope/version contract matrix; see §10.11 of the CLI reference). No `children`.
+- **`workflow`** — `id`, `name`, `intent`, `description`, `inputs[]`, `steps[]`. No `children`, no `node_type`.
+- **`error`** — `code`, `message`, `suggestions[]`. Returned with exit code 1.
+
+> `node_type` and `kind` are different axes and easy to conflate. `node_type` lives **only** on `catalogue` data and its children; it labels a node *within* a catalogue. `workflow-catalogue` is a `node_type` (the `ags describe workflow` listing), whereas `workflow` is a `kind` (the `ags describe workflow <id>` leaf). Walking into a `workflow` child and reading its describe yields `kind: "workflow"`, not a catalogue.
+
+### 27.2 Recursive walk
+
+A correct catalogue walk dispatches on `kind` and only recurses into `catalogue` nodes:
+
+```text
+function walk(path):
+    env = run("ags describe " + join(path))     # JSON
+    switch env.kind:
+        case "catalogue":
+            for child in env.data.children:
+                walk(child.path)                  # child.path is the re-invoke vector
+        case "command":  record_method(env.data)  # leaf — has no children
+        case "workflow": record_workflow(env.data) # leaf — has no children
+        case "error":    handle_error(env.data)    # do not descend
+        default:         skip                       # unknown kind — see §27.3
+```
+
+To enumerate only services, take the root envelope's `data.children` and filter `node_type == "service"`; the `workflow` node (`node_type == "workflow-catalogue"`) is the one non-service child.
+
+### 27.3 Versioning and forward compatibility
+
+New `kind` and `node_type` values are added over time. They are **additive** to a `kind`-discriminated contract, so they do **not** bump `schema_version`: a consumer that dispatches on `kind` and ignores unrecognised values stays compatible. Consumers MUST tolerate unknown `kind` and `node_type` values rather than treating them as errors. `schema_version` bumps only on a **breaking** change to the envelope shape (a removed or repurposed field).
+
+`generated_by.version` is the CLI **binary** version, not a catalogue-content fingerprint. It changes across releases, so a cache keyed on it invalidates when the CLI is upgraded; it does **not** distinguish catalogue content across builds that share a version. There is currently no separate content fingerprint — consumers needing strict drift detection should key on `generated_by.version` plus their own hash of the describe output.

@@ -1064,7 +1064,63 @@ In such cases, the proper resolution is:
 
 A test MUST NOT be ignored solely because the change was intentional.
 
-## 20. Compliance Checklist
+## 20. Testing workflows
+
+### 20.1 Compile-time unit tests
+
+The primary unit test for a workflow definition is a call to `compile_workflow` with a bare `Catalogue`:
+
+```rust
+#[test]
+fn test_my_workflow_compiles() {
+    let workflow = MyWorkflow::new();
+    let mut catalogue = Catalogue::new();
+    let compiled = compile_workflow(workflow.definition(), &mut catalogue)
+        .expect("workflow must compile against the bundled catalogue");
+    let ids: Vec<&str> = compiled.steps.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["step-a", "step-b", "step-c"]);
+}
+```
+
+`compile_workflow` is in `ags_runtime::runtime::workflows::compile`. Passing a bare `Catalogue::new()` causes the compiler to load bundled specs on demand — no test fixtures or mocks are required for the compilation test itself.
+
+The second mandatory unit test asserts that no required operation field is left unbound after compilation. This guards the `--no-input` path: a run with all declared required inputs supplied must never trigger a missing-field violation from an auto-derived required field:
+
+```rust
+#[test]
+fn test_no_required_field_left_unbound() {
+    let workflow = MyWorkflow::new();
+    let mut catalogue = Catalogue::new();
+    let compiled = compile_workflow(workflow.definition(), &mut catalogue).unwrap();
+    for step in &compiled.steps {
+        let unbound: Vec<&str> = step
+            .auto_derived
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.field.as_str())
+            .collect();
+        assert!(
+            unbound.is_empty(),
+            "step '{}' has unbound required fields: {unbound:?}",
+            step.id
+        );
+    }
+}
+```
+
+See `crates/ags-runtime/src/runtime/workflows/builtins/competitive_multiplayer.rs` for the reference implementation of both tests.
+
+### 20.2 Executor-level tests with `MockFrontend`
+
+The executor test suite in `crates/ags-runtime/src/runtime/workflows/tests.rs` uses `MockFrontend` — a test double that implements `WorkflowFrontend` — to drive the executor without a real terminal or HTTP backend. `MockFrontend` can be configured with pre-supplied gather responses, a confirm response (`true` proceeds / `false` cancels), or a gather/confirm error to simulate I/O failure. These tests cover step sequencing, capture threading, `--dry-run` preview generation, cancellation, and failure propagation entirely offline.
+
+### 20.3 Offline end-to-end tests with `assert_cmd`
+
+Functional tests for registered workflows use `assert_cmd` via the `ags_isolated()` helper to invoke the compiled binary with `--dry-run` and assert on the process exit code, stdout, and stderr. This validates the full CLI stack — flag parsing, registry lookup, compilation, executor, and frontend rendering — without any network calls.
+
+The `competitive-multiplayer` tests live in `crates/accelbyte-ags-cli/tests/functional/competitive_multiplayer.rs` and are registered in the functional test harness with `#[path]` in `crates/accelbyte-ags-cli/tests/functional.rs`. Typical assertions check that the dry-run output contains each step's URL fragment and that `--no-input` succeeds when all required inputs are present but fails (exit code 1) when a required input is absent.
+
+## 21. Compliance Checklist
 
 A CLI implementation is compliant with this reference only if all of the following are true:
 
@@ -1080,8 +1136,10 @@ A CLI implementation is compliant with this reference only if all of the followi
 - performance-sensitive paths have performance coverage
 - lower-level tests do not rely on uncontrolled real services
 - red/green rules are explicit for each category
+- each registered workflow has a compile test and a no-required-field-unbound test
+- each registered workflow has offline `--dry-run` functional coverage via `assert_cmd`
 
-## 21. Recommended Short Definitions
+## 22. Recommended Short Definitions
 
 - **Unit:** verifies small isolated logic.
 - **Integration:** verifies multiple internal components work together.
@@ -1094,7 +1152,7 @@ A CLI implementation is compliant with this reference only if all of the followi
 - **Security:** verifies the CLI handles secrets, trust boundaries, and sensitive operations safely.
 - **Performance:** verifies the CLI remains within approved responsiveness and resource budgets.
 
-## 22. Final Rule
+## 23. Final Rule
 
 A compliant CLI testing strategy MUST use multiple test types for different purposes. It MUST NOT collapse correctness, invocation stability, output compatibility, exact presentation, realism, platform support, safety, and performance into a single layer.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the CLI command catalogue from AccelByte OpenAPI specs.
 
-Reads each gzipped spec in ../specs and groups operations by their
+Reads each gzipped spec in ../crates/ags-runtime/specs and groups operations by their
 `x-operationId` segments (service/scope/resource/version/method). Renders a
 Markdown catalogue listing every operation the CLI actually dispatches —
 i.e. non-deprecated, non-internal, with a parseable `x-operationId`.
@@ -20,7 +20,9 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 
-SPEC_DIR = os.path.join(os.path.dirname(__file__), "..", "specs")
+SPEC_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "crates", "ags-runtime", "specs"
+)
 DEFAULT_OUTPUT = os.path.join(
     os.path.dirname(__file__), "..", "docs", "reference", "cli-command-catalogue.md"
 )
@@ -55,6 +57,7 @@ class Operation:
     description: str
     permissions: list[str]
     parameters: list[dict]
+    has_request_body: bool = False
     scope: str = ""
 
 
@@ -65,12 +68,19 @@ def load_spec(service: str) -> dict:
 
 
 def split_x_operation_id(value: str) -> tuple[str, str, str, int, str] | None:
-    """service/scope/resource/version/method → tuple, or None if malformed."""
-    parts = value.split("/", 4)
-    if len(parts) < 5:
+    """service/scope/resource/version/method → tuple, or None if malformed.
+
+    Mirrors the Rust parser: an id must have exactly 5 segments (both underflow
+    and overflow are spec bugs the parser skips), and a numeric version. Version
+    stripping removes exactly one leading "v" to match `ApiVersion::from_str`
+    (`s.strip_prefix('v')`), so "vv1" is rejected rather than coerced to 1.
+    A version with no leading "v" (e.g. "1") is also accepted, matching the unwrap_or(s) fallback in ApiVersion::from_str.
+    """
+    parts = value.split("/")
+    if len(parts) != 5:
         return None
     service, scope, resource, version, method = parts
-    v = version.lstrip("v")
+    v = version[1:] if version.startswith("v") else version
     if not v.isdigit():
         return None
     api_version = int(v)
@@ -120,8 +130,55 @@ def extract_flag_parameters(operation: dict) -> list[dict]:
     return extracted
 
 
+_SCALAR_ITEM_TYPES = {"string", "integer", "number", "boolean"}
+
+
+def _definition_has_fields(spec: dict, ref: str) -> bool:
+    """True if a `#/definitions/X` ref points at a definition with properties."""
+    name = ref.rsplit("/", 1)[-1]
+    definition = spec.get("definitions", {}).get(name)
+    return isinstance(definition, dict) and bool(definition.get("properties"))
+
+
+def has_request_body(spec: dict, operation: dict) -> bool:
+    """Mirror the Rust parser's `request_body.is_some()` (resolve_body_schema)."""
+    # Locating the body parameter IS the body-presence check: it subsumes the
+    # parser's separate `has_body` pre-check (parser.rs) — both mean "no body
+    # parameter -> bodyless". resolve_body_schema likewise re-finds it and
+    # returns None when absent, so a single find here stays faithful.
+    body = next(
+        (p for p in (operation.get("parameters") or [])
+         if isinstance(p, dict) and p.get("in") == "body"),
+        None,
+    )
+    if body is None:
+        return False
+    schema = body.get("schema")
+    if not isinstance(schema, dict):
+        return False
+    # Object body: top-level $ref.
+    if schema.get("$ref"):
+        return _definition_has_fields(spec, schema["$ref"])
+    # Otherwise must be an explicit array.
+    if schema.get("type") != "array":
+        return False
+    items = schema.get("items")
+    if not isinstance(items, dict):
+        return False
+    # Object array: items is a $ref.
+    if items.get("$ref"):
+        return _definition_has_fields(spec, items["$ref"])
+    # Scalar array: a recognised primitive item type. Items with neither $ref
+    # nor type (or an unrecognised type) are bodyless — mirror the parser
+    # explicitly rather than leaning on `None in set` happening to be False.
+    item_type = items.get("type")
+    if item_type is None:
+        return False
+    return item_type in _SCALAR_ITEM_TYPES
+
+
 def _build_operation(
-    path: str, http_method: str, op: dict, parsed: tuple[str, str, str, int, str]
+    spec: dict, path: str, http_method: str, op: dict, parsed: tuple[str, str, str, int, str]
 ) -> Operation:
     _service, scope, resource, version, method = parsed
     return Operation(
@@ -136,6 +193,7 @@ def _build_operation(
         permissions=extract_permissions(op.get("x-security")),
         parameters=extract_flag_parameters(op),
         scope=scope,
+        has_request_body=has_request_body(spec, op),
     )
 
 
@@ -163,7 +221,7 @@ def collect_parser_contract(spec: dict) -> dict[str, list[Operation]]:
             _service, _scope, resource, _version, _method = parsed
             if resource == "internal":
                 continue
-            by_resource[resource].append(_build_operation(path, http_method, op, parsed))
+            by_resource[resource].append(_build_operation(spec, path, http_method, op, parsed))
     for ops in by_resource.values():
         ops.sort(key=lambda o: (o.method, o.scope, o.api_version, o.path))
     return dict(sorted(by_resource.items()))
@@ -182,6 +240,7 @@ def baseline_for_service(resources: dict[str, list[Operation]]) -> dict[str, lis
                 "x_operation_id": op.x_operation_id,
                 "permissions": op.permissions,
                 "parameters": op.parameters,
+                "has_request_body": op.has_request_body,
             }
             for op in ops
         ]
