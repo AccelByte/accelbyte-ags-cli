@@ -667,7 +667,7 @@ mod tests {
         assert!(
             matches!(&fields[0].value, FieldValue::Scalar(s) if s == "alice"),
             "expected Scalar(alice), got {:?}",
-            &fields[0].value
+            fields[0].value
         );
     }
 
