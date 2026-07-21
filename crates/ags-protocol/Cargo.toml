@@ -1,0 +1,13 @@
+[package]
+name = "ags-protocol"
+version.workspace = true
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+description = "Internal protocol types for the AGS CLI workspace."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

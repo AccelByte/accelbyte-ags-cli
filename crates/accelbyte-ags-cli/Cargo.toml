@@ -1,0 +1,59 @@
+[package]
+name = "accelbyte-ags-cli"
+version.workspace = true
+edition = "2021"
+description = "Unified CLI for AccelByte Gaming Services"
+license = "MIT"
+rust-version = "1.85"
+repository = "https://github.com/AccelByte/accelbyte-ags-cli"
+homepage = "https://accelbyte.io/gaming-services"
+readme = "README.md"
+keywords = ["accelbyte", "cli", "gaming"]
+categories = ["command-line-utilities"]
+publish = false
+
+[lib]
+name = "ags"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ags"
+path = "src/main.rs"
+
+[dependencies]
+ags-protocol = { workspace = true }
+ags-runtime = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+crossterm = { workspace = true }
+reqwest = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+rpassword = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
+url = { workspace = true }
+anstream = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+ags-runtime = { workspace = true }
+async-trait = { workspace = true }
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+insta = { workspace = true }
+wiremock = { workspace = true }
+tokio-test = { workspace = true }
+serial_test = { workspace = true }
+filetime = { workspace = true }
+tempfile = { workspace = true }
+regex = { workspace = true }
+portable-pty = { workspace = true }

@@ -2,7 +2,7 @@
 
 AGS CLI is a unified command-line interface for AccelByte Gaming Services. Manage players, entitlements, inventories, sessions, and other live-service workflows from your terminal, scripts, or AI agents.
 
-![AGS CLI demo](demo/reel.gif)
+![AGS CLI demo](demos/onboarding/onboarding.gif)
 
 ## Install
 
@@ -127,11 +127,15 @@ Use `ags describe` for machine-readable introspection:
 ```bash
 ags describe
 ags describe iam users get
+ags describe workflow
+ags describe workflow competitive-multiplayer
 ```
 
 ### Request bodies
 
 Operations that take a body accept `--json '<inline-json>'` or `--json @path/to/body.json`. Use `--skeleton` to print a starter template you can edit.
+
+> **PowerShell:** quote the `@` form — `--json '@body.json'` — otherwise PowerShell treats the leading `@` as a splatting operator and the file is not read.
 
 ### Global flags
 
@@ -237,6 +241,7 @@ When the OS keychain is unavailable or `AGS_NO_KEYCHAIN=1` is set, tokens fall b
 
 ```bash
 ags auth status
+ags auth refresh        # re-mint the access token from stored credentials
 ags auth logout
 ags auth logout --all   # clear credentials from all profiles
 ```
@@ -365,6 +370,35 @@ AGS CLI covers every AccelByte Gaming Services API. Run `ags --help` for the liv
 | UGC | `ugc` | User-generated content, channels, and moderation |
 
 </details>
+
+## Workflows
+
+A *workflow* is a multi-step operation: it chains several API calls, passing
+values from one step to the next. Run one with:
+
+    ags workflow run <workflow-id> [--<input> <value>]…
+
+Each workflow declares its own inputs as `--<name>` flags; run with `--help`
+to list them:
+
+    ags workflow run competitive-multiplayer --help
+
+`competitive-multiplayer` is the bundled example: it stands up competitive
+matchmaking with dedicated servers (skill stat → ruleset → session template
+→ match pool → AMS fleet → fleet wiring). Its required inputs are
+`--namespace`, `--fleet-image-id`, `--fleet-region`, and `--fleet-instance-id`;
+the resource names default to `ranked-*` (override with `--resource-prefix`).
+When run interactively, the AMS image, region, and instance-type fields are
+runtime-fetched pickers — type to filter, ↑/↓ to scroll, Enter to select.
+
+Single commands (`ags <service> <resource> <method>`) are internally
+1-step workflows — this is invisible in normal use. Add `--dry-run` to preview a
+workflow without calling the API, and `--no-input` to fail instead of
+prompting for missing inputs. Under `--format json` a workflow runs
+non-interactively: supply every input as a flag (and `--yes` for any
+confirm-gated step), and the result is emitted as a JSON envelope.
+
+List registered workflows with `ags workflow list` (human) or `ags describe workflow` (machine-readable).
 
 ## Contributing
 

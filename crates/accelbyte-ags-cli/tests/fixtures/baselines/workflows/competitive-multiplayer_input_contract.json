@@ -1,0 +1,60 @@
+{
+  "inputs": [
+    {
+      "name": "fleet-image-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "fleet-instance-id",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "fleet-region",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "namespace",
+      "type": "string",
+      "required": true,
+      "enum_values": null,
+      "default": null
+    },
+    {
+      "name": "players-per-team",
+      "type": "integer",
+      "required": false,
+      "enum_values": null,
+      "default": 4
+    },
+    {
+      "name": "resource-prefix",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "ranked"
+    },
+    {
+      "name": "stat-code",
+      "type": "string",
+      "required": false,
+      "enum_values": null,
+      "default": "mmr"
+    },
+    {
+      "name": "team-count",
+      "type": "integer",
+      "required": false,
+      "enum_values": null,
+      "default": 2
+    }
+  ]
+}

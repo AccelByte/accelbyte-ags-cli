@@ -1,0 +1,2 @@
+# Presence of this file tells demos/record.sh to authenticate off-camera before
+# recording, so no login appears in the GIF. Auth is not the subject of this demo.

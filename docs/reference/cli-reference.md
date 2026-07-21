@@ -242,6 +242,8 @@ The CLI MUST support human-readable output by default and structured output for 
 
 The structured format is `json`. The default human-readable output renders tables for list operations.
 
+**Presentation backend (`--ui`):** selects how human output is presented — `auto` (default), `plain` (line-oriented), `inline` (in-cursor viewport), or `fullscreen` (alternate-screen). `auto` resolves the surface from the command and terminal. `--ui` affects presentation only; when `--format json` is also present, `--ui` is silently ignored — the JSON machine contract wins (it is not an error to pass both).
+
 **Schema passthrough:** Request body data passed via `--json` is sent to the backend as-is; the CLI performs no client-side schema validation (the backend is the authority). The `--skeleton` global flag outputs a fillable JSON request body template for any operation that accepts `--json`, showing field names, types, and required/optional status. `--skeleton` requires no auth and makes no API call.
 
 **Output destination (`--output <path>`):** redirects the primary stdout payload to a file. `--output -` is an explicit alias for stdout. When the response body is binary (e.g. exported asset, save file), `--output` is required for terminal use; piping (non-TTY) is also accepted. `--output` only affects the primary payload — diagnostics, progress, and errors continue to go to stderr.
@@ -284,6 +286,13 @@ The CLI MUST provide an `ags describe` command for machine-readable command disc
 
 `ags describe` answers "what commands exist and how do I call them?" while the `--skeleton` flag answers "what data do I send?" by outputting a fillable JSON request body template for operations that accept `--json` (see §10.1).
 
+Beyond the service hierarchy, `ags describe` also exposes registered workflows:
+
+5. `ags describe workflow` — JSON catalogue of registered workflows
+6. `ags describe workflow <id>` — full workflow introspection
+
+The root catalogue (`ags describe`) lists a `workflow` node (`node_type: "workflow-catalogue"`) alongside the services. `ags describe workflow <id>` returns an envelope with `kind: "workflow"` whose `data` carries `id`, `name`, `intent`, `description`, `inputs[]` (each: `name` kebab-cased, `type`, `enum_values`, `required`, `default`, `description`, `sensitive`, `dynamic`), and `steps[]` (each: `id`, `service`, `operation`, `description`, `dependencies[]`). An unknown id returns `kind: "error"` with code `unknown_workflow` (plus name suggestions, exit 1); a path segment beyond `<id>` returns code `invalid_workflow_path` (exit 1). The full set of `ags describe` envelope `kind` values is therefore `catalogue`, `command`, `error`, and `workflow`. Consumers MUST branch on `kind` rather than assume a uniform `children`-bearing shape; the envelope contract — every `kind`, its `data` payload, the recursive-walk pattern, and versioning rules — is specified in the Output Reference, §27 "Describe envelope contract".
+
 Method-level `ags describe` output MUST expose the full scope/version contract matrix for the command. The shape MUST include:
 
 - `command` — fully qualified command path
@@ -300,6 +309,7 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags auth login`
 - `ags auth logout`
 - `ags auth status`
+- `ags auth refresh`
 - `ags config get`
 - `ags config set`
 - `ags config unset`
@@ -310,10 +320,142 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags profile delete`
 - `ags profile rename`
 - `ags describe`
+- `ags describe workflow` / `ags describe workflow <id>`
 - `ags doctor`
 - `ags refresh-specs`
 - `ags completions`
 - `ags version`
+- `ags workflow run`
+
+### 10.5.1 `ags workflow run`
+
+Synopsis:
+
+```text
+ags workflow run <workflow-id> [--<input> <value>]…
+```
+
+`ags workflow run` executes a registered multi-step workflow by its id. Each workflow declares its own `--<input>` flags; the exact flags vary by workflow.
+
+**Input flags**
+
+Each workflow contributes one optional `--<kebab-case-name>` flag per declared input. Flag names are the camelCase input names converted to kebab-case (e.g. `sessionDeployment` becomes `--session-deployment`, `fleetImageId` becomes `--fleet-image-id`). Inputs with defaults are optional on the command line; required inputs without defaults must be supplied via their flag, via gather prompts, or through the `--namespace` shortcut described below.
+
+**Help**
+
+```text
+ags workflow run <workflow-id> --help
+ags workflow run --help <workflow-id>
+```
+
+`--help` is recognised on either side of the id. With a concrete id it compiles the workflow and prints the full `--<input>` flag list with descriptions. Without an id it prints the generic usage line.
+
+**Global flag interactions**
+
+- `--dry-run` — builds per-step request previews (URL, headers, body) without calling the API. All six steps of `competitive-multiplayer` produce previews; the output is a `CommandOutput::WorkflowDryRun` envelope.
+- `--no-input` — refuses to gather or prompt for missing inputs; fails with an aggregated error if any required input is absent.
+- `--skeleton` — rejected; `ags workflow run` does not support skeleton output. The rejection fires before any registry lookup.
+- `--format json` — runs the workflow non-interactively and emits a JSON envelope to stdout (see `output-reference.md` §25.3 for the canonical shapes). All inputs MUST be supplied via `--<flag>`s — JSON mode never prompts (it behaves as if `--no-input` were set), so a missing required input fails immediately rather than gathering. `--yes` is required for any confirm-gated step unless `--dry-run` is active (which is exempt from confirmation). `--format json` does NOT imply `--yes`. A single-step workflow that declares no outputs collapses to the bare API response body. Any failure (e.g. a missing required input) emits a JSON error envelope on stderr with the underlying exit code (see Exit codes below).
+- `--namespace <value>` — the global namespace flag feeds a `namespace` workflow input when the workflow declares one and no per-workflow `--namespace` was explicitly provided.
+- `--output <path>` — threaded into each step's request so the last step's raw response body is written to the specified file or stdout.
+- `--verbose` — increases response verbosity for each step.
+- `--yes` — bypasses per-step confirmation prompts declared with `confirm: true`.
+
+**Run mode (interactive surfaces only)**
+
+On the interactive fullscreen and inline surfaces, the run-start gather offers a three-button run-mode choice that controls how often the run pauses. It does not apply to `--yes`, `--no-input`, or `--format json` (those never pause for review), and the default is chosen when the user just proceeds, so existing behaviour is unchanged.
+
+- **Run** (default) — pause only on steps that have a field to review or gather; fully auto-bound steps run without a pause.
+- **Run & Review** — pause before every reviewable step so the user can review it before it runs.
+- **Run & Accept Defaults** — no review pauses; runs straight through on each step's default and bound values, gathering only a genuinely-missing required input. Destructive `confirm: true` steps still prompt (unless `--yes`), matching plain-mode semantics.
+
+The mode governs only the per-step *review* pause; the `confirm: true` safety gate is independent and unaffected.
+
+**Skipping optional steps (interactive surfaces only)**
+
+A step the workflow marks as optional can be skipped at its review or confirm gate on the fullscreen and inline surfaces: press `s`, or move focus to the **Skip** button and submit. Skipping runs no request for that step and continues to the next one, so the step's required-input validation is bypassed (the step is not executed). Non-optional steps offer no skip affordance. Optional steps are always paused for review even under **Run** — they are never silently auto-run — so the skip choice is always reachable. Skipping is unavailable in `--no-input` and `--format json` runs, which never pause; those runs execute every step, optional ones included.
+
+**Handling step failures**
+
+When a step's API call fails, the behaviour depends on the surface and the error:
+
+- **Already-exists conflicts auto-skip (all surfaces, all modes).** A step the workflow marks as `skip_if_exists` that fails with an HTTP 409 whose error identifies it as an "already exists" conflict is skipped automatically, with no prompt, and recorded in the run summary as skipped. This makes a re-run idempotent for those steps. Only the specific already-exists conflict is treated this way; any other error on the step (including a different 409) is a real failure and follows the rules below.
+
+- **Interactive surfaces pause with a failure gate.** On the fullscreen, inline, and plain surfaces, any other step failure pauses the run and offers **Retry** / **Skip** / **Cancel** instead of aborting. **Retry** re-runs the same step. **Skip** is offered only when the step is safely skippable — every output it captures has a default, so skipping cannot leave a later step's reference unresolved — otherwise only **Retry** / **Cancel** are shown. **Cancel** ends the run with the failure (the underlying error class sets the exit code). Retrying is user-driven and unbounded; there is no automatic retry.
+
+- **Non-interactive runs fail fast.** `--no-input` and `--format json` runs never show the gate: any non-auto-skipped step failure is fatal, exactly as before. (The already-exists auto-skip above still applies, since it needs no prompt.)
+
+**Exit codes**
+
+| Code | Meaning |
+|------|---------|
+| 0 | Every step succeeded |
+| 1 | Usage / input error — missing required input, unknown workflow, or `--skeleton` rejected |
+| 2 | Auth / authorization failure, or the user declined a confirmation prompt |
+| 3 | An AccelByte API call returned an error |
+| 4 | Network / transport failure |
+| 5 | Unexpected internal error |
+
+A failing step propagates the underlying error's class (codes 2–5); exit 1 is reserved for usage/input errors detected before or during input gathering.
+
+### 10.5.2 `competitive-multiplayer` workflow
+
+Stand up competitive matchmaking with dedicated servers: a skill stat, a match ruleset, a session template, a match pool, an AMS fleet, and the session template wired to the fleet. Matches start only when teams are exactly full (no under-filled sessions) — appropriate for ranked play.
+
+**Input flags**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--namespace` | yes | — | Game namespace all resources are created in. |
+| `--players-per-team` | | `4` | Players per team (symmetric). |
+| `--team-count` | | `2` | Number of teams (default 2 for X v X). |
+| `--fleet-image-id` | yes | — | AMS image ID to deploy (dynamic — picked from `ams images list`). |
+| `--fleet-region` | yes | — | Region the fleet runs in (dynamic — picked from `ams info list-regions`). |
+| `--fleet-instance-id` | yes | — | AMS instance UUID, `dsHostConfiguration.instanceId` (dynamic — picked from the AMS instances list). |
+| `--stat-code` | | `mmr` | Skill stat code. |
+| `--resource-prefix` | | `ranked` | Prefix for ruleset/session/pool/fleet names and claim key. |
+
+The three fleet inputs are **dynamic enums**: in the fullscreen surface they render as type-to-filter pickers populated from a live AMS lookup, while non-interactive and `--format json` runs treat them as plain string flags (no default — the value must be supplied).
+
+**Breaking change from earlier branches:** the previous flag set (`--deployment`, `--image-deployment-profile`, `--session-template-name`, `--ruleset-name`, `--match-pool-name`, `--fleet-name`) is removed. Existing scripts targeting the old contract require updating.
+
+### 10.5.3 `season-pass` workflow
+
+Build a complete, publishable **season pass** in an existing draft store: a `/Season` category, a free and a premium SEASON pass item plus a tier item, then publish the store, create the season with a free and a premium pass, six item rewards across both tracks, and three tiers, and publish the season. Deliberately opinionated — locale is fixed to `en-US`, prices are set for the **US** region only, and the SEASON items are priced in a chosen virtual currency.
+
+**Input flags**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--namespace` | yes | — | Game namespace all resources are created in. |
+| `--store-id` | yes | — | Draft store the items and category are created in (dynamic — picked from `platform stores list`). |
+| `--currency-code` | yes | — | Virtual currency the SEASON items are priced in (dynamic — picked from the namespace's VIRTUAL currencies). |
+| `--free-reward-item-id` | yes | — | In-game item granted on the free reward track (dynamic — picked from the store's items). |
+| `--premium-reward-item-id` | yes | — | In-game item granted on the premium reward track (dynamic — picked from the store's items). |
+| `--season-name` | | `Season 1` | Display name of the season. |
+| `--start` | | `2020-01-01T00:00:00Z` | Season start (ISO 8601). The default is in the past, so the season auto-starts on publish. |
+| `--end` | | `2099-12-31T23:59:59Z` | Season end (ISO 8601). |
+
+The four id/code inputs are **dynamic enums**: in the fullscreen surface they render as type-to-filter pickers populated from live `platform` lookups, while non-interactive and `--format json` runs treat them as plain string flags (the value must be supplied).
+
+`--start` and `--end` are **date-time** inputs: on the interactive surfaces they render as a numbers-only UTC segment editor (year / month / day / hour / minute) rather than a raw ISO field. Arrow keys move between and adjust segments, digits type a value, enter commits, and esc cancels; while a segment is being edited those keys take precedence over field navigation. The value stored and sent is still the ISO 8601 string (minute precision, seconds `00`), so request previews (`--dry-run`, `--format json`) show the raw `…T…Z` form. Non-interactive runs treat them as plain string flags.
+
+The two publish steps — publishing the store and publishing the season — are both marked optional, so on the interactive surfaces they can be skipped at their gate (see §10.5.1, "Skipping optional steps"). Left un-skipped, the final step publishes the season and it is live for players when the run finishes; because the default `--start` is in the past, the season auto-starts. Skip the publish steps (or pass a future `--start`) to leave the season unpublished and editable. **Prerequisite:** a draft store with a virtual currency and at least one in-game item — run the `in-game-store` workflow first if needed.
+
+### 10.5.4 `in-game-store` workflow
+
+Build a structured in-game store in a namespace's draft store: a draft store, a virtual soft currency, a root category with durable and consumable sub-categories, one durable and one consumable item, then publish the draft store so the catalogue goes live. Locale and region are fixed to `en-US` / `US`, and the items are priced in the created currency.
+
+**Input flags**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--namespace` | yes | — | Game namespace all resources are created in. |
+| `--currency-code` | | `GOLD` | Code of the virtual soft currency to create; items are priced in it. |
+
+**Re-running is idempotent for the create steps.** The six create steps (currency, three categories, two items) are marked `skip_if_exists`: on a re-run, each auto-skips its already-exists 409 and the run continues (see §10.5.1, "Handling step failures"). The `create-store` step is **not** — a draft store is a per-namespace singleton whose id later steps depend on, so if it already exists its 409 surfaces at the interactive failure gate (Retry / Cancel; Skip is not offered) and is fatal in non-interactive runs.
+
+**The `publish` step is optional.** It is marked optional and confirm-gated, so on the interactive surfaces it can be skipped at its confirm gate (see §10.5.1, "Skipping optional steps") to leave the store built but unpublished. A publish conflict is **not** auto-skipped — it is a real failure that surfaces at the gate.
 
 ### 10.6 Error handling
 
@@ -1042,7 +1184,7 @@ The CLI ships with:
 - token auto-refresh with expiry buffer
 - profile-based configuration and profile-scoped auth (`ags profile list/create/use/show/delete/rename`)
 - `ags config get/set/unset`
-- `ags describe` (4-level hierarchy for machine-readable command discovery)
+- `ags describe` (4-level service hierarchy plus `describe workflow [id]` for workflow introspection)
 - `--skeleton` flag (fillable JSON request body templates)
 - pagination (`--page-all` and `--page-limit` flags)
 - namespace resolution (flag → env → config → error)
@@ -1050,7 +1192,7 @@ The CLI ships with:
 - error classification with actionable fix suggestions
 - keyword-based confirmation for destructive operations (DELETE + risky POST/PUT/PATCH)
 - `--dry-run`, `--verbose`, `--quiet`, `--no-input`, `--yes`, `--no-color`
-- `ags auth login/logout/status`
+- `ags auth login/logout/status/refresh`
 - `ags doctor`, `ags refresh-specs`, `ags completions`, `ags version`
 
 ## 22. Open implementation notes

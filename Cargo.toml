@@ -1,26 +1,13 @@
-[package]
-name = "accelbyte-ags-cli"
+[workspace]
+members = ["crates/accelbyte-ags-cli", "crates/ags-protocol", "crates/ags-runtime"]
+resolver = "2"
+
+[workspace.package]
 version = "0.3.0"
-edition = "2021"
-description = "Unified CLI for AccelByte Gaming Services"
-license = "MIT"
-rust-version = "1.84"
-repository = "https://github.com/AccelByte/accelbyte-ags-cli"
-homepage = "https://accelbyte.io/gaming-services"
-readme = "README.md"
-keywords = ["accelbyte", "cli", "gaming"]
-categories = ["command-line-utilities"]
-publish = false
 
-[lib]
-name = "ags"
-path = "src/lib.rs"
-
-[[bin]]
-name = "ags"
-path = "src/main.rs"
-
-[dependencies]
+[workspace.dependencies]
+ags-protocol = { path = "crates/ags-protocol" }
+ags-runtime = { path = "crates/ags-runtime" }
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive", "string"] }
 clap_complete = "4"
@@ -44,11 +31,9 @@ zeroize = { version = "1", features = ["derive"] }
 tempfile = "3"
 fs4 = "0.8"
 anstream = "1"
-
-[target.'cfg(unix)'.dependencies]
+crossterm = "0.28"
 libc = "0.2"
-
-[dev-dependencies]
+ratatui = { version = "0.29", default-features = false, features = ["crossterm"] }
 assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions", "yaml"] }
@@ -56,3 +41,4 @@ wiremock = "0.6"
 tokio-test = "0.4"
 serial_test = "3"
 filetime = "0.2"
+portable-pty = "0.9"

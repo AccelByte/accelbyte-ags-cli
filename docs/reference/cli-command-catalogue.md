@@ -92,7 +92,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `images` | `update` | admin | v1 | PATCH | `/ams/v1/admin/namespaces/{namespace}/images/{imageID}` | Updates an image |
 | `info` | `get-upload-url` | public | v1 | GET | `/ams/v1/upload-url` | Retrieves an upload URL for an image |
 | `info` | `list-regions` | admin | v1 | GET | `/ams/v1/admin/namespaces/{namespace}/regions` | Retrieves available AMS regions |
-| `info` | `list-supported-insstances` | admin | v1 | GET | `/ams/v1/admin/namespaces/{namespace}/supported-instances` | Retrieves available instance types for the current account |
+| `info` | `list-supported-instances` | admin | v1 | GET | `/ams/v1/admin/namespaces/{namespace}/supported-instances` | Retrieves available instance types for the current account |
 | `qos` | `list-regions` | admin | v1 | GET | `/ams/v1/admin/namespaces/{namespace}/qos` | Retrieves available AMS QoS regions |
 | `qos` | `update-region` | admin | v1 | PATCH | `/ams/v1/admin/namespaces/{namespace}/qos/{region}` | Updates a QoS region status |
 | `watchdogs` | `connect` | public | v1 | GET | `/ams/v1/namespaces/{namespace}/watchdogs/{watchdogID}/connect` | Connects a watchdog |
@@ -1366,7 +1366,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `entitlements` | `bulk-grant` | admin | v1 | POST | `/platform/admin/namespaces/{namespace}/entitlements/grant` | Grants entitlements to multiple users in bulk |
 | `entitlements` | `bulk-revoke` | admin | v1 | POST | `/platform/admin/namespaces/{namespace}/entitlements/revoke` | Revokes entitlements in bulk by their identifiers |
 | `entitlements` | `check-my-ownership-any` | public | v1 | GET | `/platform/public/namespaces/{namespace}/users/me/entitlements/ownership/any` | Exists any my active entitlement |
-| `entitlements` | `check-my-ownership-by-app-d` | public | v1 | GET | `/platform/public/namespaces/{namespace}/users/me/entitlements/ownership/byAppId` | Checks ownership of a specific app entitlement |
+| `entitlements` | `check-my-ownership-by-app-id` | public | v1 | GET | `/platform/public/namespaces/{namespace}/users/me/entitlements/ownership/byAppId` | Checks ownership of a specific app entitlement |
 | `entitlements` | `check-my-ownership-by-item-id` | public | v1 | GET | `/platform/public/namespaces/{namespace}/users/me/entitlements/ownership/byItemId` | Checks ownership of a specific item entitlement |
 | `entitlements` | `check-my-ownership-by-sku` | public | v1 | GET | `/platform/public/namespaces/{namespace}/users/me/entitlements/ownership/bySku` | Checks ownership of a specific SKU entitlement |
 | `entitlements` | `check-ownership-any` | admin | v1 | GET | `/platform/admin/namespaces/{namespace}/users/{userId}/entitlements/ownership/any` | Exists any user active entitlement |
@@ -1700,7 +1700,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `stores` | `clone` | admin | v1 | PUT | `/platform/admin/namespaces/{namespace}/stores/{storeId}/clone` | Clones a store |
 | `stores` | `create` | admin | v1 | POST | `/platform/admin/namespaces/{namespace}/stores` | Creates a store |
 | `stores` | `delete` | admin | v1 | DELETE | `/platform/admin/namespaces/{namespace}/stores/{storeId}` | Deletes a store |
-| `stores` | `delete-publisheed` | admin | v1 | DELETE | `/platform/admin/namespaces/{namespace}/stores/published` | Deletes the published store |
+| `stores` | `delete-published` | admin | v1 | DELETE | `/platform/admin/namespaces/{namespace}/stores/published` | Deletes the published store |
 | `stores` | `download-template` | admin | v1 | GET | `/platform/admin/namespaces/{namespace}/stores/downloadCSVTemplates` | Downloads CSV templates for store import |
 | `stores` | `export` | admin | v2 | POST | `/platform/v2/admin/namespaces/{namespace}/stores/{storeId}/export` | Exports a store's items |
 | `stores` | `export-csv` | admin | v1 | POST | `/platform/admin/namespaces/{namespace}/stores/exportByCSV` | Exports a store to CSV format |

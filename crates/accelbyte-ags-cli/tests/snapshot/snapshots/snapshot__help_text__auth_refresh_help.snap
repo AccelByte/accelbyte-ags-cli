@@ -1,0 +1,22 @@
+---
+source: crates/accelbyte-ags-cli/tests/snapshot/help_text.rs
+expression: stdout
+---
+Refresh the access token using stored credentials
+
+  Re-mints the access token without a full browser login. Client-credentials
+  profiles re-run the client-credentials grant. Authorization-code profiles
+  force a refresh-token exchange using the stored refresh token.
+
+  If your permissions changed (for example new roles were added), you may
+  still need to run 'ags auth login' again for them to take effect.
+
+  With --format json, outputs the refreshed status, base URL, client ID, and
+  token expiry.
+
+Usage:
+  auth refresh
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

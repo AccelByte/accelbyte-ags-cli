@@ -1,0 +1,31 @@
+[
+  {
+    "method": "POST",
+    "path": "/iam/v3/oauth/token",
+    "status": 200,
+    "delay": 1.0,
+    "body": { "access_token": "demo-token", "token_type": "Bearer", "expires_in": 3600 }
+  },
+
+  {
+    "method": "POST",
+    "path": "/social/v1/admin/namespaces/{namespace}/stats",
+    "status": 201,
+    "delay": 0.6,
+    "body": {
+      "namespace": "dev",
+      "statCode": "player-level",
+      "name": "Player Level",
+      "defaultValue": 1,
+      "setBy": "SERVER",
+      "incrementOnly": false,
+      "isPublic": true,
+      "minimum": 0,
+      "maximum": 9999,
+      "globalAggregationMethod": "TOTAL",
+      "status": "TIED",
+      "createdAt": "2026-06-18T09:00:00.000Z",
+      "updatedAt": "2026-06-18T09:00:00.000Z"
+    }
+  }
+]

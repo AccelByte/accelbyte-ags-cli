@@ -1,0 +1,1123 @@
+{
+  "config": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/configs",
+      "permissions": [],
+      "summary": "Creates a config",
+      "x_operation_id": "basic/admin/config/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Deletes a config",
+      "x_operation_id": "basic/admin/config/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Retrieves a config",
+      "x_operation_id": "basic/admin/config/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/publisher/configs/{configKey}",
+      "permissions": [],
+      "summary": "Retrieves a publisher config",
+      "x_operation_id": "basic/admin/config/v1/get-publisher"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Updates a config",
+      "x_operation_id": "basic/admin/config/v1/update"
+    }
+  ],
+  "files": [
+    {
+      "has_request_body": false,
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "folder",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "fileType",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/folders/{folder}/files",
+      "permissions": [],
+      "summary": "Generates an upload URL",
+      "x_operation_id": "basic/admin/files/v1/generate-upload-url"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "POST",
+      "method": "generate-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "folder",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "fileType",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/folders/{folder}/files",
+      "permissions": [],
+      "summary": "Generates an upload URL",
+      "x_operation_id": "basic/public/files/v1/generate-upload-url"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "POST",
+      "method": "generate-user-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fileType",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/files",
+      "permissions": [],
+      "summary": "Generates an upload URL for user content",
+      "x_operation_id": "basic/admin/files/v1/generate-user-upload-url"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "POST",
+      "method": "generate-user-upload-url",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "category",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "fileType",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/files",
+      "permissions": [],
+      "summary": "Generates an upload URL for user content",
+      "x_operation_id": "basic/public/files/v1/generate-user-upload-url"
+    }
+  ],
+  "locale": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "add-country-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/countrygroups",
+      "permissions": [],
+      "summary": "Adds a country group",
+      "x_operation_id": "basic/admin/locale/v1/add-country-group"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete-country-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryGroupCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/countrygroups/{countryGroupCode}",
+      "permissions": [],
+      "summary": "Deletes a country group",
+      "x_operation_id": "basic/admin/locale/v1/delete-country-group"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-time",
+      "parameters": [],
+      "path": "/basic/v1/public/misc/time",
+      "permissions": [],
+      "summary": "Retrieves server time",
+      "x_operation_id": "basic/public/locale/v1/get-time"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-country-groups",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "groupCode",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/countrygroups",
+      "permissions": [],
+      "summary": "Lists country groups",
+      "x_operation_id": "basic/admin/locale/v1/list-country-groups"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-languages",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/languages",
+      "permissions": [],
+      "summary": "Lists languages",
+      "x_operation_id": "basic/admin/locale/v1/list-languages"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-languages",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/misc/languages",
+      "permissions": [],
+      "summary": "Lists languages",
+      "x_operation_id": "basic/public/locale/v1/list-languages"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-time-zones",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/timezones",
+      "permissions": [],
+      "summary": "Lists time zones",
+      "x_operation_id": "basic/admin/locale/v1/list-time-zones"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-time-zones",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/misc/timezones",
+      "permissions": [],
+      "summary": "Lists time zones",
+      "x_operation_id": "basic/public/locale/v1/list-time-zones"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update-country-group",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "countryGroupCode",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/misc/countrygroups/{countryGroupCode}",
+      "permissions": [],
+      "summary": "Updates a country group",
+      "x_operation_id": "basic/admin/locale/v1/update-country-group"
+    }
+  ],
+  "namespaces": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [],
+      "path": "/basic/v1/admin/namespaces",
+      "permissions": [],
+      "summary": "Creates a namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Deletes a namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves a namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}",
+      "permissions": [],
+      "summary": "Retrieves namespace info",
+      "x_operation_id": "basic/public/namespaces/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-context",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "refreshOnCacheMiss",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/context",
+      "permissions": [],
+      "summary": "Retrieves context of namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/get-context"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces",
+      "permissions": [],
+      "summary": "Retrieves all namespaces",
+      "x_operation_id": "basic/admin/namespaces/v1/list"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/public/namespaces",
+      "permissions": [],
+      "summary": "Retrieves all namespaces",
+      "x_operation_id": "basic/public/namespaces/v1/list"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-children",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/child",
+      "permissions": [],
+      "summary": "Retrieves child namespaces",
+      "x_operation_id": "basic/admin/namespaces/v1/list-children"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-games",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "activeOnly",
+          "required": false
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/game",
+      "permissions": [],
+      "summary": "Retrieves game namespaces",
+      "x_operation_id": "basic/admin/namespaces/v1/list-games"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/publisher",
+      "permissions": [],
+      "summary": "Retrieves publisher namespace info for a namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/list-publisher"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-publisher",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/publisher",
+      "permissions": [],
+      "summary": "Retrieves publisher namespace info for a namespace",
+      "x_operation_id": "basic/public/namespaces/v1/list-publisher"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/basic",
+      "permissions": [],
+      "summary": "Updates namespace basic info",
+      "x_operation_id": "basic/admin/namespaces/v1/update"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/status",
+      "permissions": [],
+      "summary": "Updates the active status of a namespace",
+      "x_operation_id": "basic/admin/namespaces/v1/update-status"
+    }
+  ],
+  "profiles": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "bulk-get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/profiles/public",
+      "permissions": [],
+      "summary": "Retrieves public user profile info by user IDs",
+      "x_operation_id": "basic/admin/profiles/v1/bulk-get-public"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "bulk-get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/profiles/public",
+      "permissions": [],
+      "summary": "Retrieves public user profile info in bulk by user IDs",
+      "x_operation_id": "basic/public/profiles/v1/bulk-get-public"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "bulk-get-public-by-user-ids",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "userIds",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/profiles/public",
+      "permissions": [],
+      "summary": "Retrieves public user profile info by user IDs",
+      "x_operation_id": "basic/public/profiles/v1/bulk-get-public-by-user-ids"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Creates user profile",
+      "x_operation_id": "basic/public/profiles/v1/create"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles",
+      "permissions": [],
+      "summary": "Creates my profile",
+      "x_operation_id": "basic/public/profiles/v1/create-my"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Deletes user profile",
+      "x_operation_id": "basic/admin/profiles/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Retrieves user profile",
+      "x_operation_id": "basic/admin/profiles/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Retrieves user profile",
+      "x_operation_id": "basic/public/profiles/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-by-public-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "publicId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/profiles/byPublicId",
+      "permissions": [],
+      "summary": "Retrieves user profile by public ID",
+      "x_operation_id": "basic/admin/profiles/v1/get-by-public-id"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-by-public-id",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "publicId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/profiles/public/byPublicId",
+      "permissions": [],
+      "summary": "Retrieves public user profile by public ID",
+      "x_operation_id": "basic/public/profiles/v1/get-by-public-id"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/customAttributes",
+      "permissions": [],
+      "summary": "Retrieves user custom attributes",
+      "x_operation_id": "basic/admin/profiles/v1/get-custom-attributes"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/customAttributes",
+      "permissions": [],
+      "summary": "Retrieves user custom attributes",
+      "x_operation_id": "basic/public/profiles/v1/get-custom-attributes"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles",
+      "permissions": [],
+      "summary": "Retrieves my profile",
+      "x_operation_id": "basic/public/profiles/v1/get-my"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-my-private-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles/privateCustomAttributes",
+      "permissions": [],
+      "summary": "Retrieves my private custom attributes",
+      "x_operation_id": "basic/public/profiles/v1/get-my-private-custom-attributes"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-my-zip-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode",
+      "permissions": [],
+      "summary": "Retrieves my zip code",
+      "x_operation_id": "basic/public/profiles/v1/get-my-zip-code"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-private-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/privateCustomAttributes",
+      "permissions": [],
+      "summary": "Retrieves user private custom attributes",
+      "x_operation_id": "basic/admin/profiles/v1/get-private-custom-attributes"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-public",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/public",
+      "permissions": [],
+      "summary": "Retrieves public user profile info",
+      "x_operation_id": "basic/public/profiles/v1/get-public"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Updates user profile",
+      "x_operation_id": "basic/admin/profiles/v1/update"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles",
+      "permissions": [],
+      "summary": "Updates user profile",
+      "x_operation_id": "basic/public/profiles/v1/update"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
+      "method": "update-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/customAttributes",
+      "permissions": [],
+      "summary": "Updates custom attributes for a user",
+      "x_operation_id": "basic/admin/profiles/v1/update-custom-attributes"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
+      "method": "update-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/customAttributes",
+      "permissions": [],
+      "summary": "Updates custom attributes for a user",
+      "x_operation_id": "basic/public/profiles/v1/update-custom-attributes"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update-my",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles",
+      "permissions": [],
+      "summary": "Updates my profile",
+      "x_operation_id": "basic/public/profiles/v1/update-my"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
+      "method": "update-my-private-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles/privateCustomAttributes",
+      "permissions": [],
+      "summary": "Updates my private custom attributes",
+      "x_operation_id": "basic/public/profiles/v1/update-my-private-custom-attributes"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update-my-zip-code",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/me/profiles/zipCode",
+      "permissions": [],
+      "summary": "Updates my zip code",
+      "x_operation_id": "basic/public/profiles/v1/update-my-zip-code"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
+      "method": "update-private-custom-attributes",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/privateCustomAttributes",
+      "permissions": [],
+      "summary": "Updates private custom attributes for a user",
+      "x_operation_id": "basic/admin/profiles/v1/update-private-custom-attributes"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/admin/namespaces/{namespace}/users/{userId}/profiles/status",
+      "permissions": [],
+      "summary": "Updates user profile status",
+      "x_operation_id": "basic/admin/profiles/v1/update-status"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update-status",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "userId",
+          "required": true
+        }
+      ],
+      "path": "/basic/v1/public/namespaces/{namespace}/users/{userId}/profiles/status",
+      "permissions": [],
+      "summary": "Updates user profile status",
+      "x_operation_id": "basic/public/profiles/v1/update-status"
+    }
+  ]
+}
