@@ -3,7 +3,7 @@ members = ["crates/accelbyte-ags-cli", "crates/ags-protocol", "crates/ags-runtim
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 
 [workspace.dependencies]
 ags-protocol = { path = "crates/ags-protocol" }
