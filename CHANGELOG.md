@@ -34,17 +34,10 @@ all released as early preview, and it changes how the CLI is installed and updat
 | 4 | Install and upgrade with one command on macOS, Linux and Windows | Generally available |
 | 5 | The CLI now tells you when a newer version exists | Generally available |
 
-### What "early preview" means here
+### About the early preview features
 
-An early preview feature is complete enough to use and to give feedback on. It is not covered
-by the usual promise that command names, flags and file formats stay stable. The commands work
-and are supported, and problems you report are treated as bugs. What is not promised is that a
-command will keep its address, that flags will keep their names, or that a file you write today
-will load unchanged in the next release.
-
-Our recommendation: use early preview features interactively, and do not build automation on
-them yet. When a preview feature changes address or format, the change ships in the next release
-without a deprecation period.
+Command names, flags and file formats may still change in these three areas, so we would hold
+off building automation on them for now. If you run into anything, please tell us.
 
 ### Added
 
@@ -134,8 +127,12 @@ an addition, not a replacement.
 - Migration shortcuts under `ags extend` are a convenience for people moving from
   `extend-helper-cli`. The `ags csm …` address each one forwards to is the address to use in
   scripts.
-- Archive file names and checksums keep the same shape as 0.4.0, so an existing download script
-  continues to work.
+- **Archive names and format have changed, so an existing download script needs updating.**
+  0.4.0 published `ags-<target>.tar.gz` with the binary at the archive root. 0.5.0 publishes
+  `accelbyte-ags-cli-<target>.tar.xz` — a different name, compressed with xz rather than gzip,
+  and extracting into a directory named after the archive, with `ags` inside it. The Windows
+  `.zip` is the exception: it still holds `ags.exe` at the root. A `.sha256` still sits beside
+  every archive, and a combined `sha256.sum` is now published too.
 - A workflow file that does not declare `workflow_protocol_version` still loads and runs.
   `ags workflow run` prints a short note saying the file predates the field, which you can
   silence by adding it. Nothing is rejected.

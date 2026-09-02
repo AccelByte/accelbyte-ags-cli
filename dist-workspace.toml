@@ -23,13 +23,16 @@ tap = "AccelByte/homebrew-tap"
 formula = "ags-cli"
 # Publish jobs to run in CI
 publish-jobs = ["homebrew"]
+# Do NOT add `publish-prereleases = true` as a standing setting. It was set once, for the
+# 0.5.0-rc.1 rehearsal, so that a release candidate could exercise the tap push before any
+# stable release depended on it, and removed again immediately afterwards. Homebrew has no
+# pre-release channel: the tap holds a single ags-cli.rb, so with the setting on, a prerelease
+# tag overwrites the production formula and hands an unstable build to anyone running
+# `brew upgrade`, with nothing to tell them what they received. To rehearse the tap path again,
+# turn it on for that one release and take it back out in the same change that raises the
+# version to the stable number.
 # Whether to install an updater program
 install-updater = false
-
-# Publish the Homebrew formula for pre-releases as well as stable releases.
-# Without this, publish-homebrew-formula skips on any tag with a prerelease
-# suffix, so a release-candidate cannot exercise the tap push.
-publish-prereleases = true
 
 # After running `dist generate`, release.yml needs these hand-edits re-applied:
 #   1. Three `# nosemgrep` risk-acceptance comments (cargo-dist/rustup bootstrap lines).

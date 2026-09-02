@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.4.0  
+Version: 0.5.0  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 

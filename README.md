@@ -84,6 +84,9 @@ ags doctor
 
 # Upload a dedicated-server build to AMS
 ags ams upload --path ./build --executable server --image-name my-image
+
+# Open a tunnel to an Extend app pod
+ags extend tunnel --namespace my-game --resource-name my-app --local-port 8080
 ```
 
 ## Using AGS CLI
@@ -411,7 +414,23 @@ prompting for missing inputs. Under `--format json` a workflow runs
 non-interactively: supply every input as a flag (and `--yes` for any
 confirm-gated step), and the result is emitted as a JSON envelope.
 
-List registered workflows with `ags workflow list` (human) or `ags describe workflow` (machine-readable).
+### Writing your own
+
+A workflow can be a YAML file you write yourself, not just a bundled one. Start from a
+skeleton, edit it, then install it:
+
+    ags workflow template --output my-flow.yaml
+    ags workflow add my-flow.yaml
+    ags workflow run my-flow
+
+`add` validates the file before installing it, so a mistake is reported rather than
+discovered mid-run. It installs a *copy* under the CLI's config directory, named after the
+file's own `id:` field, and that copy is what runs — editing your original afterwards has no
+effect until you run `add` again. `ags workflow remove <id>` uninstalls one. List everything
+registered with `ags workflow list` (human) or `ags describe workflow` (machine-readable).
+
+Every workflow file declares a `workflow_protocol_version`. The template fills it in, so
+starting from `ags workflow template` is the shortest path to a file that installs.
 
 ## Uploading a dedicated-server image
 
@@ -435,6 +454,21 @@ Uploading needs its own permission (`AMS:UPLOAD`, with `Create` and `Update`) on
 `ags ams images`, so an identity that can list images may still be refused. For client
 setup, the minimum permissions, migrating a pipeline from the standalone `ams` CLI, and
 what each error means, see **[AMS image upload](docs/reference/ams-upload.md)**.
+
+## Extend
+
+`ags extend` covers the Extend platform: cloning a starter template, logging in to the
+container registry, building and pushing an image, tunnelling to a running app pod, and
+remote debugging.
+
+    ags extend clone-template --help
+    ags extend image-upload --help
+    ags extend tunnel --help
+
+If you are moving from `extend-helper-cli`, its commands are here under the names you already
+know — `create-app`, `deploy-app`, `list-images` and the rest. Each forwards to the `ags csm …`
+command that does the work, and `ags extend --help` shows which. Use the `ags csm …` address in
+scripts; the shortcuts are for finding your way across.
 
 ## Telemetry
 

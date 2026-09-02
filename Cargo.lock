@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "accelbyte-ags-cli"
-version = "0.5.0-rc.2"
+version = "0.5.0"
 dependencies = [
  "ags-protocol",
  "ags-runtime",
@@ -54,7 +54,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "ags-protocol"
-version = "0.5.0-rc.2"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -64,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "ags-runtime"
-version = "0.5.0-rc.2"
+version = "0.5.0"
 dependencies = [
  "ags-protocol",
  "anyhow",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "extend-proxy-client"
-version = "0.5.0-rc.2"
+version = "0.5.0"
 dependencies = [
  "base64",
  "futures-util",
