@@ -442,7 +442,7 @@ AGS CLI collects anonymous usage telemetry to help the team understand which com
 
 ### Opting out
 
-Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://consoledonottrack.com) standard). This overrides any built-in API key. Unsetting `AGS_TELEMETRY_POSTHOG_KEY` also disables it, but `DO_NOT_TRACK` is the recommended opt-out for end users.
+Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://consoledonottrack.com) standard). This is the recommended opt-out: official release builds ship with a PostHog key already compiled in, so unsetting `AGS_TELEMETRY_POSTHOG_KEY` does not disable telemetry on its own — it only stops `AGS_TELEMETRY_POSTHOG_KEY` from overriding the built-in key.
 
 ### What is collected
 

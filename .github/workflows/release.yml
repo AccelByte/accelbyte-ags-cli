@@ -39,9 +39,11 @@ permissions:
 # If there's a prerelease-style suffix to the version, then the release(s)
 # will be marked as a prerelease.
 on:
-  # pull_request runs the full cargo-dist build matrix for PR validation.
-  # Safe: PR runs never publish (publishing is gated on !github.event.pull_request),
-  # top-level permissions are contents:read, and GitHub withholds secrets from fork PRs.
+  # pull_request runs `dist plan` ONLY. `pr-run-mode` is unset in dist-workspace.toml, so
+  # cargo-dist's default of "plan" applies: build-local-artifacts and every publish job
+  # require publishing == 'true' (false on a PR) or pr_run_mode == 'upload', so a pull
+  # request builds nothing, uploads nothing and publishes nothing. Top-level permissions
+  # are contents:read, and GitHub passes neither secrets nor variables to fork PRs.
   pull_request:
   push:
     tags:
@@ -122,6 +124,18 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
+      # Baked into the release binary via `option_env!` — see hand-edit #4 in
+      # dist-workspace.toml and crates/ags-runtime/src/runtime/telemetry/mod.rs.
+      # A PostHog project key is capture-only (cannot read data back), so it is
+      # a repository variable rather than a secret.
+      #
+      # Gated on `publishing` so the key can only ever reach a tag-triggered release
+      # build. This job does not run on a pull request today, because pr-run-mode
+      # defaults to "plan" — but that is a default, not a guarantee. Setting
+      # pr-run-mode = "upload" in dist-workspace.toml, a reasonable thing to want so
+      # reviewers can download a PR build, would otherwise start compiling the
+      # production key into PR artifacts with nothing to signal it.
+      AGS_TELEMETRY_POSTHOG_KEY: ${{ needs.plan.outputs.publishing == 'true' && vars.AGS_TELEMETRY_POSTHOG_KEY || '' }}
     steps:
       - name: enable windows longpaths
         run: |

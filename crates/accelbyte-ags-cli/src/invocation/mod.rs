@@ -831,7 +831,8 @@ pub async fn run() -> Result<(), CliError> {
     // instead of blocking it, and joined once at the end of the command,
     // inside `finish_self_owned`, alongside the outcome — that keeps this a
     // single end-of-command send instead of a fire at invocation time. A
-    // cheap no-op unless `AGS_TELEMETRY_POSTHOG_KEY` is set; strictly
+    // cheap no-op unless an API key resolves — from `AGS_TELEMETRY_POSTHOG_KEY`
+    // at run time, or from a key compiled into an official release build; strictly
     // fire-and-forget and never affects the command. The gathered context is
     // handed over through `INTERRUPT_TELEMETRY` rather than through this
     // task's return value, so the Ctrl-C handler can reach it mid-command.

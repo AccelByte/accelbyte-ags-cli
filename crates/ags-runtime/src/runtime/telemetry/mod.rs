@@ -23,22 +23,53 @@
 //! entirely also spares that invocation the `users/me` network round-trip.
 //!
 //! Every path here is strictly fire-and-forget: telemetry is a cheap no-op
-//! unless [`ENV_POSTHOG_KEY`] is set, and no failure ever propagates to the
-//! caller or affects a command's behaviour or exit code.
+//! unless an API key is resolved — from [`ENV_POSTHOG_KEY`] at run time, or
+//! from [`BAKED_POSTHOG_KEY`] at compile time (see [`resolve_api_key_with`]) — and
+//! no failure ever propagates to the caller or affects a command's behaviour
+//! or exit code.
 
 use base64::Engine;
 use posthog_rs::{ClientOptionsBuilder, Event};
 
 /// Env var: PostHog project API key. Telemetry is disabled unless this is set
-/// to a non-empty value. The key is never compiled in.
+/// to a non-empty value, or a key was compiled in (see [`BAKED_POSTHOG_KEY`]).
+/// A value set here always takes precedence over a compiled-in key — see
+/// [`resolve_api_key_with`].
 pub const ENV_POSTHOG_KEY: &str = "AGS_TELEMETRY_POSTHOG_KEY";
+
+/// Compile-time PostHog project key, embedded when the build environment sets
+/// `AGS_TELEMETRY_POSTHOG_KEY` — official release builds do this from a
+/// repository variable (see `.github/workflows/release.yml`); a local `cargo
+/// build`/`cargo test` normally does not, so this is `None` outside CI, and
+/// telemetry there stays off unless the developer sets [`ENV_POSTHOG_KEY`]
+/// themselves at run time. A PostHog project key is capture-only (it cannot
+/// read data back), so compiling it into a distributed binary is the same
+/// tradeoff as a Sentry DSN — not a secret that needs protecting from readers
+/// of the binary.
+const BAKED_POSTHOG_KEY: Option<&str> = option_env!("AGS_TELEMETRY_POSTHOG_KEY");
+
+/// Resolve the PostHog API key to use: [`ENV_POSTHOG_KEY`] from the run-time
+/// environment when it is set to a non-empty value, else `baked` (the
+/// compile-time key, when the build embedded one). `None` when neither is
+/// present. Split out so tests can exercise the
+/// fallback and the override without controlling the actual compiled-in
+/// constant.
+fn resolve_api_key_with(baked: Option<&str>) -> Option<String> {
+    match std::env::var(ENV_POSTHOG_KEY) {
+        Ok(value) if !value.is_empty() => Some(value),
+        _ => baked.filter(|key| !key.is_empty()).map(str::to_string),
+    }
+}
 
 /// Env var: PostHog host override. Defaults to the US ingestion endpoint
 /// ([`DEFAULT_POSTHOG_HOST`]).
 pub const ENV_POSTHOG_HOST: &str = "AGS_TELEMETRY_POSTHOG_HOST";
 
 /// Env var: universal telemetry opt-out (<https://consoledonottrack.com>). Any
-/// non-empty value disables telemetry regardless of [`ENV_POSTHOG_KEY`].
+/// non-empty value disables telemetry regardless of where a key came from —
+/// [`ENV_POSTHOG_KEY`] at run time or [`BAKED_POSTHOG_KEY`] compiled into the
+/// build. It is checked before any key is resolved, so it is the only opt-out
+/// that works on an official release binary.
 pub const ENV_DO_NOT_TRACK: &str = "DO_NOT_TRACK";
 
 /// Env var: operator kill switch for `input_fields` value transmission. Any
@@ -187,7 +218,9 @@ pub async fn gather_context(
 ) -> Option<CommandTelemetry> {
     let started_at = std::time::Instant::now();
     if !is_enabled_by_env() {
-        tdbg!("disabled — AGS_TELEMETRY_POSTHOG_KEY is unset/blank or DO_NOT_TRACK is set");
+        tdbg!(
+            "disabled — no API key resolved (AGS_TELEMETRY_POSTHOG_KEY unset/blank and no key compiled into this build), or DO_NOT_TRACK is set"
+        );
         return None;
     }
 
@@ -567,8 +600,9 @@ fn new_install_id() -> String {
 
 /// Load the install identity for `profile`, creating and persisting one on
 /// first use. Returns `None` up front when telemetry is disabled
-/// ([`is_enabled_by_env`]), so a user who never sets [`ENV_POSTHOG_KEY`] (or
-/// who sets [`ENV_DO_NOT_TRACK`]) never has a file written for them at all —
+/// ([`is_enabled_by_env`]), so a user on a build with no API key resolved (no
+/// [`ENV_POSTHOG_KEY`] set and no [`BAKED_POSTHOG_KEY`] compiled in) — or who
+/// sets [`ENV_DO_NOT_TRACK`] — never has a file written for them at all —
 /// this check happens before any path resolution or filesystem access.
 /// Best-effort otherwise: any read/parse failure is treated as "no identity
 /// yet" and a fresh one is created, exactly as the email cache treats a
@@ -947,14 +981,40 @@ pub fn merge_global_flags(capture: &mut FlagCapture, pairs: &[(String, Option<St
     }
 }
 
-/// Whether telemetry is switched on by the environment: an API key is present
-/// and the universal `DO_NOT_TRACK` opt-out is not set. Kept cheap so the
-/// disabled path never touches the credential store or network.
+/// Whether telemetry is switched on: an API key resolves (see
+/// [`enabled_api_key`]) and the universal `DO_NOT_TRACK` opt-out is not set.
+/// Kept cheap so the disabled path never touches the credential store or
+/// network.
 fn is_enabled_by_env() -> bool {
+    is_enabled_with(BAKED_POSTHOG_KEY)
+}
+
+/// The API key to send with, or `None` when telemetry is off for any reason.
+/// This is the single definition of "is telemetry on, and with what": the two
+/// questions are answered by one pass so a caller that needs the key does not
+/// ask twice, and so a condition added here cannot apply to one caller and not
+/// another.
+fn enabled_api_key() -> Option<String> {
+    enabled_api_key_with(BAKED_POSTHOG_KEY)
+}
+
+/// The body of [`enabled_api_key`], with the compile-time key injected — see
+/// [`is_enabled_with`] for why the seam exists.
+fn enabled_api_key_with(baked: Option<&str>) -> Option<String> {
     if crate::runtime::config::is_env_var_set(ENV_DO_NOT_TRACK) {
-        return false;
+        return None;
     }
-    crate::runtime::config::is_env_var_set(ENV_POSTHOG_KEY)
+    resolve_api_key_with(baked)
+}
+
+/// The body of [`is_enabled_by_env`], with the compile-time key injected. Split out
+/// for the same reason [`resolve_api_key_with`] is: `BAKED_POSTHOG_KEY` is a `const`
+/// decided when the crate is compiled, so a test cannot otherwise reach the shape that
+/// matters most — an official release binary, where the user has set nothing and the
+/// key came from the build. Without this seam the fallback could be deleted at this
+/// call site and every test would still pass.
+fn is_enabled_with(baked: Option<&str>) -> bool {
+    enabled_api_key_with(baked).is_some()
 }
 
 /// `$lib` override: PostHog's own SDK auto-fills `$lib`; this stamps a
@@ -1473,15 +1533,17 @@ impl TelemetryClient {
         Self { inner: None }
     }
 
-    /// Build a client from the environment, or a disabled no-op client when the
-    /// key is unset/blank or `DO_NOT_TRACK` is set. Configures the ingestion host
-    /// ([`DEFAULT_POSTHOG_HOST`], US by default) so events land in the same
-    /// PostHog project the Admin Portal identifies into.
+    /// Build a client from a resolved API key (see [`enabled_api_key`]), or a
+    /// disabled no-op client when no key resolves or `DO_NOT_TRACK` is set.
+    /// Configures the ingestion host ([`DEFAULT_POSTHOG_HOST`], US by default)
+    /// so events land in the same PostHog project the Admin Portal identifies
+    /// into.
     pub async fn from_env() -> Self {
-        if !is_enabled_by_env() {
-            return Self { inner: None };
-        }
-        let Ok(api_key) = std::env::var(ENV_POSTHOG_KEY) else {
+        // One call answers both halves: whether telemetry is on, and which key to
+        // send with. Asking separately would either duplicate the precedence rule
+        // here — where it can silently diverge the first time a condition is added
+        // to one and not the other — or resolve the key twice to avoid that.
+        let Some(api_key) = enabled_api_key() else {
             return Self { inner: None };
         };
         let host = std::env::var(ENV_POSTHOG_HOST)
@@ -2042,6 +2104,95 @@ mod tests {
                 "--client-secret": "<redacted>",
             })
         );
+    }
+
+    /// With no run-time key and no baked-in key, nothing resolves.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_api_key_with_returns_none_when_both_are_absent() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        assert_eq!(resolve_api_key_with(None), None);
+    }
+
+    /// With no run-time key but a baked-in key, the baked key is used — this
+    /// is the official-release-build shape: `AGS_TELEMETRY_POSTHOG_KEY` never
+    /// set by the user, but the binary shipped with one compiled in.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_api_key_with_falls_back_to_baked_key() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        assert_eq!(
+            resolve_api_key_with(Some("phc_baked")),
+            Some("phc_baked".to_string())
+        );
+    }
+
+    /// A run-time key always wins over a baked-in one — the README's "This
+    /// overrides any built-in API key" claim, and a local developer's escape
+    /// hatch to point their own build at a different (e.g. staging) project.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_api_key_with_run_time_key_overrides_baked_key() {
+        let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_runtime");
+        assert_eq!(
+            resolve_api_key_with(Some("phc_baked")),
+            Some("phc_runtime".to_string())
+        );
+    }
+
+    /// An empty-string run-time value must not shadow a present baked key —
+    /// `is_env_var_set`'s "non-empty" rule applies here too, so `VAR=` in the
+    /// environment behaves like unset rather than like a blank override.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_api_key_with_blank_run_time_value_falls_back_to_baked_key() {
+        let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "");
+        assert_eq!(
+            resolve_api_key_with(Some("phc_baked")),
+            Some("phc_baked".to_string())
+        );
+    }
+
+    /// A blank baked key (should never happen — `option_env!` only embeds a
+    /// non-empty string when the build sets one — but cheap to guard) must
+    /// not be treated as present.
+    #[test]
+    #[serial_test::serial]
+    fn test_resolve_api_key_with_blank_baked_key_is_treated_as_absent() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        assert_eq!(resolve_api_key_with(Some("")), None);
+    }
+
+    /// The official-release-build shape: the user has set nothing, and the key came
+    /// from the build. This is the case `is_enabled_by_env` exists to serve and the
+    /// one no test could reach before the `is_enabled_with` seam.
+    #[test]
+    #[serial_test::serial]
+    fn test_is_enabled_with_baked_key_and_no_run_time_key() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        assert!(is_enabled_with(Some("phc_baked")));
+    }
+
+    /// A build with no key compiled in and nothing set stays off.
+    #[test]
+    #[serial_test::serial]
+    fn test_is_enabled_with_no_key_anywhere_is_off() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        assert!(!is_enabled_with(None));
+    }
+
+    /// `DO_NOT_TRACK` beats a compiled-in key. This is the assertion behind the
+    /// README's claim that it is the only opt-out that works on an official release
+    /// build: unsetting `AGS_TELEMETRY_POSTHOG_KEY` cannot help a user whose binary
+    /// already carries one, so if this ever regressed there would be no way off.
+    #[test]
+    #[serial_test::serial]
+    fn test_do_not_track_overrides_a_baked_key() {
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::set(ENV_DO_NOT_TRACK, "1");
+        assert!(!is_enabled_with(Some("phc_baked")));
     }
 
     /// Regression for the most likely silent-regression shape called out in

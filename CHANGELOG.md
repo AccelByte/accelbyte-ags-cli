@@ -3,6 +3,15 @@
 All notable changes to the AGS CLI are recorded here. This file starts at 0.5.0; for
 earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-ags-cli/releases).
 
+## 0.5.0-rc.2 — 2026-09-02
+
+Second release candidate for 0.5.0. The first proved the release pipeline itself — the
+seven-target build, the checksums, both installers and the Homebrew formula. This one
+exists to confirm anonymous usage telemetry actually works in a build produced by that
+pipeline, which was added after the first candidate was cut. Like the first, it is not
+intended for general use, it is marked as a pre-release, and the update hint does not
+advertise it.
+
 ## 0.5.0-rc.1 — 2026-09-02
 
 Release candidate for 0.5.0. The contents are those listed under 0.5.0 below. This tag exists
@@ -70,8 +79,9 @@ without a deprecation period.
   are not readable by other users on a shared machine.
 - Docker output shown by a workflow step is sanitised before display, so control characters in
   a container's output cannot alter your terminal.
-- Anonymous usage measurement is built in, with values redacted by default and a `DO_NOT_TRACK`
-  opt-out. See Known issues for its status in this release.
+- Anonymous usage measurement is built in and active in this release, with values redacted by
+  default and a `DO_NOT_TRACK` opt-out. See [Telemetry](README.md#telemetry) for what is and
+  is not collected.
 
 ### Fixed
 

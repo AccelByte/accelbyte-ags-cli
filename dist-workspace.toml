@@ -38,7 +38,17 @@ publish-prereleases = true
 #      announce only (least-privilege scoping for PR vs tag-push triggers).
 #   3. Release tag trigger uses two globs ('v[0-9]+.[0-9]+.[0-9]+' and
 #      'v[0-9]+.[0-9]+.[0-9]+-*') instead of the generated open-ended wildcard.
-# Re-apply all three after every regeneration.
+#   4. On the build-local-artifacts job's `env:`, alongside GH_TOKEN and
+#      BUILD_MANIFEST_NAME, copied EXACTLY — the `publishing` guard is the whole
+#      point of the line and re-applying the bare `vars.` form would undo it:
+#
+#          AGS_TELEMETRY_POSTHOG_KEY: ${{ needs.plan.outputs.publishing == 'true' && vars.AGS_TELEMETRY_POSTHOG_KEY || '' }}
+#
+#      Why it is written that way is explained above the line in release.yml.
+#      Do not restate the reasoning here: two copies of it in two files that a
+#      regeneration is meant to keep in step will drift, and the copy people
+#      re-apply from is this one.
+# Re-apply all four after every regeneration.
 #
 # Tag-vs-version guard: cargo-dist natively validates that the git tag matches
 # the Cargo.toml version (dist host --steps=create errors if they disagree),
