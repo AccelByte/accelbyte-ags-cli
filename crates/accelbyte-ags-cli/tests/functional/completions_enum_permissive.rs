@@ -6,11 +6,11 @@
 //! pass through clap parsing and reach the dispatch layer, where it will fail
 //! for auth/network reasons — not with clap's "invalid value" message.
 
-use assert_cmd::Command;
+use crate::common::cli_helpers;
 
 #[test]
 fn test_enum_flag_accepts_unknown_value_past_parse() {
-    let mut cmd = Command::cargo_bin("ags").unwrap();
+    let mut cmd = cli_helpers::ags();
     let output = cmd
         .args([
             "platform",

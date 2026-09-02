@@ -1,5 +1,5 @@
 ---
-source: tests/snapshot/describe.rs
+source: crates/accelbyte-ags-cli/tests/snapshot/describe.rs
 expression: "&json"
 ---
 {
@@ -12,6 +12,7 @@ expression: "&json"
         "description": "Your game's AccelByte namespace. This is the same value used by the global --namespace flag.",
         "dynamic": false,
         "enum_values": null,
+        "file_picker": false,
         "name": "namespace",
         "required": true,
         "sensitive": false,
@@ -22,6 +23,7 @@ expression: "&json"
         "description": "How many players make up one team. Teams are symmetric, so with the default teamCount of 2, setting this to 4 produces 4v4 matches. The matchmaker only starts a match when every team is exactly full.",
         "dynamic": false,
         "enum_values": null,
+        "file_picker": false,
         "name": "players-per-team",
         "required": false,
         "sensitive": false,
@@ -32,6 +34,7 @@ expression: "&json"
         "description": "How many teams compete in each match. Defaults to 2 for the classic X v X format. Increase this value for free-for-all formats. For example, 4 teams of 3 makes a 12-player free-for-all.",
         "dynamic": false,
         "enum_values": null,
+        "file_picker": false,
         "name": "team-count",
         "required": false,
         "sensitive": false,
@@ -39,11 +42,37 @@ expression: "&json"
       },
       {
         "default": null,
-        "description": "The UUID of an AMS image. An image is the server build for your game which you must upload using the AMS CLI. If you've already uploaded an image you can find it using `ags ams images list`. If you haven't uploaded an image yet you should exit this workflow and upload it first.",
-        "dynamic": true,
+        "description": "Path to the directory holding your built dedicated server. The whole directory is archived and uploaded to AMS as an image, so it should contain everything the server needs to run.",
+        "dynamic": false,
         "enum_values": null,
-        "name": "fleet-image-id",
+        "file_picker": false,
+        "name": "build-path",
         "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": null,
+        "description": "The server executable to run, as a path relative to the build directory. Must be a 64-bit little-endian ELF binary, or a shell script — in which case set --target-architecture too.",
+        "dynamic": false,
+        "enum_values": null,
+        "file_picker": false,
+        "name": "build-executable",
+        "required": true,
+        "sensitive": false,
+        "type": "string"
+      },
+      {
+        "default": "",
+        "description": "Architecture the server was built for. Detected automatically from an ELF binary; required only when the entrypoint is a shell script.",
+        "dynamic": false,
+        "enum_values": [
+          "linux-x86_64",
+          "linux-arm_64"
+        ],
+        "file_picker": false,
+        "name": "target-architecture",
+        "required": false,
         "sensitive": false,
         "type": "string"
       },
@@ -52,6 +81,7 @@ expression: "&json"
         "description": "The region the AMS fleet will run in. Run `ags ams info list-regions` to see the regions configured for your account.",
         "dynamic": true,
         "enum_values": null,
+        "file_picker": false,
         "name": "fleet-region",
         "required": true,
         "sensitive": false,
@@ -62,6 +92,7 @@ expression: "&json"
         "description": "The UUID of an AMS instance type. The instance type determines the per-server VM size. Run `ags ams info list-supported-instances` to see the instance types configured for your account.",
         "dynamic": true,
         "enum_values": null,
+        "file_picker": false,
         "name": "fleet-instance-id",
         "required": true,
         "sensitive": false,
@@ -72,6 +103,7 @@ expression: "&json"
         "description": "The identifier of the skill stat the matchmaker groups players by. AGS matchmaking defaults to using distance-based Matchmaking Rating (MMR).",
         "dynamic": false,
         "enum_values": null,
+        "file_picker": false,
         "name": "stat-code",
         "required": false,
         "sensitive": false,
@@ -82,6 +114,7 @@ expression: "&json"
         "description": "Prefixes the names of every resource this workflow creates (ruleset, session template, match pool, fleet, and claim key). With the default value `ranked`, you get names like `ranked-ruleset`, `ranked-fleet`, and so on.",
         "dynamic": false,
         "enum_values": null,
+        "file_picker": false,
         "name": "resource-prefix",
         "required": false,
         "sensitive": false,
@@ -95,6 +128,7 @@ expression: "&json"
         "dependencies": [],
         "description": "Creates the player skill statistic the matchmaker reads when grouping players.",
         "id": "create-stat",
+        "kind": "api",
         "operation": "social/admin/stat-definitions/v1/create",
         "service": "social"
       },
@@ -102,6 +136,7 @@ expression: "&json"
         "dependencies": [],
         "description": "Defines the matchmaking rules: how the stat is compared and the tolerances the matchmaker may relax over time.",
         "id": "create-ruleset",
+        "kind": "api",
         "operation": "matchmaking/admin/rule-sets/v1/create",
         "service": "match2"
       },
@@ -109,6 +144,7 @@ expression: "&json"
         "dependencies": [],
         "description": "Creates the session template the matchmaker hands successful matches to. It carries the player slot configuration, joinability, and reconnect policy.",
         "id": "create-session-template",
+        "kind": "api",
         "operation": "session/admin/templates/v1/create",
         "service": "session"
       },
@@ -119,13 +155,26 @@ expression: "&json"
         ],
         "description": "Creates the match pool that ties the ruleset and session template together. Players queue into this pool and the matchmaker forms parties from it.",
         "id": "create-match-pool",
+        "kind": "api",
         "operation": "matchmaking/admin/match-pools/v1/create",
         "service": "match2"
       },
       {
+        "action": "ams/upload-image",
         "dependencies": [],
+        "description": "Archives the dedicated-server build and uploads it to AMS as an image, which the fleet below then runs.",
+        "id": "upload-image",
+        "kind": "local",
+        "operation": "",
+        "service": ""
+      },
+      {
+        "dependencies": [
+          "upload-image"
+        ],
         "description": "Spins up the dedicated server fleet that hosts matches, attaching the image and instance type, and registering a claim key for the session template.",
         "id": "create-ams-fleet",
+        "kind": "api",
         "operation": "ams/admin/fleets/v1/create",
         "service": "ams"
       },
@@ -136,6 +185,7 @@ expression: "&json"
         ],
         "description": "Wires the session template to the fleet's claim key so successful matches reserve a server from the fleet you just created.",
         "id": "update-session-template",
+        "kind": "api",
         "operation": "session/admin/templates/v1/update",
         "service": "session"
       }

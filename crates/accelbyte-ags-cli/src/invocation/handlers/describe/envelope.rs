@@ -50,6 +50,10 @@ pub struct CatalogueData {
     pub name: String,
     pub summary: String,
     pub children: Vec<CatalogueChild>,
+    /// Canonical path for alias nodes. Present when `node_type` is `"alias"`,
+    /// omitted otherwise so non-alias payloads remain byte-identical.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias_of: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -58,6 +62,11 @@ pub struct CatalogueChild {
     pub name: String,
     pub path: Vec<String>,
     pub summary: String,
+    /// Canonical path for alias nodes. Omitted from JSON when absent so
+    /// existing consumers that check for `"command"` or `"command-group"`
+    /// see byte-identical payloads.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias_of: Option<Vec<String>>,
 }
 
 // ── Command (method matrix) ──
@@ -122,6 +131,18 @@ pub struct DescribeBodyField {
     pub is_array: bool,
 }
 
+/// Data block for a hand-written command that has no OpenAPI operation behind
+/// it, so no scope/version matrix exists — currently only `ags ams upload`.
+/// Its flags are read off the real Clap command, so this cannot drift from
+/// `--help`.
+#[derive(Serialize)]
+pub struct NativeCommandData {
+    pub command: String,
+    pub summary: String,
+    pub description: String,
+    pub parameters: Vec<InputParameter>,
+}
+
 #[derive(Serialize)]
 pub struct InputParameter {
     pub name: String,
@@ -170,13 +191,22 @@ pub struct WorkflowInputView {
     pub sensitive: bool,
     /// True when the input has an `options_source` (a runtime-fetched picker).
     pub dynamic: bool,
+    /// True when the input is chosen through a local file browser.
+    pub file_picker: bool,
 }
 
 #[derive(Serialize)]
 pub struct WorkflowStepView {
     pub id: String,
+    /// Step kind discriminator: `"api"` or `"local"`.
+    pub kind: String,
+    /// Service name for API steps; `""` for local steps.
     pub service: String,
+    /// Operation name for API steps; `""` for local steps.
     pub operation: String,
+    /// Action name for local steps; `null` for API steps.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
     /// `""` when the step has no description.
     pub description: String,
     pub dependencies: Vec<String>,
@@ -230,16 +260,39 @@ fn workflow_input_view(spec: &WorkflowInputSpec) -> WorkflowInputView {
         description: spec.description.clone().unwrap_or_default(),
         sensitive: spec.sensitive,
         dynamic: spec.options_source.is_some(),
+        file_picker: spec.file_picker.is_some(),
     }
 }
 
 /// Project a `StepDefinition` into its describe view, flattening the operation
-/// reference into separate `service` and `operation` strings.
+/// reference into separate `service` and `operation` strings and surfacing the
+/// step kind so machine consumers can distinguish local steps from API steps.
 fn workflow_step_view(step: &StepDefinition) -> WorkflowStepView {
+    use ags_protocol::workflow::StepKind;
+    let (kind, service, operation, action) = match step.kind {
+        StepKind::Api => {
+            let (svc, op) = match &step.operation {
+                Some(op_ref) => (
+                    op_ref.service.as_str().to_string(),
+                    op_ref.operation.as_str().to_string(),
+                ),
+                None => (String::new(), String::new()),
+            };
+            ("api".to_string(), svc, op, None)
+        }
+        StepKind::Local => (
+            "local".to_string(),
+            String::new(),
+            String::new(),
+            step.action.clone(),
+        ),
+    };
     WorkflowStepView {
         id: step.id.clone(),
-        service: step.operation.service.as_str().to_string(),
-        operation: step.operation.operation.as_str().to_string(),
+        kind,
+        service,
+        operation,
+        action,
         description: step.description.clone().unwrap_or_default(),
         dependencies: step.dependencies.clone(),
     }
@@ -504,7 +557,6 @@ mod tests {
             api_version: ApiVersion(version),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -566,6 +618,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: Default::default(),
+            file_picker: None,
         };
         let view = workflow_input_view(&spec);
         assert_eq!(view.name, "foo-bar");
@@ -587,6 +640,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: Default::default(),
+            file_picker: None,
         };
 
         // Recognised type with an enum → both preserved (enum values stay raw).
@@ -606,6 +660,138 @@ mod tests {
     }
 
     #[test]
+    fn test_workflow_input_view_marks_file_picker_inputs() {
+        use ags_protocol::workflow::{FilePickerSpec, WorkflowInputSpec};
+
+        let with_picker = WorkflowInputSpec {
+            name: "build_path".into(),
+            description: None,
+            schema: None,
+            required: false,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            location: Default::default(),
+            file_picker: Some(FilePickerSpec {
+                extensions: None,
+                start_dir: None,
+            }),
+        };
+        let without_picker = WorkflowInputSpec {
+            name: "namespace".into(),
+            description: None,
+            schema: None,
+            required: false,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            location: Default::default(),
+            file_picker: None,
+        };
+
+        let view_with = workflow_input_view(&with_picker);
+        assert!(
+            view_with.file_picker,
+            "file_picker must be true when the spec has a FilePickerSpec"
+        );
+        assert!(
+            !view_with.dynamic,
+            "dynamic must remain false — file_picker and options_source are independent"
+        );
+
+        let view_without = workflow_input_view(&without_picker);
+        assert!(
+            !view_without.file_picker,
+            "file_picker must be false when the spec has no FilePickerSpec"
+        );
+    }
+
+    #[test]
+    fn test_workflow_step_view_local_step_fields() {
+        use ags_protocol::workflow::{StepDefinition, StepKind};
+
+        let step = StepDefinition {
+            id: "authenticate-docker".into(),
+            description: Some("Login to Docker".into()),
+            kind: StepKind::Local,
+            action: Some("docker-login".into()),
+            operation: None,
+            dependencies: vec!["fetch-token".into()],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+        };
+        let view = workflow_step_view(&step);
+
+        assert_eq!(view.id, "authenticate-docker");
+        assert_eq!(
+            view.kind, "local",
+            "kind discriminator must be the string 'local'"
+        );
+        assert_eq!(
+            view.service, "",
+            "local steps must emit an empty service string"
+        );
+        assert_eq!(
+            view.operation, "",
+            "local steps must emit an empty operation string"
+        );
+        assert_eq!(
+            view.action.as_deref(),
+            Some("docker-login"),
+            "local steps must carry the action name"
+        );
+        assert_eq!(view.description, "Login to Docker");
+        assert_eq!(view.dependencies, vec!["fetch-token"]);
+    }
+
+    #[test]
+    fn test_workflow_step_view_api_step_fields() {
+        use ags_protocol::workflow::{OperationReference, StepDefinition, StepKind};
+
+        let step = StepDefinition {
+            id: "create-stat".into(),
+            description: None,
+            kind: StepKind::Api,
+            action: None,
+            operation: Some(OperationReference {
+                service: ags_protocol::catalogue::ServiceId::new("social"),
+                operation: ags_protocol::catalogue::OperationId::new("createStat"),
+            }),
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+        };
+        let view = workflow_step_view(&step);
+
+        assert_eq!(view.id, "create-stat");
+        assert_eq!(
+            view.kind, "api",
+            "kind discriminator must be the string 'api'"
+        );
+        assert_eq!(view.service, "social");
+        assert_eq!(view.operation, "createStat");
+        assert!(
+            view.action.is_none(),
+            "API steps must not carry an action name"
+        );
+        assert_eq!(
+            view.description, "",
+            "absent description falls back to empty string"
+        );
+        assert!(view.dependencies.is_empty());
+    }
+
+    #[test]
     fn test_build_workflow_detail_competitive_multiplayer() {
         let registry = ags_runtime::runtime::workflows::registry();
         let wf = registry
@@ -620,10 +806,36 @@ mod tests {
         assert!(!data.steps.is_empty());
 
         let by_name = |n: &str| data.inputs.iter().find(|i| i.name == n);
-        for n in ["fleet-image-id", "fleet-region", "fleet-instance-id"] {
+        for n in ["fleet-region", "fleet-instance-id"] {
             let input = by_name(n).unwrap_or_else(|| panic!("missing input {n}"));
             assert!(input.dynamic, "{n} should be dynamic (has options_source)");
         }
+        // The image is produced by the local upload step, so the build inputs
+        // are plain paths with no runtime-fetched picker behind them.
+        let build_path = by_name("build-path").expect("build-path present");
+        assert!(!build_path.dynamic);
+
+        // A local step reports kind "local" with an action name and empty
+        // service/operation strings.
+        let upload = data
+            .steps
+            .iter()
+            .find(|s| s.id == "upload-image")
+            .expect("upload step present");
+        assert_eq!(upload.kind, "local");
+        assert_eq!(upload.action.as_deref(), Some("ams/upload-image"));
+        assert_eq!(upload.service, "");
+        assert_eq!(upload.operation, "");
+
+        // API steps carry kind "api" with service and operation populated.
+        let stat = data
+            .steps
+            .iter()
+            .find(|s| s.id == "create-stat")
+            .expect("create-stat present");
+        assert_eq!(stat.kind, "api");
+        assert_eq!(stat.service, "social");
+        assert!(stat.action.is_none());
         let ppt = by_name("players-per-team").expect("players-per-team present");
         assert!(!ppt.required, "playersPerTeam has a default → not required");
         assert!(ppt.default.is_some());

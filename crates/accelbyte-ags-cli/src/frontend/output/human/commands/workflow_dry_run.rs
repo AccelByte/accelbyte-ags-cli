@@ -2,7 +2,7 @@
 
 use crate::errors::CliError;
 use crate::frontend::RenderedOutput;
-use ags_protocol::workflow::{StepDryRunPreview, WorkflowId};
+use ags_protocol::workflow::{StepDryRunAction, StepDryRunPreview, WorkflowId};
 
 /// Render the dry-run preview of a multi-step workflow.
 ///
@@ -25,9 +25,21 @@ pub(crate) fn render_workflow_dry_run(
             preview.step_id,
         ));
 
-        let step_rendered = super::service::render_dry_run_output(&preview.command)?;
+        let step_text = match &preview.action {
+            StepDryRunAction::Request(command) => {
+                super::service::render_dry_run_output(command)?.stdout
+            }
+            // A local-action step sends no HTTP request, so there is
+            // nothing to render as one. Naming the action and showing what
+            // its dry run produced is the whole of the preview.
+            StepDryRunAction::Local { action, preview } => Some(format!(
+                "Local action: {}\n{}",
+                action,
+                serde_json::to_string_pretty(preview).unwrap_or_else(|_| preview.to_string())
+            )),
+        };
 
-        if let Some(text) = step_rendered.stdout {
+        if let Some(text) = step_text {
             for line in text.lines() {
                 parts.push(format!("  {line}"));
             }
@@ -60,13 +72,15 @@ mod tests {
         StepDryRunPreview {
             step_id: id.to_string(),
             step_index: index,
-            command: DryRunResult {
+            action: StepDryRunAction::Request(DryRunResult {
                 http_method: HttpMethod::Post,
                 url: format!("https://example.test/api/{id}"),
                 headers: vec![("Authorization".to_string(), "Bearer <redacted>".to_string())],
                 query: vec![],
-                body: Some(serde_json::json!({"field": "value"})),
-            },
+                body: Some(ags_protocol::request::RequestBody::Json(
+                    serde_json::json!({"field": "value"}),
+                )),
+            }),
             synthesised_outputs: {
                 let mut m = std::collections::BTreeMap::new();
                 m.insert("id".to_string(), serde_json::json!("placeholder-id"));
@@ -83,6 +97,24 @@ mod tests {
         let stdout = rendered.stdout.unwrap_or_default();
         assert!(stdout.contains("my-workflow"), "missing workflow id");
         assert!(stdout.contains("step-one"), "missing step id");
+    }
+
+    #[test]
+    fn test_render_workflow_dry_run_renders_a_local_action_step() {
+        let previews = vec![StepDryRunPreview {
+            step_id: "upload-image".to_string(),
+            step_index: 0,
+            action: StepDryRunAction::Local {
+                action: "ams/upload-image".to_string(),
+                preview: serde_json::json!({"image_name": "demo-image"}),
+            },
+            synthesised_outputs: std::collections::BTreeMap::new(),
+        }];
+        let rendered = render_workflow_dry_run(&WorkflowId::new("wf"), &previews).unwrap();
+        let stdout = rendered.stdout.unwrap_or_default();
+        assert!(stdout.contains("upload-image"), "{stdout}");
+        assert!(stdout.contains("ams/upload-image"), "{stdout}");
+        assert!(stdout.contains("demo-image"), "{stdout}");
     }
 
     #[test]

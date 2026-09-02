@@ -184,6 +184,40 @@ fn test_version_json_has_version_field() {
     assert_eq!(version, env!("CARGO_PKG_VERSION"));
 }
 
+/// `ags version --format json` also reports the workflow protocol version
+/// this CLI build speaks, decoupled from the CLI's own release version.
+#[test]
+fn test_version_json_has_workflow_protocol_version_field() {
+    let output = ags()
+        .args(["version", "--format", "json"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let workflow_protocol_version = json["workflow_protocol_version"]
+        .as_str()
+        .expect("workflow_protocol_version should be a string");
+    assert_eq!(
+        workflow_protocol_version,
+        ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION
+    );
+}
+
+/// The human-readable `ags version` output includes the workflow protocol
+/// version alongside the CLI's own version.
+#[test]
+fn test_version_human_includes_workflow_protocol_version() {
+    ags()
+        .arg("version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
+        ));
+}
+
 // ── Global flag validation ──
 
 /// --namespace must reject empty/whitespace-only values rather than silently

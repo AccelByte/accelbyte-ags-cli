@@ -261,7 +261,19 @@ fn test_describe_workflow_detail_via_cli() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|i| i["name"] == "fleet-image-id" && i["dynamic"] == true));
+        .any(|i| i["name"] == "fleet-region" && i["dynamic"] == true));
+
+    // A local step publishes kind "local" with an action name and empty
+    // service/operation, so consumers must not assume service/operation
+    // are always present.
+    let upload = json["data"]["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "upload-image")
+        .expect("upload-image step present");
+    assert_eq!(upload["kind"], "local");
+    assert_eq!(upload["action"], "ams/upload-image");
 
     // Required shape of the WorkflowDescribeData contract, independent of the
     // specific built-in workflow's values.
@@ -277,9 +289,16 @@ fn test_describe_workflow_detail_via_cli() {
     }
     for step in json["data"]["steps"].as_array().unwrap() {
         assert!(step["id"].is_string());
-        assert!(step["service"].is_string());
-        assert!(step["operation"].is_string());
         assert!(step["dependencies"].is_array());
+        // An API step carries kind "api" with service + operation; a local
+        // step carries kind "local" with an action name. Exactly one shape.
+        assert!(step["kind"].is_string());
+        if step["kind"] == "local" {
+            assert!(step["action"].is_string());
+        } else {
+            assert!(step["service"].is_string());
+            assert!(step["operation"].is_string());
+        }
     }
 }
 

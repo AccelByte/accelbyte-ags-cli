@@ -14,15 +14,49 @@ use ags_runtime::runtime::workflows::{RunOptions, RunOutcome};
 use ags_runtime::runtime::Runtime;
 
 use crate::errors::CliError;
-use crate::frontend::sink::ExecutionFrontendAdapter;
+use crate::frontend::sink::{ExecutionFrontendAdapter, WorkflowStepTelemetry};
 use crate::invocation::InvocationOutcome;
 
 /// Selects how the workflow executor's lifecycle chrome is forwarded.
 pub(crate) enum AdapterMode {
-    /// Forward all workflow lifecycle events — registered multi-step workflows.
-    FullLifecycle,
+    /// Forward all workflow lifecycle events — registered multi-step
+    /// workflows. `telemetry` is `Some` when step-level telemetry is enabled
+    /// for this run (telemetry configured AND a `sub` was resolved), `None`
+    /// otherwise (telemetry disabled, or `resolve_identity` failed) — in
+    /// both `None` cases step events are simply not emitted, exactly like
+    /// every other best-effort telemetry path in this codebase.
+    ///
+    /// Boxed per `clippy::large_enum_variant`: `WorkflowStepTelemetry`
+    /// (which embeds a `TelemetryClient`) is far larger than the unit
+    /// `SuppressedLifecycle` variant, so leaving it unboxed would size every
+    /// `AdapterMode` value to the largest variant.
+    FullLifecycle {
+        telemetry: Option<Box<WorkflowStepTelemetry>>,
+    },
     /// Suppress workflow lifecycle banners for synthesised single commands.
     SuppressedLifecycle,
+}
+
+/// Upper bound on flushing the step-telemetry client. `posthog-rs`'s default
+/// client has no request-timeout override configured by
+/// `TelemetryClient::from_env()`, so a black-holed connection could otherwise
+/// stall a flush for a long time (its default request timeout times its
+/// default retry count) — well past the point the command has already
+/// finished all its real work. Telemetry must never delay CLI exit, so this
+/// bound is applied to every flush of the step-telemetry client, and the
+/// `Result` (timeout or completion) is discarded either way — same
+/// fire-and-forget philosophy as the rest of this telemetry pipeline.
+const STEP_TELEMETRY_FLUSH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Flush a step-telemetry client with [`STEP_TELEMETRY_FLUSH_TIMEOUT`] bound
+/// so a stalled network connection cannot hang CLI exit indefinitely. A no-op
+/// when `client` is `None` (no step telemetry was configured for this run).
+pub(crate) async fn flush_step_telemetry(
+    client: Option<ags_runtime::runtime::telemetry::TelemetryClient>,
+) {
+    if let Some(client) = client {
+        let _ = tokio::time::timeout(STEP_TELEMETRY_FLUSH_TIMEOUT, client.flush()).await;
+    }
 }
 
 /// Map a workflow `RunOutcome` to the CLI `InvocationOutcome`.
@@ -38,12 +72,27 @@ fn run_outcome_to_invocation(run_outcome: RunOutcome) -> InvocationOutcome {
     }
 }
 
-/// Drives `RunStarted → execute → classify → RunFinished → resolution_trace`
-/// on the given progress surface.
+/// Drives `RunStarted → run_started → execute → classify → run_completed →
+/// RunFinished → resolution_trace` on the given progress surface.
 ///
-/// Returns `(outcome, pending_failure, final_output)`. Does NOT call
-/// `finish()` on the surface and does NOT render the final result — the
-/// caller does that differently for `Split` vs `Unified`.
+/// Returns `(outcome, pending_failure, final_output, telemetry_client)`. Does
+/// NOT call `finish()` on the surface and does NOT render the final result —
+/// the caller does that differently for `Split` vs `Unified`.
+/// `telemetry_client` is the step-telemetry client reclaimed from the
+/// adapter (if any was configured), so the caller can flush the exact
+/// instance that queued `cli.workflow.step_*` events.
+///
+/// `cli.workflow.run_started` is emitted before `Executor::execute` is even
+/// called — a `--no-input` rejection returns `Err` from the executor before
+/// any workflow event fires, so the run funnel would otherwise never see
+/// these runs at all. `cli.workflow.run_completed` is emitted after the
+/// executor's result is classified (so `pending_failure` is known) and
+/// before `RunFinished`, so both run events fire on every exit path: success,
+/// failure, cancellation, the `--no-input` precheck rejection, and a
+/// declined briefing. Both events are only emitted for a registered workflow
+/// run with telemetry enabled (`AdapterMode::FullLifecycle { telemetry: Some }`)
+/// — a synthesised single command never gets run events, since
+/// `cli.command.invoked` already covers it.
 async fn drive_run(
     progress: &mut dyn crate::frontend::Frontend,
     interaction: &mut dyn crate::frontend::ExecutionInteraction,
@@ -53,20 +102,39 @@ async fn drive_run(
     InvocationOutcome,
     Option<CliError>,
     Option<ags_protocol::output::CommandOutput>,
+    Option<ags_runtime::runtime::telemetry::TelemetryClient>,
 ) {
     progress.on_event(&crate::frontend::FrontendEvent::RunStarted {
         workflow_banner: None,
     });
 
-    let execution = {
+    let (execution, telemetry, run_facts) = {
         let mut run_ctx = RunContext::new(ctx.runtime, ctx.options);
         let mut adapter = match ctx.adapter_mode {
-            AdapterMode::FullLifecycle => ExecutionFrontendAdapter::new(progress, interaction),
+            AdapterMode::FullLifecycle { telemetry: Some(t) } => {
+                // Emit `run_started` before the executor runs, so a
+                // `--no-input` rejection — which returns `Err` before any
+                // workflow event fires — still produces a run funnel entry.
+                ags_runtime::runtime::telemetry::capture_workflow_run_started(
+                    &t.client,
+                    &t.sub,
+                    &t.context,
+                    ctx.options.assume_yes,
+                    ctx.options.no_input,
+                );
+                ExecutionFrontendAdapter::new_with_telemetry(progress, interaction, *t)
+            }
+            AdapterMode::FullLifecycle { telemetry: None } => {
+                ExecutionFrontendAdapter::new(progress, interaction)
+            }
             AdapterMode::SuppressedLifecycle => {
                 ExecutionFrontendAdapter::new_for_synthesised_command(progress, interaction)
             }
         };
-        Executor::execute(ctx.compiled, pre_supplied, &mut adapter, &mut run_ctx).await
+        let execution =
+            Executor::execute(ctx.compiled, pre_supplied, &mut adapter, &mut run_ctx).await;
+        let (telemetry, run_facts) = adapter.into_telemetry_parts();
+        (execution, telemetry, run_facts)
     };
 
     // Classify the executor result before any final rendering.
@@ -104,6 +172,23 @@ async fn drive_run(
         }
     };
 
+    // Emit `run_completed` for every exit path — success, failure,
+    // cancellation, the `--no-input` precheck rejection, and a declined
+    // briefing — now that `pending_failure` and `after_run_outcome` are both
+    // known. Only present when telemetry was configured for this run.
+    if let Some(t) = &telemetry {
+        let facts = run_completed_facts(&run_facts, after_run_outcome, pending_failure.as_ref());
+        ags_runtime::runtime::telemetry::capture_workflow_run_completed(
+            &t.client,
+            &t.sub,
+            &t.context,
+            &facts,
+            ctx.options.assume_yes,
+            ctx.options.no_input,
+        );
+    }
+    let telemetry_client = telemetry.map(|t| t.client);
+
     // `RunFinished` reflects the executor outcome, not the later render result.
     progress.on_event(&crate::frontend::FrontendEvent::RunFinished {
         outcome: after_run_outcome,
@@ -114,7 +199,86 @@ async fn drive_run(
         progress.render_resolution_trace(&trace);
     }
 
-    (outcome, pending_failure, final_output)
+    (outcome, pending_failure, final_output, telemetry_client)
+}
+
+/// Project the executor's run aggregate plus the classified failure into the
+/// transmittable `RunCompletedFacts`. `RunFacts` defaults to zeroed counts
+/// when the executor returned before emitting `WorkflowFinished` — a
+/// `--no-input` precheck rejection, or a `?` that propagated out of
+/// `skip_step` (via `bind_skipped_outputs`) or `decide_step_failure` before
+/// the final event fired.
+fn run_completed_facts(
+    run_facts: &Option<ags_protocol::workflow::RunFacts>,
+    outcome: crate::frontend::RunOutcome,
+    failure: Option<&CliError>,
+) -> ags_runtime::runtime::telemetry::RunCompletedFacts {
+    let facts = run_facts.clone().unwrap_or_default();
+    let metadata = failure.and_then(CliError::metadata);
+    ags_runtime::runtime::telemetry::RunCompletedFacts {
+        outcome: match outcome {
+            crate::frontend::RunOutcome::Success => "completed",
+            crate::frontend::RunOutcome::Failed => "failed",
+            crate::frontend::RunOutcome::Cancelled => "cancelled",
+        },
+        reason: run_reason_label(&facts, failure),
+        duration_ms: facts.duration_ms,
+        run_mode: facts.run_mode.map(run_mode_label),
+        steps_started: facts.steps_started,
+        steps_succeeded: facts.steps_succeeded,
+        steps_failed: facts.steps_failed,
+        steps_skipped: facts.steps_skipped,
+        steps_cancelled: facts.steps_cancelled,
+        last_step_index: facts.last_step_index,
+        error_class: failure.map(CliError::telemetry_class),
+        http_status: metadata.and_then(|m| m.http_status),
+        error_code: metadata.and_then(|m| m.code.clone()),
+        inputs_from_flag: facts.inputs_from_flag,
+        inputs_from_prompt: facts.inputs_from_prompt,
+        inputs_from_default: facts.inputs_from_default,
+        inputs_edited_in_form: facts.inputs_edited_in_form,
+    }
+}
+
+/// Stable telemetry label for a run stop-mode.
+fn run_mode_label(mode: ags_protocol::workflow::RunMode) -> &'static str {
+    match mode {
+        ags_protocol::workflow::RunMode::ReviewInputSteps => "review_input_steps",
+        ags_protocol::workflow::RunMode::ReviewEveryStep => "review_every_step",
+        ags_protocol::workflow::RunMode::RunWithoutStopping => "run_without_stopping",
+    }
+}
+
+/// Run-level reason, in precedence order:
+///
+/// 1. The executor's own `RunFacts.reason`, when it set one. Only the
+///    pre-step cancellation stages do — `at_briefing` and `at_input_gather` —
+///    and nothing else can report them: no step ever starts, so there is no
+///    step event to carry the stage, and a declined briefing would otherwise
+///    emit `cancelled` with no reason at all.
+/// 2. `no_input` when the classified failure's own machine error code marks a
+///    `--no-input` rejection (a `no_input.`-prefixed code, populated by the
+///    executor's non-interactive precheck), which happens *before*
+///    `WorkflowFinished` and so never arrives with a `RunFacts` at all.
+///
+/// The fallback is deliberately keyed off the error's code rather than
+/// `run_facts.is_none()`: `Executor::execute` also returns `Err` without ever
+/// emitting `WorkflowFinished` when `?` propagates out of `skip_step` (via
+/// `bind_skipped_outputs`) or out of `decide_step_failure` — an
+/// `run_facts.is_none()` heuristic would mislabel those unrelated failures as
+/// `no_input` too.
+fn run_reason_label(
+    facts: &ags_protocol::workflow::RunFacts,
+    failure: Option<&CliError>,
+) -> Option<&'static str> {
+    if let Some(reason) = facts.reason {
+        return Some(reason.as_label());
+    }
+    let code = failure
+        .and_then(CliError::metadata)
+        .and_then(|metadata| metadata.code.as_deref())?;
+    code.starts_with("no_input.")
+        .then(|| ags_protocol::workflow::StepOutcomeReason::NoInput.as_label())
 }
 
 /// Execution plumbing threaded through [`drive_run`] to the executor and the
@@ -124,7 +288,7 @@ struct DriveRunContext<'a> {
     compiled: &'a CompiledWorkflow,
     runtime: &'a mut Runtime,
     options: &'a RunOptions,
-    adapter_mode: &'a AdapterMode,
+    adapter_mode: AdapterMode,
     resolution_trace: Option<ags_protocol::output::ResolutionTrace>,
 }
 
@@ -137,14 +301,20 @@ pub(crate) async fn run_phase_owned_execution(
     options: &RunOptions,
     adapter_mode: AdapterMode,
     resolution_trace: Option<ags_protocol::output::ResolutionTrace>,
-) -> Result<InvocationOutcome, CliError> {
+) -> Result<
+    (
+        InvocationOutcome,
+        Option<ags_runtime::runtime::telemetry::TelemetryClient>,
+    ),
+    CliError,
+> {
     match surfaces {
         crate::frontend::ExecutionPhaseSurfaces::Split {
             mut progress_frontend,
             mut final_frontend,
             mut interaction,
         } => {
-            let (outcome, pending_failure, final_output) = drive_run(
+            let (outcome, pending_failure, final_output, telemetry_client) = drive_run(
                 progress_frontend.as_mut(),
                 interaction.as_mut(),
                 pre_supplied,
@@ -152,7 +322,7 @@ pub(crate) async fn run_phase_owned_execution(
                     compiled,
                     runtime,
                     options,
-                    adapter_mode: &adapter_mode,
+                    adapter_mode,
                     resolution_trace,
                 },
             )
@@ -161,7 +331,16 @@ pub(crate) async fn run_phase_owned_execution(
             // Tear down the progress surface before final rendering restores stdout/stderr order.
             let mut outcome = match outcome {
                 InvocationOutcome::Complete => {
-                    progress_frontend.finish()?;
+                    if let Err(err) = progress_frontend.finish() {
+                        // Teardown failed: flush the already-reclaimed
+                        // step-telemetry client before propagating the error,
+                        // otherwise it is dropped unflushed by the early
+                        // return (see Finding 2 in the final review — the
+                        // process may later `std::process::exit`, so `Drop`
+                        // alone would not save queued events).
+                        flush_step_telemetry(telemetry_client).await;
+                        return Err(err);
+                    }
                     InvocationOutcome::Complete
                 }
                 other => {
@@ -182,13 +361,13 @@ pub(crate) async fn run_phase_owned_execution(
                 }
             }
             let _ = final_frontend.finish();
-            Ok(outcome)
+            Ok((outcome, telemetry_client))
         }
         crate::frontend::ExecutionPhaseSurfaces::Unified {
             mut surface,
             mut interaction,
         } => {
-            let (mut outcome, pending_failure, final_output) = drive_run(
+            let (mut outcome, pending_failure, final_output, telemetry_client) = drive_run(
                 surface.as_mut(),
                 interaction.as_mut(),
                 pre_supplied,
@@ -196,7 +375,7 @@ pub(crate) async fn run_phase_owned_execution(
                     compiled,
                     runtime,
                     options,
-                    adapter_mode: &adapter_mode,
+                    adapter_mode,
                     resolution_trace,
                 },
             )
@@ -228,12 +407,18 @@ pub(crate) async fn run_phase_owned_execution(
             // Single teardown for the unified surface.
             match outcome {
                 InvocationOutcome::Complete => {
-                    surface.finish()?;
-                    Ok(InvocationOutcome::Complete)
+                    if let Err(err) = surface.finish() {
+                        // Teardown failed: flush the already-reclaimed
+                        // step-telemetry client before propagating the error
+                        // (see the matching comment in the `Split` arm above).
+                        flush_step_telemetry(telemetry_client).await;
+                        return Err(err);
+                    }
+                    Ok((InvocationOutcome::Complete, telemetry_client))
                 }
                 other => {
                     let _ = surface.finish();
-                    Ok(other)
+                    Ok((other, telemetry_client))
                 }
             }
         }
@@ -269,6 +454,171 @@ mod tests {
             run_outcome_to_invocation(RunOutcome::Cancelled),
             InvocationOutcome::Cancelled
         ));
+    }
+
+    // ------------------------------------------------------------------ //
+    // run_reason_label / run_mode_label / run_completed_facts             //
+    // ------------------------------------------------------------------ //
+
+    use super::{run_completed_facts, run_mode_label, run_reason_label};
+    use crate::errors::{CliError, ErrorMetadata};
+
+    /// Build a `CliError::Usage` carrying only the given machine code, for
+    /// testing the `--no-input` detection path in isolation.
+    fn usage_error_with_code(code: &str) -> CliError {
+        CliError::Usage {
+            message: "irrelevant".into(),
+            metadata: Some(Box::new(ErrorMetadata {
+                code: Some(code.to_string()),
+                ..Default::default()
+            })),
+        }
+    }
+
+    /// A zeroed `RunFacts`: the executor set no run-level stage, so
+    /// `run_reason_label` must fall through to its error-code sniff.
+    fn no_run_reason() -> ags_protocol::workflow::RunFacts {
+        ags_protocol::workflow::RunFacts::default()
+    }
+
+    #[test]
+    fn test_run_reason_label_none_when_no_failure() {
+        assert_eq!(run_reason_label(&no_run_reason(), None), None);
+    }
+
+    /// A failure with no metadata at all (e.g. `CliError::Internal`) must not
+    /// be mislabeled `no_input`.
+    #[test]
+    fn test_run_reason_label_none_when_no_metadata() {
+        let err = CliError::Internal(anyhow::anyhow!("boom"));
+        assert_eq!(run_reason_label(&no_run_reason(), Some(&err)), None);
+    }
+
+    /// An ordinary failure whose code does not start with `no_input.` must
+    /// report no run-level reason — the per-step events carry that detail.
+    /// This is the case the brief's original heuristic (`run_facts.is_none()
+    /// && failure.is_some()`) would have wrongly stamped `no_input` on, since
+    /// `skip_step`/`decide_step_failure` can also return `Err` before
+    /// `WorkflowFinished` fires.
+    #[test]
+    fn test_run_reason_label_none_for_unrelated_error_code() {
+        let err = usage_error_with_code("validation.bad_input");
+        assert_eq!(run_reason_label(&no_run_reason(), Some(&err)), None);
+    }
+
+    /// The one case that must report `no_input`: the failure's own machine
+    /// code is `no_input`-prefixed, populated by the executor's
+    /// non-interactive precheck.
+    #[test]
+    fn test_run_reason_label_no_input_when_code_prefixed() {
+        let err = usage_error_with_code("no_input.missing_input");
+        assert_eq!(
+            run_reason_label(&no_run_reason(), Some(&err)),
+            Some("no_input")
+        );
+    }
+
+    /// The two pre-step cancellation stages: the executor's own
+    /// `RunFacts.reason` is the only source for them, and a run that cancels
+    /// at the briefing or the run-start gather must report the stage rather
+    /// than an unexplained bare `cancelled`. Both go end to end through
+    /// `run_completed_facts`, which is what feeds the emitted event.
+    #[test]
+    fn test_run_completed_facts_reports_each_pre_step_cancellation_stage() {
+        for (reason, expected) in [
+            (
+                ags_protocol::workflow::StepOutcomeReason::AtBriefing,
+                "at_briefing",
+            ),
+            (
+                ags_protocol::workflow::StepOutcomeReason::AtInputGather,
+                "at_input_gather",
+            ),
+        ] {
+            let run_facts = ags_protocol::workflow::RunFacts {
+                reason: Some(reason),
+                ..Default::default()
+            };
+            let facts = run_completed_facts(
+                &Some(run_facts),
+                crate::frontend::RunOutcome::Cancelled,
+                None,
+            );
+            assert_eq!(facts.outcome, "cancelled");
+            assert_eq!(
+                facts.reason,
+                Some(expected),
+                "cancellation stage {reason:?} must reach outcome_reason"
+            );
+        }
+    }
+
+    /// The executor's stage wins over the error-code sniff: a run that
+    /// cancelled at the briefing keeps `at_briefing` even if some unrelated
+    /// failure is also in hand.
+    #[test]
+    fn test_run_reason_label_prefers_the_executor_stage_over_the_code_sniff() {
+        let run_facts = ags_protocol::workflow::RunFacts {
+            reason: Some(ags_protocol::workflow::StepOutcomeReason::AtBriefing),
+            ..Default::default()
+        };
+        let err = usage_error_with_code("no_input.missing_input");
+        assert_eq!(
+            run_reason_label(&run_facts, Some(&err)),
+            Some("at_briefing")
+        );
+    }
+
+    #[test]
+    fn test_run_mode_label_maps_all_variants() {
+        assert_eq!(
+            run_mode_label(ags_protocol::workflow::RunMode::ReviewInputSteps),
+            "review_input_steps"
+        );
+        assert_eq!(
+            run_mode_label(ags_protocol::workflow::RunMode::ReviewEveryStep),
+            "review_every_step"
+        );
+        assert_eq!(
+            run_mode_label(ags_protocol::workflow::RunMode::RunWithoutStopping),
+            "run_without_stopping"
+        );
+    }
+
+    /// A `--no-input` precheck rejection never reaches `WorkflowFinished`, so
+    /// `run_facts` is `None`; the mapped `RunCompletedFacts` must still carry
+    /// zeroed counts (never a panic or garbage) plus the `no_input` reason
+    /// and the failure's real error class/code.
+    #[test]
+    fn test_run_completed_facts_zeroed_when_run_facts_none_precheck_rejection() {
+        let err = usage_error_with_code("no_input.missing_input");
+        let facts = run_completed_facts(&None, crate::frontend::RunOutcome::Failed, Some(&err));
+        assert_eq!(facts.outcome, "failed");
+        assert_eq!(facts.reason, Some("no_input"));
+        assert_eq!(facts.duration_ms, 0);
+        assert_eq!(facts.steps_started, 0);
+        assert_eq!(facts.error_class, Some("usage"));
+        assert_eq!(facts.error_code.as_deref(), Some("no_input.missing_input"));
+    }
+
+    /// A plain success carries no reason, no error class, and reflects the
+    /// executor's real aggregate counts.
+    #[test]
+    fn test_run_completed_facts_success_has_no_reason_or_error_class() {
+        let run_facts = ags_protocol::workflow::RunFacts {
+            steps_started: 3,
+            steps_succeeded: 3,
+            duration_ms: 1234,
+            ..Default::default()
+        };
+        let facts =
+            run_completed_facts(&Some(run_facts), crate::frontend::RunOutcome::Success, None);
+        assert_eq!(facts.outcome, "completed");
+        assert_eq!(facts.reason, None);
+        assert_eq!(facts.error_class, None);
+        assert_eq!(facts.steps_started, 3);
+        assert_eq!(facts.steps_succeeded, 3);
+        assert_eq!(facts.duration_ms, 1234);
     }
 
     // ------------------------------------------------------------------ //
@@ -431,7 +781,7 @@ mod tests {
             ..Default::default()
         };
 
-        let outcome = run_phase_owned_execution(
+        let (outcome, _telemetry_client) = run_phase_owned_execution(
             surfaces,
             &compiled,
             BTreeMap::new(),
@@ -623,7 +973,7 @@ mod tests {
             ..Default::default()
         };
 
-        let outcome = run_phase_owned_execution(
+        let (outcome, _telemetry_client) = run_phase_owned_execution(
             surfaces,
             &compiled,
             BTreeMap::new(),

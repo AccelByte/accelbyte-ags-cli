@@ -270,6 +270,59 @@ pub fn encode_url_path_segment(value: &str, param_name: &str) -> Result<String, 
     Ok(utf8_percent_encode(value, PATH_SEGMENT_ENCODE).to_string())
 }
 
+/// Error from [`read_stdin_line`] / [`read_line_from`].
+#[derive(Debug)]
+pub enum StdinLineError {
+    /// IO failure reading from the input source.
+    Io(std::io::Error),
+    /// The line was empty (or whitespace/control-only) after sanitization.
+    Empty,
+}
+
+impl std::fmt::Display for StdinLineError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io(e) => write!(f, "Failed to read from stdin: {e}"),
+            Self::Empty => write!(f, "Expected a value from stdin but got empty input"),
+        }
+    }
+}
+
+impl std::error::Error for StdinLineError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            Self::Empty => None,
+        }
+    }
+}
+
+/// Read a single line from stdin, trimming whitespace and stripping terminal
+/// control sequences. Returns [`StdinLineError::Empty`] if the result is empty
+/// after sanitization.
+///
+/// This is the production entry point — tests should use [`read_line_from`]
+/// with a `Cursor` to avoid touching real stdin.
+pub fn read_stdin_line() -> Result<String, StdinLineError> {
+    read_line_from(&mut std::io::stdin().lock())
+}
+
+/// Read a single line from a [`BufRead`] source, trimming whitespace and
+/// stripping terminal control sequences. Returns [`StdinLineError::Empty`]
+/// if the result is empty after sanitization.
+///
+/// Injectable-seam counterpart of [`read_stdin_line`] — tests pass a `Cursor`,
+/// production passes `stdin().lock()`.
+pub fn read_line_from(reader: &mut dyn std::io::BufRead) -> Result<String, StdinLineError> {
+    let mut line = String::new();
+    reader.read_line(&mut line).map_err(StdinLineError::Io)?;
+    let value = strip_terminal_control_sequences(line.trim());
+    if value.is_empty() {
+        return Err(StdinLineError::Empty);
+    }
+    Ok(value)
+}
+
 /// Strip terminal control sequences and control characters from a string before display.
 pub fn strip_terminal_control_sequences(value: &str) -> String {
     let without_ansi = ANSI_RE.replace_all(value, "");
@@ -629,5 +682,70 @@ mod tests {
     #[test]
     fn test_capitalize_first_lowercase() {
         assert_eq!(capitalize_first("hello"), "Hello");
+    }
+
+    // ── read_line_from: shared stdin reader ──
+
+    /// A normal line with a trailing newline trims correctly.
+    #[test]
+    fn test_read_line_from_trims_trailing_newline() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("secret-value\n");
+        let result = read_line_from(&mut reader).expect("should succeed");
+        assert_eq!(result, "secret-value");
+    }
+
+    /// Leading and trailing whitespace is trimmed.
+    #[test]
+    fn test_read_line_from_trims_whitespace() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("  spaced  \n");
+        let result = read_line_from(&mut reader).expect("should succeed");
+        assert_eq!(result, "spaced");
+    }
+
+    /// ANSI control sequences embedded in the value are stripped.
+    #[test]
+    fn test_read_line_from_strips_control_sequences() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("\x1b[31mred-value\x1b[0m\n");
+        let result = read_line_from(&mut reader).expect("should succeed");
+        assert_eq!(result, "red-value");
+    }
+
+    /// A line that is empty after trimming returns `StdinLineError::Empty`.
+    #[test]
+    fn test_read_line_from_empty_input_returns_error() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("\n");
+        let err = read_line_from(&mut reader).expect_err("empty input should fail");
+        assert!(matches!(err, StdinLineError::Empty));
+    }
+
+    /// A line that is only whitespace returns `StdinLineError::Empty`.
+    #[test]
+    fn test_read_line_from_whitespace_only_returns_error() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("   \n");
+        let err = read_line_from(&mut reader).expect_err("whitespace-only should fail");
+        assert!(matches!(err, StdinLineError::Empty));
+    }
+
+    /// EOF with no content returns `StdinLineError::Empty`.
+    #[test]
+    fn test_read_line_from_eof_returns_error() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("");
+        let err = read_line_from(&mut reader).expect_err("EOF should fail");
+        assert!(matches!(err, StdinLineError::Empty));
+    }
+
+    /// A line without a trailing newline (EOF-terminated) still returns the value.
+    #[test]
+    fn test_read_line_from_no_trailing_newline() {
+        use std::io::Cursor;
+        let mut reader = Cursor::new("no-newline");
+        let result = read_line_from(&mut reader).expect("should succeed");
+        assert_eq!(result, "no-newline");
     }
 }

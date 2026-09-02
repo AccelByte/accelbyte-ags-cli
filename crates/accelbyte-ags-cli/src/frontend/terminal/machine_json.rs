@@ -58,10 +58,12 @@ mod tests {
             id: "test-step".to_string(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("iam"),
                 operation: OperationId::new("testOp"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -136,10 +138,12 @@ mod tests {
             id: "optional-step".to_string(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("iam"),
                 operation: OperationId::new("testOp"),
-            },
+            }),
             dependencies: vec![],
             confirm: true,
             is_optional: true,

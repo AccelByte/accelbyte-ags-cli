@@ -71,6 +71,7 @@ pub struct RefreshSpecsOutput {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct VersionOutput {
     pub version: String,
+    pub workflow_protocol_version: String,
 }
 
 /// JSON request-body template emitted by `--skeleton`. The body itself is
@@ -212,6 +213,88 @@ pub enum TokenState {
     Present,
     /// Storage could not be queried
     Unknown,
+}
+
+/// Whether the env file was written or skipped.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SetupEnvStatus {
+    /// The `.env.local` file was written (or overwritten with `--force`).
+    Written,
+    /// The `.env.local` file already existed and `--force` was not set.
+    Skipped,
+}
+
+/// Outcome of an `app-ui setup-env` invocation, ready for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SetupEnvOutput {
+    /// Whether the env file was written or skipped.
+    pub status: SetupEnvStatus,
+    /// The resolved path to the `.env.local` file.
+    pub env_path: String,
+}
+
+/// Outcome of an `app-ui upload` invocation, ready for rendering.
+///
+/// Carries the CSM API response body so `--format json` can surface it
+/// verbatim, plus metadata for the human-readable confirmation line.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AppUiUploadOutput {
+    /// The App UI name that was uploaded.
+    pub name: String,
+    /// The build version label.
+    pub version: String,
+    /// Size of the uploaded archive in bytes.
+    pub archive_bytes: u64,
+    /// Raw JSON response body from the CSM upload endpoint.
+    pub response: serde_json::Value,
+}
+
+/// Outcome of a `clone-template` invocation, ready for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CloneTemplateOutput {
+    /// The human-readable template name that was cloned.
+    pub template_name: String,
+    /// The local destination path the template was cloned into.
+    pub destination: String,
+    /// The source sub-path extracted (if any).
+    pub source_path: Option<String>,
+}
+
+/// Outcome of an `extend update-secret` upsert, ready for rendering.
+///
+/// Deliberately has NO `value` field: the real CSM `UpdateConfigurationV2Response`
+/// echoes the plaintext secret value back, and this type must never carry it
+/// forward into rendered output.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UpdateSecretOutput {
+    /// The secret's CSM config ID (existing or newly created).
+    pub config_id: String,
+    /// The secret's name (matches `--key`).
+    pub config_name: String,
+    /// Whether the secret's value is masked in the admin console.
+    pub apply_mask: bool,
+    /// The secret's description, if any.
+    pub description: Option<String>,
+    /// Whether this call created a new secret (`true`) or updated an
+    /// existing one (`false`).
+    pub created: bool,
+}
+
+/// Outcome of an `extend update-var` upsert, ready for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UpdateVarOutput {
+    /// The variable's CSM config ID (existing or newly created).
+    pub config_id: String,
+    /// The variable's name (matches `--key`).
+    pub config_name: String,
+    /// Whether the variable's value is masked in the admin console.
+    pub apply_mask: bool,
+    /// The variable's description, if any.
+    pub description: Option<String>,
+    /// Whether this call created a new variable (`true`) or updated an
+    /// existing one (`false`).
+    pub created: bool,
 }
 
 /// Complete result of a service API call, ready for rendering.
@@ -371,6 +454,72 @@ pub struct ProfileShowData {
     pub has_token: bool,
 }
 
+/// Wrapper for `ags ams upload` results carrying the view variant to render.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AmsUploadOutput {
+    pub view: AmsUploadView,
+}
+
+/// The outcome of an AMS dedicated-server image upload.
+#[derive(Debug, Clone, serde::Serialize)]
+pub enum AmsUploadView {
+    /// The image was archived, uploaded, and marked complete.
+    Uploaded(AmsUploadResult),
+    /// `--dry-run`: what would be uploaded, with no archive built and no
+    /// API calls made.
+    Planned(AmsUploadPlan),
+}
+
+/// How the entrypoint was classified during pre-flight validation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum AmsEntrypointKind {
+    /// A 64-bit little-endian ELF binary; the architecture was auto-detected.
+    ElfBinary,
+    /// A shell script (`.sh`); the architecture must be supplied explicitly.
+    ShellScript,
+}
+
+/// Details of a completed image upload.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AmsUploadResult {
+    pub image_id: String,
+    pub image_name: String,
+    /// Wire value, e.g. `linux-x86_64`.
+    pub target_architecture: String,
+    /// The entrypoint command recorded on the image, e.g. `./server`.
+    pub command: String,
+    pub file_count: usize,
+    pub archive_bytes: u64,
+    /// Number of multipart parts the archive was uploaded in; 1 for a
+    /// single-shot presigned PUT.
+    pub part_count: usize,
+    pub upload_base_url: String,
+    /// Symlinked directories left out of the archive, by archive-relative path.
+    pub skipped_directory_symlinks: Vec<String>,
+}
+
+/// What a `--dry-run` upload would do.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AmsUploadPlan {
+    pub image_name: String,
+    pub directory: String,
+    pub executable: String,
+    pub command: String,
+    pub target_architecture: String,
+    pub entrypoint_kind: AmsEntrypointKind,
+    pub file_count: usize,
+    /// Total size of the files that would be archived, before compression.
+    pub total_bytes: u64,
+    pub include_symbol_files: bool,
+    /// Excluded symbol files, when any were skipped.
+    pub excluded_symbol_file_count: usize,
+    /// Symlinked directories left out of the archive, by archive-relative path.
+    pub skipped_directory_symlinks: Vec<String>,
+    /// The explicit `--upload-url` override, when one was supplied. `None`
+    /// means the host is discovered at upload time.
+    pub upload_base_url: Option<String>,
+}
+
 /// Details of a raw body that was written to stdout or a file via `--output`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BinaryWrittenOutput {
@@ -383,6 +532,35 @@ pub struct BinaryWrittenOutput {
 pub enum BinaryWrittenDestination {
     Stdout,
     File(std::path::PathBuf),
+}
+
+/// Outcome of `ags workflow add <path>`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WorkflowAddOutput {
+    pub id: crate::workflow::WorkflowId,
+    pub validated_only: bool,
+    /// Path the file was installed to; `None` when `validated_only` is true.
+    pub path: Option<std::path::PathBuf>,
+}
+
+/// Outcome of `ags workflow template`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WorkflowTemplateOutput {
+    pub yaml: String,
+    pub destination: BinaryWrittenDestination,
+}
+
+/// Outcome of `ags workflow remove <id>`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WorkflowRemoveOutput {
+    pub id: crate::workflow::WorkflowId,
+    pub path: std::path::PathBuf,
+    /// True when a built-in workflow (Rust or bundled YAML) shares this id.
+    /// The removed external file was already shadowed by it (never itself
+    /// reachable via `workflow run`), so the built-in remains registered and
+    /// unaffected — surfaced so the user doesn't mistake this for the
+    /// workflow disappearing entirely.
+    pub builtin_still_registered: bool,
 }
 
 /// A non-fatal issue encountered during a multi-step operation.

@@ -61,6 +61,14 @@ pub(crate) async fn route_auth(
     };
 
     crate::invocation::register_reporter_if_plain(frontend_context);
+    // The Auto policy matrix resolves Auth to a plain surface, but an explicit
+    // --ui=fullscreen or --ui=inline can still upgrade it (see the
+    // FullscreenFrontend branch below). It is try_emit_first_run_hint's
+    // surface_backend() gate — not this call site or the matrix — that
+    // suppresses the hint on an upgraded surface, so it never writes to stderr
+    // mid terminal-acquisition. Help exits before this point, so auth
+    // subcommands are never meta.
+    crate::invocation::try_emit_first_run_hint(frontend_context, false);
     let mut frontend: Box<dyn crate::frontend::Frontend> = if matches!(
         backend,
         crate::invocation::context::PhaseBackend::FullscreenTerminalUi
@@ -624,23 +632,9 @@ async fn resolve_client_secret_for_login(
     Ok(secret)
 }
 
-/// Read a single line from stdin, trimming whitespace and sanitizing control characters.
+/// Delegate to the crate-level shared stdin reader in `errors.rs`.
 fn read_stdin_line() -> Result<String, CliError> {
-    let mut line = String::new();
-    std::io::stdin()
-        .read_line(&mut line)
-        .map_err(|e| CliError::Usage {
-            message: format!("Failed to read from stdin: {e}"),
-            metadata: None,
-        })?;
-    let value = strip_terminal_control_sequences(line.trim());
-    if value.is_empty() {
-        return Err(CliError::Usage {
-            message: "Expected a value from stdin but got empty input".to_string(),
-            metadata: None,
-        });
-    }
-    Ok(value)
+    crate::errors::read_stdin_line()
 }
 
 /// Resolve a value from: flag -> stored (environment/config) -> interactive prompt.

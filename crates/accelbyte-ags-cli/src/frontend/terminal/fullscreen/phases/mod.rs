@@ -5,6 +5,7 @@ pub mod confirm;
 pub mod enum_picker;
 pub mod error;
 pub mod fields;
+pub mod file_picker;
 pub mod json_edit;
 pub mod result;
 pub mod running;

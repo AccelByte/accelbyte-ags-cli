@@ -144,6 +144,27 @@
       "x_operation_id": "csm/admin/apps/v2/create"
     },
     {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Creates a new extend app (v5)",
+      "x_operation_id": "csm/admin/apps/v5/create"
+    },
+    {
       "has_request_body": false,
       "http_method": "DELETE",
       "method": "delete",
@@ -210,6 +231,27 @@
       "permissions": [],
       "summary": "Gets the Latest Release Version info of this App",
       "x_operation_id": "csm/admin/apps/v1/get-release-info"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-status-progress",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v4/admin/namespaces/{namespace}/apps/{app}/status-progress",
+      "permissions": [],
+      "summary": "Retrieves progress steps for an extend app long-running operation",
+      "x_operation_id": "csm/admin/apps/v4/get-status-progress"
     },
     {
       "has_request_body": true,
@@ -551,6 +593,50 @@
       "permissions": [],
       "summary": "Updates an environment variable",
       "x_operation_id": "csm/admin/config/v2/update-variable"
+    }
+  ],
+  "debug": [
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v4/admin/namespaces/{namespace}/apps/{app}/debuginfo",
+      "permissions": [],
+      "summary": "Retrieves remote debug info for an extend app",
+      "x_operation_id": "csm/admin/debug/v4/get"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v4/admin/namespaces/{namespace}/apps/{app}/debugmode",
+      "permissions": [],
+      "summary": "Enables or disables remote debug mode for an extend app",
+      "x_operation_id": "csm/admin/debug/v4/update"
     }
   ],
   "deployments": [

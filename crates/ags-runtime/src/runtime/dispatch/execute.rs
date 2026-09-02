@@ -28,15 +28,8 @@ pub(crate) async fn execute_operation(
     request: &CommandRequest,
     sink: &mut dyn ProgressSink,
 ) -> Result<CommandOutput, RuntimeError> {
-    if operation.has_file_upload {
-        return Err(crate::runtime::dispatch::file_upload_not_supported_error());
-    }
-
     let (url, query_params, mut http_request) = build_base_request(ctx, operation, request)?;
-    let has_request_body = operation.request_body.is_some();
-    if has_request_body {
-        http_request.body = request.body.clone();
-    }
+    http_request.body = request.body.clone();
 
     sink.on_event(ProgressEvent::Started {
         message: format!(
@@ -126,14 +119,22 @@ pub(crate) async fn execute_operation(
             };
 
         let trace = if request.verbosity.is_verbose() {
-            let request_body_size = if has_request_body {
-                request
-                    .body
-                    .as_ref()
-                    .map(|value| serde_json::to_string(value).unwrap_or_default().len())
-            } else {
-                None
-            };
+            let request_body_size = request.body.as_ref().map(|body| match body {
+                ags_protocol::request::RequestBody::Json(value) => {
+                    serde_json::to_string(value).unwrap_or_default().len()
+                }
+                ags_protocol::request::RequestBody::Multipart(parts) => parts
+                    .iter()
+                    .map(|part| match part {
+                        ags_protocol::request::FormPart::Text { value, .. } => value.len(),
+                        ags_protocol::request::FormPart::File { path, .. } => {
+                            std::fs::metadata(path)
+                                .map(|m| m.len() as usize)
+                                .unwrap_or(0)
+                        }
+                    })
+                    .sum(),
+            });
             Some(ExecutionTrace {
                 resolution: ctx.resolution_trace.clone(),
                 request: RequestTrace {
@@ -616,6 +617,7 @@ mod progress_event_order_tests {
             location: ParameterLocation::Query,
             required: false,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }
@@ -639,30 +641,42 @@ mod progress_event_order_tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
-    /// A client whose `send` must never be called — proves the guard fires
-    /// before any HTTP request.
-    struct PanicClient;
+    /// A fake `HttpClient` that records the last request it was sent, so a
+    /// test can assert on what `execute_operation` actually dispatched.
+    #[derive(Default)]
+    struct RecordingClient {
+        sent: std::sync::Mutex<Option<HttpRequest>>,
+    }
 
     #[async_trait]
-    impl HttpClient for PanicClient {
-        async fn send(&self, _request: HttpRequest) -> Result<HttpResponse, RuntimeError> {
-            panic!("HTTP must not be called for a file-upload operation");
+    impl HttpClient for RecordingClient {
+        async fn send(
+            &self,
+            request: HttpRequest,
+        ) -> Result<HttpResponse, ags_protocol::error::RuntimeError> {
+            *self.sent.lock().unwrap() = Some(request);
+            Ok(HttpResponse {
+                status: 200,
+                body: HttpBody::Text(r#"{"ok":true}"#.to_string()),
+            })
         }
     }
 
-    fn make_file_upload_operation() -> OperationSchema {
+    /// A formData operation with one text-only parameter — no path/query
+    /// params, no body (this test exercises the body-wiring bug, which
+    /// affects any formData operation, not just file-typed ones).
+    fn make_formdata_text_operation() -> OperationSchema {
         OperationSchema {
-            id: OperationId::new("uploadAssets"),
-            name: "upload-assets".to_string(),
+            id: OperationId::new("importSomething"),
+            name: "import".to_string(),
             summary: String::new(),
             description: None,
             mutation_class: MutationClass::Mutating,
             http_method: HttpMethod::Post,
-            path_template: "/assets".to_string(),
+            path_template: "/import".to_string(),
             parameters: vec![],
             request_body: None,
             response: None,
@@ -671,48 +685,58 @@ mod progress_event_order_tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: true,
         }
     }
 
+    /// A formData operation's resolved `RequestBody::Multipart` is actually
+    /// attached to the outbound `HttpRequest` — regression for the bug where
+    /// `execute_operation` only copied `request.body` when
+    /// `operation.request_body.is_some()`, which is never true for a
+    /// formData operation (body and formData are mutually exclusive per
+    /// OAS2, so `operation.request_body` is always `None` here).
     #[tokio::test]
-    async fn test_execute_operation_rejects_file_upload_before_http() {
-        let client = PanicClient;
-        let operation = make_file_upload_operation();
+    async fn test_execute_operation_attaches_multipart_body_for_formdata_operation() {
+        let client = RecordingClient::default();
+        let operation = make_formdata_text_operation();
         let ctx = ApiCallContext {
             client: &client,
             base_url: "https://example.com",
             token: "fake-token",
-            service_name: "csm",
-            resource_name: "app-ui",
+            service_name: "svc",
+            resource_name: "import",
             resolution_trace: None,
         };
         let request = CommandRequest {
             service: crate::catalogue::Catalogue::find_id("csm").expect("csm in manifest"),
-            operation_id: OperationId::new("uploadAssets"),
+            operation_id: OperationId::new("importSomething"),
             namespace: None,
             path_params: BTreeMap::new(),
             query_params: BTreeMap::new(),
             header_params: BTreeMap::new(),
-            body: None,
+            body: Some(ags_protocol::request::RequestBody::Multipart(vec![
+                ags_protocol::request::FormPart::Text {
+                    name: "strategy".to_string(),
+                    value: "REPLACE".to_string(),
+                },
+            ])),
+            form_params: BTreeMap::new(),
             output_format: OutputFormat::Human,
             pagination: PaginationHint::Auto,
             verbosity: Verbosity::Normal,
             output: None,
         };
         let mut sink = RecordingSink::default();
-        let err = execute_operation(&ctx, &operation, &request, &mut sink)
-            .await
-            .expect_err("file-upload op must be rejected");
-        assert_eq!(err.kind, RuntimeErrorKind::Validation);
-        assert_eq!(
-            err.message,
-            "This command uploads a file (multipart/form-data), which the CLI does not yet support"
-        );
-        assert_eq!(
-            err.hint.as_deref(),
-            Some("Upload the file through the AccelByte Admin Portal.")
-        );
+
+        let _ = execute_operation(&ctx, &operation, &request, &mut sink).await;
+
+        let sent = client.sent.lock().unwrap();
+        let sent_request = sent
+            .as_ref()
+            .expect("execute_operation must call client.send");
+        assert!(matches!(
+            sent_request.body,
+            Some(ags_protocol::request::RequestBody::Multipart(_))
+        ));
     }
 
     /// `Finished` must be emitted after the last pagination `Page` event.
@@ -749,6 +773,7 @@ mod progress_event_order_tests {
             path_params: BTreeMap::new(),
             query_params: BTreeMap::new(),
             header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
             body: None,
             output_format: OutputFormat::Human,
             pagination: PaginationHint::All,
@@ -842,6 +867,7 @@ mod progress_event_order_tests {
             path_params: BTreeMap::new(),
             query_params: BTreeMap::new(),
             header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
             body: None,
             output_format: OutputFormat::Human,
             pagination: PaginationHint::All,
@@ -889,6 +915,7 @@ mod progress_event_order_tests {
             path_params: BTreeMap::new(),
             query_params: BTreeMap::new(),
             header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
             body: None,
             output_format: OutputFormat::Json,
             pagination: PaginationHint::All,

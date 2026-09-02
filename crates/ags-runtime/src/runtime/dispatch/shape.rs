@@ -825,7 +825,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let result = shape_response(&body, &operation, "region", false);
         let CommandResult::Collection(collection) = result else {

@@ -6,13 +6,14 @@
 //! error instead of failing late on auth / base-URL resolution.
 
 use ags_protocol::workflow::WorkflowId;
-use ags_runtime::runtime::workflows::auto_derive::find_operation;
 use ags_runtime::runtime::workflows::compile::compile_workflow;
 use ags_runtime::runtime::workflows::{registry, RunOptions};
 
 use crate::errors::CliError;
 use crate::invocation::flags::GlobalFlags;
-use crate::invocation::phase_execution::{run_phase_owned_execution, AdapterMode};
+use crate::invocation::phase_execution::{
+    flush_step_telemetry, run_phase_owned_execution, AdapterMode,
+};
 use crate::invocation::shape::{RouteKind, Shape};
 use crate::invocation::workflows::{build_registered_workflow_clap, coerce_cli_value};
 use crate::invocation::InvocationOutcome;
@@ -34,6 +35,71 @@ fn write_command_help(command: &mut clap::Command) {
         help.to_string()
     };
     let _ = crate::frontend::streams::UiSink.write_all(rendered.as_bytes());
+}
+
+/// Assemble the per-run step-telemetry sink from an already-resolved
+/// identity and client. Split out from `route_workflow_run` so this mapping
+/// is unit-testable on its own.
+fn build_workflow_step_telemetry(
+    sub: String,
+    client: ags_runtime::runtime::telemetry::TelemetryClient,
+    run_id: &str,
+    workflow_id: &str,
+    steps_total: usize,
+    is_dry_run: bool,
+    ui_surface: &'static str,
+) -> Box<crate::frontend::sink::WorkflowStepTelemetry> {
+    Box::new(crate::frontend::sink::WorkflowStepTelemetry {
+        client,
+        sub,
+        context: ags_runtime::runtime::telemetry::WorkflowStepContext {
+            run_id: run_id.to_string(),
+            workflow_id: workflow_id.to_string(),
+            steps_total,
+            cli_version: env!("CARGO_PKG_VERSION").to_string(),
+            is_dry_run,
+            ui_surface,
+        },
+    })
+}
+
+/// Build the protocol-version-mismatch pre-run warning for
+/// `ags workflow run`. Pure string construction, no I/O — the caller writes
+/// it to stderr. A provenance hint, not a diagnosis: states both versions as
+/// plain facts, never claims the workflow *is* broken, and never frames
+/// either version as a hard compatibility limit (no "understands"/"supports"
+/// wording). Fires for a mismatch in either direction — older or newer than
+/// this CLI build's own protocol version — with the same neutral phrasing.
+fn mismatched_protocol_version_warning(workflow_id: &str, declared: &str, current: &str) -> String {
+    format!(
+        "Workflow '{workflow_id}' targets protocol version {declared}; this ags build is on \
+         protocol version {current}. If you encounter issues, this may be why."
+    )
+}
+
+/// Same provenance-hint role as `mismatched_protocol_version_warning`, for the
+/// legacy case: a `workflow_protocol_version`-less file, registered as such by
+/// `external::load_external_workflows` (installed before `ags workflow add`
+/// required the field). There is no declared version to compare, so this
+/// states that fact instead of a specific mismatch.
+fn legacy_protocol_version_warning(workflow_id: &str, current: &str) -> String {
+    format!(
+        "Workflow '{workflow_id}' does not declare a protocol version (likely installed before \
+         this CLI started requiring one); this ags build is on protocol version {current}. If \
+         you encounter issues, this may be why."
+    )
+}
+
+/// Same provenance-hint role as the sibling warning functions, for the case
+/// where a workflow declares a `workflow_protocol_version` that does not parse
+/// as a version number at all. Quotes the actual declared value so the user
+/// can locate and correct it in the file.
+fn unreadable_protocol_version_warning(workflow_id: &str, declared: &str, current: &str) -> String {
+    format!(
+        "Workflow '{workflow_id}' declares a protocol version that is not a readable version \
+         number: \"{declared}\". This ags build is on protocol version {current}. The field can \
+         be corrected by hand or by re-adding the workflow with `ags workflow add`."
+    )
 }
 
 fn unknown_workflow_error(workflow_id: &str) -> CliError {
@@ -85,6 +151,51 @@ pub(crate) async fn route_workflow(
                 route_workflow_list(frontend)
             }
         }
+        Some("add") => {
+            let mut command = crate::invocation::builder::build_workflow_command();
+            let argv = crate::invocation::clap_helpers::build_argv("workflow", args);
+            match command.try_get_matches_from_mut(argv.iter().map(String::as_str)) {
+                Ok(matches) => {
+                    let Some(("add", sub)) = matches.subcommand() else {
+                        unreachable!("route_workflow only reaches this arm for 'add'");
+                    };
+                    let path = std::path::PathBuf::from(sub.get_one::<String>("path").unwrap());
+                    let validate_only = sub.get_flag("validate-only");
+                    route_workflow_add(&path, validate_only, frontend)
+                }
+                Err(error) => crate::invocation::clap_helpers::outcome_from_clap_error(error),
+            }
+        }
+        Some("template") => {
+            let mut command = crate::invocation::builder::build_workflow_command();
+            let argv = crate::invocation::clap_helpers::build_argv("workflow", args);
+            match command.try_get_matches_from_mut(argv.iter().map(String::as_str)) {
+                Ok(matches) => {
+                    let Some(("template", sub)) = matches.subcommand() else {
+                        unreachable!("route_workflow only reaches this arm for 'template'");
+                    };
+                    let output_path = sub
+                        .get_one::<String>("output")
+                        .map(std::path::PathBuf::from);
+                    route_workflow_template(output_path.as_deref(), frontend)
+                }
+                Err(error) => crate::invocation::clap_helpers::outcome_from_clap_error(error),
+            }
+        }
+        Some("remove") => {
+            let mut command = crate::invocation::builder::build_workflow_command();
+            let argv = crate::invocation::clap_helpers::build_argv("workflow", args);
+            match command.try_get_matches_from_mut(argv.iter().map(String::as_str)) {
+                Ok(matches) => {
+                    let Some(("remove", sub)) = matches.subcommand() else {
+                        unreachable!("route_workflow only reaches this arm for 'remove'");
+                    };
+                    let id = sub.get_one::<String>("id").unwrap();
+                    route_workflow_remove(id, frontend)
+                }
+                Err(error) => crate::invocation::clap_helpers::outcome_from_clap_error(error),
+            }
+        }
         Some("--help") | Some("-h") | None => {
             // Help text is UI chrome — route to stderr via UiSink
             // so stdout stays reserved for CommandOutput.
@@ -114,6 +225,7 @@ pub(crate) async fn route_workflow_run(
     flags: &GlobalFlags,
     render_options: crate::frontend::RenderOptions,
     frontend_context: &crate::invocation::context::FrontendContext,
+    workflow_run_id: Option<&str>,
 ) -> Result<InvocationOutcome, CliError> {
     // Illegal flags are rejected before any registry lookup so they fire
     // even against ids that do not exist.
@@ -140,11 +252,72 @@ pub(crate) async fn route_workflow_run(
         metadata: None,
     })?;
     let workflow_id = args[id_index].clone();
+    let workflow_id_key = WorkflowId::new(workflow_id.as_str());
 
-    let definition = match registry().resolve(&WorkflowId::new(workflow_id.as_str())) {
+    let definition = match registry().resolve(&workflow_id_key) {
         Some(workflow) => workflow.definition().clone(),
         None => return Err(unknown_workflow_error(&workflow_id)),
     };
+    // Resolved once here, before compilation, and threaded through
+    // `RunOptions` — see §4.1 of the telemetry observability design: a
+    // failed step's `input_fields` may carry real values only for a
+    // bundled workflow.
+    let workflow_is_bundled = registry().is_bundled(&workflow_id_key);
+
+    // Informational only: computed here (never affects the return value or
+    // exit code), but not written yet — see `execute_compiled_workflow` for
+    // where and how it's actually emitted (gated on automation, deferred
+    // past fullscreen teardown).
+    let declared_protocol_version = definition.workflow_protocol_version.as_deref();
+    let outdated_warning = if workflow_is_bundled || frontend_context.is_automation() {
+        None
+    } else {
+        match declared_protocol_version {
+            Some(declared)
+                if ags_runtime::runtime::workflows::version_check::is_mismatched(Some(
+                    declared,
+                )) =>
+            {
+                Some(mismatched_protocol_version_warning(
+                    &workflow_id,
+                    declared,
+                    ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
+                ))
+            }
+            Some(declared)
+                if ags_runtime::runtime::workflows::version_check::is_unparsable(declared) =>
+            {
+                Some(unreadable_protocol_version_warning(
+                    &workflow_id,
+                    declared,
+                    ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
+                ))
+            }
+            Some(_) => None,
+            None => Some(legacy_protocol_version_warning(
+                &workflow_id,
+                ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
+            )),
+        }
+    };
+
+    // Spawned now, not where it's consumed below, so identity/client
+    // resolution overlaps with compiling the workflow and the auth/base-URL
+    // prologue instead of adding to this run's startup latency.
+    let telemetry_task = workflow_run_id.map(|run_id| {
+        let run_id = run_id.to_string();
+        let profile = flags.profile.clone();
+        tokio::spawn(async move {
+            match ags_runtime::runtime::telemetry::resolve_identity(profile.as_deref()).await {
+                Some(identity) => Some((
+                    run_id,
+                    identity.distinct_id().to_string(),
+                    ags_runtime::runtime::telemetry::TelemetryClient::from_env().await,
+                )),
+                None => None,
+            }
+        })
+    });
 
     // Compile the workflow and parse its own `--<input>` flags BEFORE the
     // runtime prologue, so an unknown flag surfaces as a clap usage error
@@ -154,27 +327,51 @@ pub(crate) async fn route_workflow_run(
     let mut catalogue = ags_runtime::catalogue::Catalogue::new();
     let compiled = compile_workflow(&definition, &mut catalogue)?;
 
-    // Guard: reject a workflow containing a file-upload (multipart/form-data)
-    // step before auth and before any gathering, mirroring the service-route
-    // guard. No registered workflow references such an operation today; this
-    // holds the invariant for a future built-in or user-registered workflow.
-    for step in &compiled.steps {
-        if find_operation(
-            catalogue.get_or_load(step.operation.service.as_str())?,
-            &step.operation.operation,
-        )
-        .is_some_and(|op| op.has_file_upload)
-        {
-            return Err(ags_runtime::runtime::dispatch::file_upload_not_supported_error().into());
-        }
-    }
-
     let mut pre_supplied = parse_workflow_input_flags(&compiled, args, id_index)?;
 
     // The global `--namespace` flag feeds a `namespace` workflow input when
     // the workflow declares one and no per-workflow `--namespace` was given.
     seed_namespace_input(&mut pre_supplied, &compiled, flags.namespace.as_ref());
 
+    execute_compiled_workflow(
+        compiled,
+        pre_supplied,
+        flags,
+        render_options,
+        frontend_context,
+        workflow_is_bundled,
+        outdated_warning,
+        telemetry_task,
+    )
+    .await
+}
+
+/// Shared back half of `route_workflow_run` (and the `extend docker-login`
+/// default path). Everything from the runtime prologue onward: resolve
+/// auth/base URL, build surfaces, drive the executor.
+///
+/// The front half (argv parsing, help, compilation) is route-specific; this
+/// function is the generic "drive a compiled workflow" lifecycle that does
+/// not touch argv or raw args.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn execute_compiled_workflow(
+    compiled: ags_protocol::workflow::CompiledWorkflow,
+    mut pre_supplied: std::collections::BTreeMap<String, serde_json::Value>,
+    flags: &GlobalFlags,
+    render_options: crate::frontend::RenderOptions,
+    frontend_context: &crate::invocation::context::FrontendContext,
+    workflow_is_bundled: bool,
+    outdated_warning: Option<String>,
+    telemetry_task: Option<
+        tokio::task::JoinHandle<
+            Option<(
+                String,
+                String,
+                ags_runtime::runtime::telemetry::TelemetryClient,
+            )>,
+        >,
+    >,
+) -> Result<InvocationOutcome, CliError> {
     // Runtime prologue (shared with `route_service`): resolves auth/base URL and
     // renders access-token warnings on a fresh pre-surface frontend, all before
     // any owned phase surface exists. A failure returns `Err` for the caller's
@@ -205,6 +402,7 @@ pub(crate) async fn route_workflow_run(
         verbosity: flags.verbosity,
         pagination,
         explicit_body: None,
+        is_bundled_workflow: workflow_is_bundled,
     };
 
     // The prologue succeeded — construct the workflow surfaces now. For the
@@ -220,6 +418,28 @@ pub(crate) async fn route_workflow_run(
     // shape entirely (a workflow route is always Fullscreen unless overridden),
     // so the workflow's real step count never affects the surface.
     let frontend_context = frontend_context.finalize_surface(RouteKind::Workflow, Shape::Multi);
+    // Help exits before finalization, so a workflow command here is never meta.
+    crate::invocation::try_emit_first_run_hint(&frontend_context, false);
+    let is_fullscreen_surface = matches!(
+        frontend_context.surface_backend(),
+        crate::invocation::context::PhaseBackend::FullscreenTerminalUi
+    );
+    // Plain/Inline: emit now, same timing as before. Fullscreen: hold it —
+    // writing now would land before alt-screen acquisition and be lost;
+    // `deferred_warning` is flushed after teardown, once the normal screen
+    // buffer is restored (see below, after `run_phase_owned_execution`).
+    if !is_fullscreen_surface {
+        if let Some(msg) = &outdated_warning {
+            let styled =
+                crate::frontend::style::warning(msg, crate::frontend::style::is_stderr_enabled());
+            let _ = crate::frontend::streams::UiSink.write_all(format!("{styled}\n").as_bytes());
+        }
+    }
+    let deferred_warning = if is_fullscreen_surface {
+        outdated_warning
+    } else {
+        None
+    };
     // Per-step request review pauses on every step with its full editable
     // request. It applies only to an interactive fullscreen workflow run;
     // `--yes`, `--no-input`, and `--ui=plain`/`inline` keep the gather path.
@@ -304,16 +524,56 @@ pub(crate) async fn route_workflow_run(
     // The shared post-prologue helper owns `RunStarted` onward (execution,
     // classification, `RunFinished`, teardown, final render). `FullLifecycle`
     // forwards workflow lifecycle banners — this is a registered workflow.
-    run_phase_owned_execution(
+    let telemetry = match telemetry_task {
+        Some(task) => task.await.ok().flatten().map(|(run_id, sub, client)| {
+            build_workflow_step_telemetry(
+                sub,
+                client,
+                &run_id,
+                compiled.id.as_str(),
+                compiled.steps.len(),
+                options.dry_run,
+                frontend_context.surface_backend().telemetry_label(),
+            )
+        }),
+        None => None,
+    };
+
+    let phase_result = run_phase_owned_execution(
         surfaces,
         &compiled,
         pre_supplied,
         &mut runtime,
         &options,
-        AdapterMode::FullLifecycle,
+        AdapterMode::FullLifecycle { telemetry },
         None,
     )
-    .await
+    .await;
+
+    // Flushed here, after `run_phase_owned_execution` has returned — by this
+    // point `.finish()` has already run on every code path inside it (see
+    // `phase_execution.rs`), so the alt-screen is already torn down and this
+    // lands in the normal buffer the user is looking at.
+    if let Some(msg) = deferred_warning {
+        let styled =
+            crate::frontend::style::warning(&msg, crate::frontend::style::is_stderr_enabled());
+        let _ = crate::frontend::streams::UiSink.write_all(format!("{styled}\n").as_bytes());
+    }
+
+    let (outcome, telemetry_client) = phase_result?;
+
+    // Flush the exact `TelemetryClient` instance that queued the step events
+    // (if any were queued) — `Drop` alone would not: `posthog-rs` sends on a
+    // background worker, and this process may `std::process::exit` before
+    // that worker is scheduled (the same reason `emit_with_outcome` always
+    // flushes explicitly for the parent `cli.command.invoked` event). Bounded
+    // by `flush_step_telemetry`'s timeout so a stalled network connection
+    // cannot hang this already-completed command's exit indefinitely — the
+    // parent `cli.command.invoked` flush in `emit_with_outcome` is a
+    // deliberately separate, unbounded path and is out of scope here.
+    flush_step_telemetry(telemetry_client).await;
+
+    Ok(outcome)
 }
 
 /// Parse the workflow's own `--<input>` flags (everything after the id) into a
@@ -415,6 +675,57 @@ fn route_workflow_list(
         .map(|(id, name)| ags_protocol::workflow::WorkflowListEntry { id, name })
         .collect();
     let output = ags_protocol::output::CommandOutput::WorkflowCatalogue { entries };
+    frontend.render(&output)?;
+    Ok(InvocationOutcome::Complete)
+}
+
+/// Handle `ags workflow add <path> [--validate-only]` — validate (and unless
+/// `--validate-only`, install) a workflow YAML file. Offline: no runtime
+/// prologue, no auth.
+fn route_workflow_add(
+    path: &std::path::Path,
+    validate_only: bool,
+    frontend: &mut dyn crate::frontend::Frontend,
+) -> Result<InvocationOutcome, CliError> {
+    let runtime = ags_runtime::runtime::Runtime::from_reqwest(
+        ags_runtime::runtime::execution::ExecutionContext::default(),
+        ags_runtime::runtime::dispatch::http::build_http_client(None)?,
+    );
+    let view = runtime.workflow_add(path, validate_only)?;
+    let output = ags_protocol::output::CommandOutput::WorkflowAdd(view);
+    frontend.render(&output)?;
+    Ok(InvocationOutcome::Complete)
+}
+
+/// Handle `ags workflow remove <id>` — delete a previously-installed external
+/// workflow YAML file. Offline: no runtime prologue, no auth.
+fn route_workflow_remove(
+    id: &str,
+    frontend: &mut dyn crate::frontend::Frontend,
+) -> Result<InvocationOutcome, CliError> {
+    let runtime = ags_runtime::runtime::Runtime::from_reqwest(
+        ags_runtime::runtime::execution::ExecutionContext::default(),
+        ags_runtime::runtime::dispatch::http::build_http_client(None)?,
+    );
+    let view = runtime.workflow_remove(id)?;
+    let output = ags_protocol::output::CommandOutput::WorkflowRemove(view);
+    frontend.render(&output)?;
+    Ok(InvocationOutcome::Complete)
+}
+
+/// Handle `ags workflow template [--output <path>]` — emit a starter workflow
+/// YAML skeleton, either to stdout or a file. Offline: no runtime prologue, no
+/// auth.
+fn route_workflow_template(
+    output_path: Option<&std::path::Path>,
+    frontend: &mut dyn crate::frontend::Frontend,
+) -> Result<InvocationOutcome, CliError> {
+    let runtime = ags_runtime::runtime::Runtime::from_reqwest(
+        ags_runtime::runtime::execution::ExecutionContext::default(),
+        ags_runtime::runtime::dispatch::http::build_http_client(None)?,
+    );
+    let view = runtime.workflow_template(output_path)?;
+    let output = ags_protocol::output::CommandOutput::WorkflowTemplate(view);
     frontend.render(&output)?;
     Ok(InvocationOutcome::Complete)
 }
@@ -535,6 +846,7 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         match result {
@@ -579,6 +891,7 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         match result {
@@ -608,6 +921,7 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         match result {
@@ -627,6 +941,7 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         assert!(
@@ -644,12 +959,34 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         assert!(
             matches!(result, Ok(InvocationOutcome::Complete)),
             "got: {result:?}"
         );
+    }
+
+    #[test]
+    fn test_build_workflow_step_telemetry_maps_fields_from_inputs() {
+        let sink = build_workflow_step_telemetry(
+            "user-sub-123".to_string(),
+            ags_runtime::runtime::telemetry::TelemetryClient::disabled_for_test(),
+            "run-1",
+            "competitive-multiplayer",
+            4,
+            true,
+            "fullscreen",
+        );
+
+        assert_eq!(sink.sub, "user-sub-123");
+        assert_eq!(sink.context.run_id, "run-1");
+        assert_eq!(sink.context.workflow_id, "competitive-multiplayer");
+        assert_eq!(sink.context.steps_total, 4);
+        assert_eq!(sink.context.cli_version, env!("CARGO_PKG_VERSION"));
+        assert!(sink.context.is_dry_run);
+        assert_eq!(sink.context.ui_surface, "fullscreen");
     }
 
     #[tokio::test]
@@ -663,6 +1000,7 @@ mod tests {
             &flags,
             crate::frontend::RenderOptions::default(),
             &ctx,
+            None,
         )
         .await;
         assert!(
@@ -698,5 +1036,43 @@ mod tests {
     #[test]
     fn test_is_workflow_run_rejects_empty() {
         assert!(!is_workflow_run(&[]));
+    }
+
+    #[test]
+    fn test_mismatched_protocol_version_warning_message_format() {
+        let msg = mismatched_protocol_version_warning("my-workflow", "0.3.0", "1.0.0");
+        assert_eq!(
+            msg,
+            "Workflow 'my-workflow' targets protocol version 0.3.0; this ags build is on \
+             protocol version 1.0.0. If you encounter issues, this may be why."
+        );
+    }
+
+    #[test]
+    fn test_unreadable_protocol_version_warning_message_format() {
+        let msg = unreadable_protocol_version_warning("my-workflow", "banana", "1.0.0");
+        assert!(
+            msg.contains("banana"),
+            "must name the declared value: {msg}"
+        );
+        assert!(
+            msg.contains("1.0.0"),
+            "must name the current protocol version: {msg}"
+        );
+        assert!(
+            msg.contains("not a readable version number"),
+            "must state what is wrong: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_legacy_protocol_version_warning_message_format() {
+        let msg = legacy_protocol_version_warning("my-workflow", "1.0.0");
+        assert_eq!(
+            msg,
+            "Workflow 'my-workflow' does not declare a protocol version (likely installed \
+             before this CLI started requiring one); this ags build is on protocol version \
+             1.0.0. If you encounter issues, this may be why."
+        );
     }
 }

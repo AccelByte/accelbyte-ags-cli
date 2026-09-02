@@ -997,7 +997,13 @@ Under `--format json` the workflow runs non-interactively (all inputs from flags
 }
 ```
 
-Each step's request fields reuse the same shape as single-command `--dry-run` JSON; `id` is `StepDryRunPreview.step_id`. Every step object always includes `id`, `method`, `url`, `headers`, `query`, and `body`: `headers` and `query` are objects (empty `{}` when there are none), and `body` is `null` when the operation takes no request body. The `synthesised_outputs` placeholders shown in §25.2 are dry-run context-propagation scaffolding and are **intentionally omitted** from the JSON envelope — each step's request fields are sufficient for external consumers.
+Each step's request fields reuse the same shape as single-command `--dry-run` JSON; `id` is `StepDryRunPreview.step_id`. Every step object always includes `id`, `method`, `url`, `headers`, `query`, and `body`: `headers` and `query` are objects (empty `{}` when there are none), and `body` is `null` when the operation takes no request body. `body` serialises `ags_protocol::request::RequestBody`, which has a hand-written `Serialize` rather than a derived `#[serde(tag = "kind", content = "value")]` enum tag: a JSON request body serialises as the **bare payload itself** — `{ "statCode": "mmr" }`, as shown above — with no `kind`/`value` wrapper, so existing consumers reading `body.<field>` are unaffected by multipart support. A `formData` (multipart/form-data) operation's body is instead wrapped as `{ "kind": "multipart", "value": [<parts>] }`, where each part is a `FormPart` (internally tagged on `kind`, no separate `content` wrapper) — either `{ "kind": "text", "name": "...", "value": "..." }` for a plain field or `{ "kind": "file", "name": "...", "path": "...", "filename": "..." }` for a file field. For example, a file-upload step's `body` renders as:
+
+```json
+{ "kind": "multipart", "value": [ { "kind": "file", "name": "file", "path": "/tmp/asset.png", "filename": "asset.png" } ] }
+```
+
+The `synthesised_outputs` placeholders shown in §25.2 are dry-run context-propagation scaffolding and are **intentionally omitted** from the JSON envelope — each step's request fields are sufficient for external consumers.
 
 **Single-step collapse:** a one-step workflow that declares no outputs emits the bare API response body (identical to running the equivalent single command), because the engine returns `CommandOutput::Service` rather than `CommandOutput::Workflow`.
 
@@ -1114,22 +1120,26 @@ The full set of `kind` values:
 
 | Route | `kind` | `data.node_type` | `data.children` |
 |---|---|---|---|
-| `ags describe` | `catalogue` | `root` | yes — services + the `workflow` node |
+| `ags describe` | `catalogue` | `root` | yes — services + command-groups + the `workflow` node |
 | `ags describe <service>` | `catalogue` | `service` | yes — resources |
 | `ags describe <service> <resource>` | `catalogue` | `resource` | yes — methods |
+| `ags describe extend` | `catalogue` | `command-group` | yes — commands + aliases |
+| `ags describe extend <parent>` | `catalogue` | `command-group` | yes — aliases |
 | `ags describe workflow` | `catalogue` | `workflow-catalogue` | yes — workflows |
 | `ags describe <service> <resource> <method>` | `command` | *(none)* | **no** |
+| `ags describe extend <command>` | `command` | `command` or `alias` | **no** |
+| `ags describe extend <parent> <name>` | `command` | `alias` | **no** |
 | `ags describe workflow <id>` | `workflow` | *(none)* | **no** |
 | any unknown or invalid path | `error` | *(none)* | **no** |
 
 Per-`kind` `data` payloads:
 
-- **`catalogue`** — `node_type`, `name`, `summary`, `children[]`. Each child is `{ node_type, name, path, summary }`, where `path` is the argument vector to re-invoke describe for that child. Child `node_type` is `service` or `workflow-catalogue` (under `root`), `resource` (under a service), `method` (under a resource), or `workflow` (under `workflow-catalogue`).
-- **`command`** — `command`, `default_scope`, `scopes{}` (the full scope/version contract matrix; see §10.11 of the CLI reference). No `children`.
+- **`catalogue`** — `node_type`, `name`, `summary`, `children[]`. Each child is `{ node_type, name, path, summary }`, where `path` is the argument vector to re-invoke describe for that child. Child `node_type` is `service`, `command-group`, or `workflow-catalogue` (under `root`), `resource` (under a service), `command` or `alias` (under a `command-group`), `method` (under a resource), or `workflow` (under `workflow-catalogue`). An `alias` child additionally carries `alias_of` — an array of strings naming the canonical `[service, resource, method]` path the alias forwards to. Non-alias children omit `alias_of` entirely (not `null`).
+- **`command`** — the data shape depends on the node. For a **service method** (e.g. `csm apps create`), `data` carries `command`, `default_scope`, `scopes{}` (the full scope/version contract matrix; see §10.11 of the CLI reference); `node_type` is absent and there are no `children`. For an **`extend` command or alias** (e.g. `extend clone-template` or `extend create-app`), `data` carries `node_type` (`"command"` or `"alias"`), `name`, `summary`, and `children` (always `[]`). When `data.node_type` is `"alias"`, `data` additionally carries `alias_of` — an array of strings naming the canonical `[service, resource, method]` path the alias forwards to (e.g. `["csm", "apps", "create"]`). Consumers MUST check for the presence of `data.node_type` (or equivalently, `data.command`) before reading method-matrix fields.
 - **`workflow`** — `id`, `name`, `intent`, `description`, `inputs[]`, `steps[]`. No `children`, no `node_type`.
 - **`error`** — `code`, `message`, `suggestions[]`. Returned with exit code 1.
 
-> `node_type` and `kind` are different axes and easy to conflate. `node_type` lives **only** on `catalogue` data and its children; it labels a node *within* a catalogue. `workflow-catalogue` is a `node_type` (the `ags describe workflow` listing), whereas `workflow` is a `kind` (the `ags describe workflow <id>` leaf). Walking into a `workflow` child and reading its describe yields `kind: "workflow"`, not a catalogue.
+> `node_type` and `kind` are different axes and easy to conflate. `node_type` appears on `catalogue` data and its children, where it labels a node *within* a catalogue. It also appears on `command` data returned by `extend` routes (values `"command"` or `"alias"`); service-method `command` nodes do not carry `node_type`. `workflow-catalogue` is a `node_type` (the `ags describe workflow` listing), whereas `workflow` is a `kind` (the `ags describe workflow <id>` leaf). Walking into a `workflow` child and reading its describe yields `kind: "workflow"`, not a catalogue.
 
 ### 27.2 Recursive walk
 
@@ -1142,13 +1152,17 @@ function walk(path):
         case "catalogue":
             for child in env.data.children:
                 walk(child.path)                  # child.path is the re-invoke vector
-        case "command":  record_method(env.data)  # leaf — has no children
+        case "command":
+            if env.data.node_type == "alias":
+                record_alias(env.data)            # alias leaf — alias_of points to canonical path
+            else:
+                record_method(env.data)            # service method or builtin command leaf
         case "workflow": record_workflow(env.data) # leaf — has no children
         case "error":    handle_error(env.data)    # do not descend
         default:         skip                       # unknown kind — see §27.3
 ```
 
-To enumerate only services, take the root envelope's `data.children` and filter `node_type == "service"`; the `workflow` node (`node_type == "workflow-catalogue"`) is the one non-service child.
+To enumerate only services, take the root envelope's `data.children` and filter `node_type == "service"`; the `extend` node (`node_type == "command-group"`) and the `workflow` node (`node_type == "workflow-catalogue"`) are the non-service children.
 
 ### 27.3 Versioning and forward compatibility
 

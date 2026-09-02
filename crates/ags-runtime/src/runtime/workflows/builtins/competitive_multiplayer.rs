@@ -1,23 +1,24 @@
 //! The `competitive-multiplayer` built-in workflow.
 //!
-//! Chains the six AccelByte operations that stand up competitive
-//! matchmaking with dedicated servers: a skill stat, a match ruleset, a
-//! session template, a match pool, an AMS fleet, and a final update wiring
-//! the session template to the fleet's claim key.
+//! Chains the seven steps that stand up competitive matchmaking with
+//! dedicated servers: a skill stat, a match ruleset, a session template, a
+//! match pool, the server-image upload, an AMS fleet, and a final update
+//! wiring the session template to the fleet's claim key.
 //!
-//! v3 uses a simplified 8-input contract. Resource names are derived from a
-//! single `resourcePrefix` via Format bindings. Player counts are derived
-//! from `playersPerTeam * teamCount` via Arithmetic bindings. The fleet
-//! image is specified by `fleetImageId` alone (no whole-object input).
+//! v4 uses a 10-input contract. Resource names are derived from a single
+//! `resourcePrefix` via Format bindings. Player counts are derived from
+//! `playersPerTeam * teamCount` via Arithmetic bindings. The fleet's image
+//! is produced by the `upload-image` local action rather than supplied as
+//! an id, so the build inputs are paths on disk.
 //! See `docs/private/workflow-protocol.md`.
 
 use ags_protocol::catalogue::{OperationId, ServiceId};
 use ags_protocol::workflow::{
-    ArithmeticOp, ArithmeticOperand, ArithmeticTransform, BindingSource, CompletionResource,
-    CompletionStep, FormatBinding, LiteralBinding, OperationReference, OptionParameterBinding,
-    OptionsSource, ReferenceBinding, ReferenceTarget, StepDefinition, StepInputBinding,
-    TransformKind, WorkflowBriefing, WorkflowCompletion, WorkflowDefinition, WorkflowId,
-    WorkflowInputSpec,
+    ArithmeticOp, ArithmeticOperand, ArithmeticTransform, BindingSource, CaptureSource,
+    CompletionResource, CompletionStep, FormatBinding, LiteralBinding, OperationReference,
+    OptionParameterBinding, OptionsSource, ReferenceBinding, ReferenceTarget, StepDefinition,
+    StepInputBinding, StepKind, StepOutputCapture, TransformKind, WorkflowBriefing,
+    WorkflowCompletion, WorkflowDefinition, WorkflowId, WorkflowInputSpec,
 };
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -76,6 +77,18 @@ fn format_binding(template: &str) -> BindingSource {
     })
 }
 
+/// A `from: step/<id>, output: <name>` reference binding — pipes a captured
+/// step output into a later step's field.
+fn step_ref(step_id: &str, output: &str) -> BindingSource {
+    BindingSource::Reference(ReferenceBinding {
+        from: ReferenceTarget::Step {
+            id: step_id.to_string(),
+        },
+        output: Some(output.to_string()),
+        transform: None,
+    })
+}
+
 /// An Arithmetic binding: `workflow/<input> <op> workflow/<operand_input>`.
 fn arithmetic(input: &str, op: ArithmeticOp, operand_input: &str) -> BindingSource {
     BindingSource::Reference(ReferenceBinding {
@@ -129,6 +142,33 @@ fn bind_visible_with_description(
     }
 }
 
+/// Build one local-action step — runtime-provided work with no catalogued
+/// operation. Uses `kind: local` + `action: <name>`.
+fn local_step(
+    id: &str,
+    description: &str,
+    action: &str,
+    dependencies: Vec<String>,
+    inputs: Vec<StepInputBinding>,
+    outputs: Vec<StepOutputCapture>,
+) -> StepDefinition {
+    StepDefinition {
+        id: id.to_string(),
+        description: Some(description.to_string()),
+        kind: StepKind::Local,
+        action: Some(action.to_string()),
+        operation: None,
+        dependencies,
+        confirm: false,
+        is_optional: false,
+        continue_on_failure: false,
+        skip_if_exists: false,
+        is_reviewed: None,
+        inputs,
+        outputs,
+    }
+}
+
 /// Build one step. `confirm` is always false — these operations are all
 /// non-risky creates and updates.
 fn step(
@@ -142,10 +182,12 @@ fn step(
     StepDefinition {
         id: id.to_string(),
         description: Some(description.to_string()),
-        operation: OperationReference {
+        kind: StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: ServiceId::new(service),
             operation: OperationId::new(operation),
-        },
+        }),
         dependencies,
         confirm: false,
         is_optional: false,
@@ -155,6 +197,15 @@ fn step(
         inputs,
         outputs: vec![],
     }
+}
+
+/// Attach an output capture to an already-built step. Kept separate from
+/// `step()` (rather than adding an `outputs` parameter there) so the one step
+/// in this workflow that captures a response field doesn't force every other
+/// call site to grow a `vec![]` argument.
+fn with_output(mut def: StepDefinition, output: StepOutputCapture) -> StepDefinition {
+    def.outputs.push(output);
+    def
 }
 
 /// Declare a workflow input.
@@ -174,6 +225,7 @@ fn input(
         sensitive: false,
         options_source: None,
         location: ags_protocol::workflow::StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -195,6 +247,7 @@ fn input_with_options(
         sensitive: false,
         options_source: Some(options_source),
         location: ags_protocol::workflow::StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -203,6 +256,7 @@ fn build_definition() -> WorkflowDefinition {
     WorkflowDefinition {
         id: WorkflowId::new("competitive-multiplayer"),
         name: "Set up competitive multiplayer".to_string(),
+        workflow_protocol_version: None,
         intent: Some("matchmaking ranked competitive dedicated servers AMS match pool".to_string()),
         description: Some(
             "Stand up competitive matchmaking with dedicated servers: a skill stat, \
@@ -278,28 +332,30 @@ fn build_definition() -> WorkflowDefinition {
                 Some(json!(2)),
                 json!({"type": "integer", "minimum": 2}),
             ),
-            input_with_options(
-                "fleetImageId",
-                "The UUID of an AMS image. An image is the server build for your game which you must upload using the AMS CLI. If you've already uploaded an image you can find it using `ags ams images list`. If you haven't uploaded an image yet you should exit this workflow and upload it first.",
+            input(
+                "buildPath",
+                "Path to the directory holding your built dedicated server. The whole directory is archived and uploaded to AMS as an image, so it should contain everything the server needs to run.",
                 true,
                 None,
                 json!({"type": "string"}),
-                OptionsSource {
-                    operation: OperationReference {
-                        service: ServiceId::new("ams"),
-                        operation: OperationId::new("ams/admin/images/v1/list"),
-                    },
-                    parameters: BTreeMap::from([(
-                        "namespace".to_string(),
-                        OptionParameterBinding::FromInput("namespace".to_string()),
-                    )]),
-                    items_path: "$.images".into(),
-                    value: "$.id".into(),
-                    label: Some("$.name".into()),
-                    label_detail: None,
-                    fallback_description: None,
-                    filter: None,
-                },
+            ),
+            input(
+                "buildExecutable",
+                "The server executable to run, as a path relative to the build directory. Must be a 64-bit little-endian ELF binary, or a shell script — in which case set --target-architecture too.",
+                true,
+                None,
+                json!({"type": "string"}),
+            ),
+            // Empty means "detect it": a step-bound input with no value is
+            // treated as needing to be gathered regardless of `required`, so a
+            // genuinely optional input has to carry a default to stay optional
+            // under --no-input. The upload step reads empty as unset.
+            input(
+                "targetArchitecture",
+                "Architecture the server was built for. Detected automatically from an ELF binary; required only when the entrypoint is a shell script.",
+                false,
+                Some(json!("")),
+                json!({"type": "string", "enum": ["linux-x86_64", "linux-arm_64"]}),
             ),
             input_with_options(
                 "fleetRegion",
@@ -416,44 +472,69 @@ fn build_definition() -> WorkflowDefinition {
                     bind("data.alliance.player_max_number", workflow_ref("playersPerTeam")),
                 ],
             ),
-            // Step 3 — create the session template.
-            step(
-                "create-session-template",
-                "Creates the session template the matchmaker hands successful matches to. It carries the player slot configuration, joinability, and reconnect policy.",
-                "session",
-                "session/admin/templates/v1/create",
-                vec![],
-                vec![
-                    bind("namespace", workflow_ref("namespace")),
-                    bind("name", format_binding("{resourcePrefix}-session")),
-                    bind("type", literal(json!("DS"))),
-                    // A DS-type session template must name its DS provider or it
-                    // never claims a server. This workflow builds an AMS fleet, so
-                    // the source is AMS; without it the requestedRegions and
-                    // preferredClaimKeys below are inert.
-                    bind("dsSource", literal(json!("AMS"))),
-                    bind_visible("joinability", literal(json!("OPEN"))),
-                    bind("clientVersion", literal(json!("1.0.0"))),
-                    // The session API marks `deployment` required, but it only
-                    // applies when DS type is `custom`. For DS type `DS` (AMS),
-                    // an empty string is accepted and the field is unused. Binding
-                    // it as a hidden literal keeps the form quiet without surfacing
-                    // it to the user as an unset required field.
-                    bind("deployment", literal(json!(""))),
-                    bind(
-                        "minPlayers",
-                        arithmetic("playersPerTeam", ArithmeticOp::Mul, "teamCount"),
+            // Step 3 — create the session template. Wrapped in `with_output`
+            // twice, to capture the joinability and inactiveTimeout this step
+            // actually created (which may be the user's step-review edits, not
+            // their `OPEN`/`60` defaults) so `update-session-template` can
+            // carry the same values forward instead of re-declaring its own
+            // stale defaults.
+            with_output(
+                with_output(
+                    step(
+                        "create-session-template",
+                        "Creates the session template the matchmaker hands successful matches to. It carries the player slot configuration, joinability, and reconnect policy.",
+                        "session",
+                        "session/admin/templates/v1/create",
+                        vec![],
+                        vec![
+                            bind("namespace", workflow_ref("namespace")),
+                            bind("name", format_binding("{resourcePrefix}-session")),
+                            bind("type", literal(json!("DS"))),
+                            // A DS-type session template must name its DS provider or it
+                            // never claims a server. This workflow builds an AMS fleet, so
+                            // the source is AMS; without it the requestedRegions and
+                            // preferredClaimKeys below are inert.
+                            bind("dsSource", literal(json!("AMS"))),
+                            bind_visible("joinability", literal(json!("OPEN"))),
+                            bind("clientVersion", literal(json!("1.0.0"))),
+                            // The session API marks `deployment` required, but it only
+                            // applies when DS type is `custom`. For DS type `DS` (AMS),
+                            // an empty string is accepted and the field is unused. Binding
+                            // it as a hidden literal keeps the form quiet without surfacing
+                            // it to the user as an unset required field.
+                            bind("deployment", literal(json!(""))),
+                            bind(
+                                "minPlayers",
+                                arithmetic("playersPerTeam", ArithmeticOp::Mul, "teamCount"),
+                            ),
+                            bind(
+                                "maxPlayers",
+                                arithmetic("playersPerTeam", ArithmeticOp::Mul, "teamCount"),
+                            ),
+                            bind("inviteTimeout", literal(json!(60))),
+                            bind_visible("inactiveTimeout", literal(json!(60))),
+                            bind("persistent", literal(json!(false))),
+                            bind("textChat", literal(json!(true))),
+                            bind("requestedRegions[0]", workflow_ref("fleetRegion")),
+                        ],
                     ),
-                    bind(
-                        "maxPlayers",
-                        arithmetic("playersPerTeam", ArithmeticOp::Mul, "teamCount"),
-                    ),
-                    bind("inviteTimeout", literal(json!(60))),
-                    bind_visible("inactiveTimeout", literal(json!(60))),
-                    bind("persistent", literal(json!(false))),
-                    bind("textChat", literal(json!(true))),
-                    bind("requestedRegions[0]", workflow_ref("fleetRegion")),
-                ],
+                    StepOutputCapture {
+                        name: "sessionJoinability".to_string(),
+                        source: CaptureSource::ResponseBody {
+                            path: "$.joinability".to_string(),
+                        },
+                        default: Some(json!("OPEN")),
+                        sensitive: false,
+                    },
+                ),
+                StepOutputCapture {
+                    name: "sessionInactiveTimeout".to_string(),
+                    source: CaptureSource::ResponseBody {
+                        path: "$.inactiveTimeout".to_string(),
+                    },
+                    default: Some(json!(60)),
+                    sensitive: false,
+                },
             ),
             // Step 4 — create the match pool referencing the ruleset and
             // session template by their derived names.
@@ -479,15 +560,39 @@ fn build_definition() -> WorkflowDefinition {
                     bind_visible("auto_accept_backfill_proposal", literal(json!(true))),
                 ],
             ),
-            // Step 5 — create the AMS fleet. The image and instance type are
-            // provided by individual inputs; nested-field bindings patch into
-            // the literal object skeletons.
+            // Step 5 — upload the dedicated-server build as an AMS image.
+            // A local-action step: archiving a directory and shipping it
+            // through pre-signed URLs is not a catalogued operation, so the
+            // workflow uses `kind: local` + `action: ams/upload-image`.
+            local_step(
+                "upload-image",
+                "Archives the dedicated-server build and uploads it to AMS as an image, which the fleet below then runs.",
+                "ams/upload-image",
+                vec![],
+                vec![
+                    bind("path", workflow_ref("buildPath")),
+                    bind("executable", workflow_ref("buildExecutable")),
+                    bind("imageName", format_binding("{resourcePrefix}-image")),
+                    bind("targetArchitecture", workflow_ref("targetArchitecture")),
+                ],
+                vec![StepOutputCapture {
+                    name: "imageId".to_string(),
+                    source: CaptureSource::ResponseBody {
+                        path: "$.image_id".to_string(),
+                    },
+                    default: None,
+                    sensitive: false,
+                }],
+            ),
+            // Step 6 — create the AMS fleet. The image comes from the upload
+            // step above; the instance type is an individual input, and
+            // nested-field bindings patch into the literal object skeletons.
             step(
                 "create-ams-fleet",
                 "Spins up the dedicated server fleet that hosts matches, attaching the image and instance type, and registering a claim key for the session template.",
                 "ams",
                 "ams/admin/fleets/v1/create",
-                vec![],
+                vec!["upload-image".to_string()],
                 vec![
                     bind("namespace", workflow_ref("namespace")),
                     bind("name", format_binding("{resourcePrefix}-fleet")),
@@ -532,7 +637,16 @@ fn build_definition() -> WorkflowDefinition {
                         "imageDeploymentProfile.commandLine",
                         literal(json!("-dsid=${dsid} -port=${default_port}")),
                     ),
-                    bind("imageDeploymentProfile.imageId", workflow_ref("fleetImageId")),
+                    bind(
+                        "imageDeploymentProfile.imageId",
+                        BindingSource::Reference(ReferenceBinding {
+                            from: ReferenceTarget::Step {
+                                id: "upload-image".to_string(),
+                            },
+                            output: Some("imageId".to_string()),
+                            transform: None,
+                        }),
+                    ),
                     bind("claimKeys[0]", format_binding("{resourcePrefix}-claim-key")),
                 ],
             ),
@@ -555,7 +669,11 @@ fn build_definition() -> WorkflowDefinition {
                     // the source is AMS; without it the requestedRegions and
                     // preferredClaimKeys below are inert.
                     bind("dsSource", literal(json!("AMS"))),
-                    bind("joinability", literal(json!("OPEN"))),
+                    // Carries forward whatever create-session-template actually
+                    // created (its own default, or the user's step-review edit) —
+                    // this step's PUT is the last write to the template, so a
+                    // hardcoded literal here would silently clobber that edit.
+                    bind("joinability", step_ref("create-session-template", "sessionJoinability")),
                     bind("clientVersion", literal(json!("1.0.0"))),
                     // See step 3 — `deployment` is spec-required but only
                     // meaningful for DS type `custom`. Empty string keeps it
@@ -570,7 +688,12 @@ fn build_definition() -> WorkflowDefinition {
                         arithmetic("playersPerTeam", ArithmeticOp::Mul, "teamCount"),
                     ),
                     bind("inviteTimeout", literal(json!(60))),
-                    bind("inactiveTimeout", literal(json!(60))),
+                    // Carries forward whatever create-session-template actually
+                    // created — same reasoning as `joinability` above.
+                    bind(
+                        "inactiveTimeout",
+                        step_ref("create-session-template", "sessionInactiveTimeout"),
+                    ),
                     bind("persistent", literal(json!(false))),
                     bind("textChat", literal(json!(true))),
                     bind("requestedRegions[0]", workflow_ref("fleetRegion")),
@@ -659,7 +782,7 @@ mod tests {
     }
 
     #[test]
-    fn test_workflow_declares_eight_inputs_four_required() {
+    fn test_workflow_declares_its_inputs_in_order() {
         let wf = CompetitiveMultiplayer::new();
         let inputs = &wf.definition().inputs;
         let names: Vec<&str> = inputs.iter().map(|i| i.name.as_str()).collect();
@@ -669,7 +792,9 @@ mod tests {
                 "namespace",
                 "playersPerTeam",
                 "teamCount",
-                "fleetImageId",
+                "buildPath",
+                "buildExecutable",
+                "targetArchitecture",
                 "fleetRegion",
                 "fleetInstanceId",
                 "statCode",
@@ -685,7 +810,8 @@ mod tests {
             required,
             [
                 "namespace",
-                "fleetImageId",
+                "buildPath",
+                "buildExecutable",
                 "fleetRegion",
                 "fleetInstanceId"
             ]
@@ -698,7 +824,7 @@ mod tests {
         let mut catalogue = Catalogue::new();
         let compiled = compile_workflow(workflow.definition(), &mut catalogue)
             .expect("must compile against the bundled catalogue");
-        assert_eq!(compiled.steps.len(), 6);
+        assert_eq!(compiled.steps.len(), 7);
     }
 
     #[test]
@@ -735,6 +861,9 @@ mod tests {
                 ("create-ruleset".into(), 2),
                 ("create-session-template".into(), 2),
                 ("create-match-pool".into(), 4),
+                // The upload step curates nothing for review: its inputs are
+                // paths supplied up front, not values to reconsider per step.
+                ("upload-image".into(), 0),
                 ("create-ams-fleet".into(), 2),
                 ("update-session-template".into(), 0),
             ]
@@ -746,14 +875,9 @@ mod tests {
         let def = build_definition();
         let by_name: std::collections::BTreeMap<_, _> =
             def.inputs.iter().map(|i| (i.name.as_str(), i)).collect();
-        let img = by_name["fleetImageId"]
-            .options_source
-            .as_ref()
-            .expect("fleetImageId options_source");
-        assert_eq!(img.operation.operation.as_str(), "ams/admin/images/v1/list");
-        assert_eq!(img.items_path, "$.images");
-        assert_eq!(img.value, "$.id");
-        assert_eq!(img.label.as_deref(), Some("$.name"));
+        // The image is produced by the upload step now, so there is no image
+        // picker to declare — the build inputs are plain paths.
+        assert!(by_name["buildPath"].options_source.is_none());
         let inst = by_name["fleetInstanceId"]
             .options_source
             .as_ref()
@@ -778,7 +902,7 @@ mod tests {
         assert_eq!(region.items_path, "$.regions");
         assert_eq!(region.value, "$");
         assert_eq!(region.label, None);
-        // Required with no default, matching the fleetImageId / fleetInstanceId pickers.
+        // Required with no default, matching the fleetInstanceId picker.
         assert_eq!(by_name["fleetRegion"].default, None);
         assert!(by_name["fleetRegion"].required);
     }
@@ -800,6 +924,195 @@ mod tests {
                 "step '{}' has unbound required fields: {unbound:?}",
                 step.id
             );
+        }
+    }
+
+    /// End-to-end regression coverage for the `joinability`/`inactiveTimeout`
+    /// propagation bug: a step-review edit to either field at
+    /// `create-session-template` must survive `update-session-template`'s
+    /// later full `PUT` on the same session template, not get clobbered back
+    /// to a hardcoded default. This exercises the executor against this
+    /// workflow's *actual* definition (not a synthetic fixture), since the bug
+    /// was in this workflow's wiring, not in the executor's generic mechanism
+    /// — a synthetic fixture would have nothing to get wired wrong.
+    mod session_template_field_propagation {
+        use super::*;
+        use crate::runtime::dispatch::http::{HttpBody, HttpClient, HttpRequest, HttpResponse};
+        use crate::runtime::workflows::executor::{Executor, RunContext};
+        use crate::runtime::workflows::RunOptions;
+        use ags_protocol::error::RuntimeError;
+        use ags_protocol::workflow::{
+            CompiledStep, GatherResult, RunOutcome, StepConfirmOutcome, StepFieldEdits,
+            StepFieldPlan, StepPreview, StepReviewOutcome, SuppliedInputView, WorkflowFrontend,
+            WorkflowInputNeeded,
+        };
+        use async_trait::async_trait;
+        use std::collections::BTreeMap;
+        use std::sync::{Arc, Mutex};
+
+        fn ok_json(body: &str) -> Result<HttpResponse, RuntimeError> {
+            Ok(HttpResponse {
+                status: 200,
+                body: HttpBody::Text(body.to_string()),
+            })
+        }
+
+        /// Records each dispatched request's body (in order), so the test can
+        /// inspect what every step actually sent — not just the canned
+        /// responses fed back to the executor.
+        struct BodyRecordingQueuedClient {
+            responses: Arc<Mutex<Vec<Result<HttpResponse, RuntimeError>>>>,
+            bodies: Arc<Mutex<Vec<Option<serde_json::Value>>>>,
+        }
+
+        impl BodyRecordingQueuedClient {
+            fn new(responses: Vec<Result<HttpResponse, RuntimeError>>) -> Self {
+                Self {
+                    responses: Arc::new(Mutex::new(responses)),
+                    bodies: Arc::new(Mutex::new(Vec::new())),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl HttpClient for BodyRecordingQueuedClient {
+            async fn send(&self, request: HttpRequest) -> Result<HttpResponse, RuntimeError> {
+                let body = match request.body.clone() {
+                    Some(ags_protocol::request::RequestBody::Json(v)) => Some(v),
+                    Some(ags_protocol::request::RequestBody::Multipart(_)) => {
+                        panic!("expected a JSON body")
+                    }
+                    None => None,
+                };
+                // nosemgrep -- test-only mock; a poisoned mutex in a test must panic
+                self.bodies.lock().unwrap().push(body);
+                // nosemgrep -- test-only mock; a poisoned mutex in a test must panic
+                self.responses.lock().unwrap().remove(0)
+            }
+        }
+
+        /// Reviews every step with no edits, except it edits `joinability` and
+        /// `inactiveTimeout` at the `create-session-template` step — as if a
+        /// user changed both fields in the step-review form.
+        struct SessionTemplateEditFrontend;
+
+        impl WorkflowFrontend for SessionTemplateEditFrontend {
+            fn gather_workflow_inputs(
+                &mut self,
+                _needed: &[WorkflowInputNeeded],
+                _step_context: &CompiledStep,
+                _supplied: &[SuppliedInputView],
+            ) -> Result<GatherResult, RuntimeError> {
+                Ok(GatherResult::default())
+            }
+
+            fn confirm_step(
+                &mut self,
+                _step: &CompiledStep,
+                _preview: &StepPreview,
+            ) -> Result<StepConfirmOutcome, RuntimeError> {
+                Ok(StepConfirmOutcome::Proceed)
+            }
+
+            fn review_step(
+                &mut self,
+                plan: &StepFieldPlan,
+            ) -> Result<StepReviewOutcome, RuntimeError> {
+                let mut edits = StepFieldEdits::default();
+                if plan.step_label == "create-session-template" {
+                    let mut edit = |field: &str, value: serde_json::Value| {
+                        if let Some(f) = plan.fields.iter().find(|f| f.field == field) {
+                            edits.values.insert(f.id, value);
+                        }
+                    };
+                    edit("joinability", serde_json::json!("FRIENDS_OF_FRIENDS"));
+                    edit("inactiveTimeout", serde_json::json!(120));
+                }
+                Ok(StepReviewOutcome::Proceed(edits))
+            }
+        }
+
+        #[tokio::test]
+        async fn test_session_template_edits_at_create_reach_update_session_template() {
+            let wf = CompetitiveMultiplayer::new();
+            let mut catalogue = Catalogue::new();
+            let compiled = compile_workflow(wf.definition(), &mut catalogue)
+                .expect("competitive-multiplayer must compile against the bundled catalogue");
+
+            let responses = vec![
+                ok_json(r#"{}"#), // 0: create-stat
+                ok_json(r#"{}"#), // 1: create-ruleset
+                // 2: create-session-template — the real session API's create
+                // response echoes the created resource, including
+                // `joinability` and `inactiveTimeout` (confirmed against
+                // `apimodels.ConfigurationTemplateResponse` in the bundled
+                // session spec); this is what the executor's output captures
+                // read back.
+                ok_json(r#"{"joinability": "FRIENDS_OF_FRIENDS", "inactiveTimeout": 120}"#),
+                ok_json(r#"{}"#), // 3: create-match-pool
+                ok_json(r#"{}"#), // 4: create-ams-fleet
+                ok_json(r#"{}"#), // 5: update-session-template
+            ];
+            let client = BodyRecordingQueuedClient::new(responses);
+            let bodies = client.bodies.clone();
+
+            // The local upload step bypasses the injected `HttpClient` seam,
+            // so it needs real endpoints to talk to even though this test is
+            // about step-review propagation rather than the upload itself.
+            let (ams, build) =
+                crate::runtime::workflows::tests::builtin_workflow_e2e::stub_ams_upload().await;
+            let mut runtime = crate::runtime::Runtime::new(
+                crate::runtime::execution::ExecutionContext {
+                    base_url: ams.uri(),
+                    ..Default::default()
+                },
+                Box::new(client),
+                reqwest::Client::new(),
+            );
+
+            let mut frontend = SessionTemplateEditFrontend;
+            let options = RunOptions {
+                review_steps: true,
+                ..Default::default()
+            };
+            let mut run_context = RunContext::new(&mut runtime, &options);
+
+            let mut pre_supplied = BTreeMap::new();
+            pre_supplied.insert("namespace".to_string(), serde_json::json!("dev"));
+            pre_supplied.insert(
+                "buildPath".to_string(),
+                serde_json::json!(build.path().to_str().unwrap()),
+            );
+            pre_supplied.insert("buildExecutable".to_string(), serde_json::json!("server"));
+            pre_supplied.insert("fleetRegion".to_string(), serde_json::json!("us-west-2"));
+            pre_supplied.insert("fleetInstanceId".to_string(), serde_json::json!("c3.large"));
+
+            let (outcome, _final_output, pending) =
+                Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                    .await
+                    .unwrap();
+            assert_eq!(outcome, RunOutcome::Success, "pending={pending:?}");
+
+            let bodies = bodies.lock().unwrap();
+            // Six of the seven steps dispatch through the HTTP client; the
+            // seventh is the local upload, which does not.
+            assert_eq!(bodies.len(), 6, "all 6 API steps must have dispatched");
+            for (field, expected) in [
+                ("joinability", serde_json::json!("FRIENDS_OF_FRIENDS")),
+                ("inactiveTimeout", serde_json::json!(120)),
+            ] {
+                assert_eq!(
+                    bodies[2].as_ref().and_then(|b| b.get(field)),
+                    Some(&expected),
+                    "create-session-template must send the reviewed edit for '{field}'"
+                );
+                assert_eq!(
+                    bodies[5].as_ref().and_then(|b| b.get(field)),
+                    Some(&expected),
+                    "update-session-template must carry '{field}' forward, \
+                     not silently revert to its own hardcoded default"
+                );
+            }
         }
     }
 }

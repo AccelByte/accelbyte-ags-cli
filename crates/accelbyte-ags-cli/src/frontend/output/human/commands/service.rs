@@ -69,10 +69,9 @@ pub(crate) fn render_dry_run_output(
         lines.push(dim(format!("{key}: {value}")));
     }
     if let Some(body) = &request_view.body {
-        let pretty = serde_json::to_string_pretty(body)
-            .expect("serializing serde_json::Value is infallible");
+        let rendered = service_presenter::render_dry_run_body(body);
         lines.push(dim("Body:".into()));
-        for body_line in pretty.lines() {
+        for body_line in rendered.lines() {
             lines.push(dim(body_line.to_string()));
         }
     }
@@ -398,7 +397,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 

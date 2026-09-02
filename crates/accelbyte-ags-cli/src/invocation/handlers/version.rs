@@ -12,6 +12,7 @@ pub fn handle_version(
 ) -> Result<(), CliError> {
     let output = CommandOutput::Version(VersionOutput {
         version: env!("CARGO_PKG_VERSION").to_string(),
+        workflow_protocol_version: ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION.to_string(),
     });
     frontend.render(&output)
 }

@@ -24,6 +24,7 @@ use crate::frontend::RenderOptions;
 use super::layout;
 use super::nav;
 use super::phases::enum_picker::EnumPickerModal;
+use super::phases::file_picker::FilePickerModal;
 use super::phases::{self, Phase};
 use super::step_strip::{self, HeaderKind, Step};
 use super::summary::{self, SummaryEntry};
@@ -62,6 +63,10 @@ pub struct FullscreenSurface {
     pub(crate) options_loading: Option<String>,
     /// When `Some`, an open dynamic-enum picker drawn as a centered overlay.
     pub(crate) enum_picker: Option<EnumPickerModal>,
+    /// When `Some`, an open file-picker drawn as a centered overlay — same
+    /// z-order convention as `enum_picker` (only one of the two is ever set
+    /// at a time, since only one field's modal can be open).
+    pub(crate) file_picker: Option<FilePickerModal>,
     /// Terminal size used by `terminal_area()` when no live terminal is attached
     /// (headless tests) or `Terminal::size()` errors. `Rc<Cell<_>>` so tests can
     /// mutate the reported size mid-loop via `area_override_handle()`.
@@ -119,6 +124,7 @@ impl FullscreenSurface {
             workflow_description: None,
             options_loading: None,
             enum_picker: None,
+            file_picker: None,
             area_override: Rc::new(Cell::new(Rect::new(0, 0, 80, 24))),
         }
     }
@@ -252,6 +258,11 @@ impl FullscreenSurface {
         if let Some(modal) = &mut self.enum_picker {
             modal.render(frame, area);
         }
+        // A file picker, when open, draws on top of everything as a centered
+        // modal — same convention as the enum-picker overlay above.
+        if let Some(modal) = &mut self.file_picker {
+            modal.render(frame, area);
+        }
     }
 
     /// Set the state of the leading Inputs row, if present. Used by Phase 1.
@@ -378,6 +389,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         )
         .with_submit_focusable(true)
@@ -426,6 +438,26 @@ mod tests {
             "modal title drawn over the frame: {buf}"
         );
         assert!(buf.contains("Filter:"), "modal filter line drawn: {buf}");
+    }
+
+    #[test]
+    fn test_file_picker_overlay_renders_over_fields() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let mut surface = surface_with(Phase::Fields(FieldsPanel {
+            step_number: 1,
+            step_name: "Define".into(),
+            description: String::new(),
+            form: one_field_form(),
+            optional: false,
+        }));
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.png"), b"").unwrap();
+        surface.file_picker = Some(
+            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap(),
+        );
+        let buf = render_to_string(&mut surface, 80, 24);
+        assert!(buf.contains("Select icon-file"), "modal title drawn: {buf}");
+        assert!(buf.contains("icon.png"), "entry drawn: {buf}");
     }
 
     #[test]

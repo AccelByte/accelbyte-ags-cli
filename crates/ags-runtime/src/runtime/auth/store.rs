@@ -118,6 +118,9 @@ pub struct TokenData {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[zeroize(skip)]
     pub grant_type: Option<ags_protocol::request::GrantType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[zeroize(skip)]
+    pub client_id: Option<String>,
 }
 
 // ── Client secret storage (keychain first, file fallback) ──
@@ -607,6 +610,7 @@ mod tests {
             refresh_token: None,
             refresh_expires_at: None,
             grant_type: None,
+            client_id: None,
         };
         store_token_data("default", &token).unwrap();
 
@@ -681,12 +685,65 @@ mod tests {
             refresh_token: Some("refresh-abc".to_string()),
             refresh_expires_at: Some(9_999_999_999),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         };
         store_token_data("default", &token).unwrap();
 
         let read = get_token_data("default").unwrap().expect("token stored");
         assert_eq!(read.refresh_token.as_deref(), Some("refresh-abc"));
         assert_eq!(read.access_token, "access-xyz");
+
+        std::env::remove_var(crate::runtime::config::ENV_HOME);
+        std::env::remove_var(crate::runtime::config::ENV_NO_KEYCHAIN);
+    }
+
+    /// The file fallback round-trips the minting client id intact, so a later
+    /// read can tell which client the cached token belongs to.
+    #[test]
+    #[serial_test::serial]
+    fn test_store_then_get_round_trips_client_id_via_file_fallback() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var(crate::runtime::config::ENV_HOME, tmp.path());
+        std::env::set_var(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+
+        let token = TokenData {
+            access_token: "access-xyz".to_string(),
+            expires_at: 9_999_999_999,
+            refresh_token: None,
+            refresh_expires_at: None,
+            grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+            client_id: Some("client-abc".to_string()),
+        };
+        store_token_data("default", &token).unwrap();
+
+        let read = get_token_data("default").unwrap().expect("token stored");
+        assert_eq!(read.client_id.as_deref(), Some("client-abc"));
+
+        std::env::remove_var(crate::runtime::config::ENV_HOME);
+        std::env::remove_var(crate::runtime::config::ENV_NO_KEYCHAIN);
+    }
+
+    /// A token.json written before this field existed (no `client_id` key)
+    /// deserializes with `client_id: None` — backward compatible.
+    #[test]
+    #[serial_test::serial]
+    fn test_get_token_data_defaults_missing_client_id_to_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var(crate::runtime::config::ENV_HOME, tmp.path());
+        std::env::set_var(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+
+        let dir = crate::runtime::config::profile_dir("default").unwrap();
+        std::fs::create_dir_all(&dir).unwrap();
+        // Legacy JSON with no `client_id` key.
+        std::fs::write(
+            dir.join("token.json"),
+            r#"{"access_token":"legacy","expires_at":9999999999}"#,
+        )
+        .unwrap();
+
+        let read = get_token_data("default").unwrap().expect("token stored");
+        assert_eq!(read.access_token, "legacy");
+        assert_eq!(read.client_id, None);
 
         std::env::remove_var(crate::runtime::config::ENV_HOME);
         std::env::remove_var(crate::runtime::config::ENV_NO_KEYCHAIN);

@@ -5,6 +5,43 @@ use std::fs;
 use crate::runtime::config;
 use crate::support::file_system::{TEMP_FILE_PREFIX, TEMP_FILE_STALE_AGE};
 
+/// Remove stale `ags-ams-upload-*` staging directories from the system temp
+/// directory.
+///
+/// The upload pipeline's staging directory is `Drop`-cleaned on both the
+/// success and the error path, but `Drop` does not run when the process is
+/// terminated by a signal — a Ctrl-C'd upload leaves its archive behind, and an
+/// image archive is large enough to matter. This sweep is the backstop.
+pub(crate) fn cleanup_stale_upload_dirs() {
+    let temp_dir = std::env::temp_dir();
+    let Ok(entries) = fs::read_dir(&temp_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(crate::runtime::ams_upload::TEMP_DIR_PREFIX)
+        {
+            continue;
+        }
+        let Ok(metadata) = entry.metadata() else {
+            continue;
+        };
+        if !metadata.is_dir() {
+            continue;
+        }
+        let is_stale = metadata
+            .modified()
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .is_some_and(|age| age >= TEMP_FILE_STALE_AGE);
+        if is_stale {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 /// Remove stale `.ags-tmp-*` files from config, cache, and profile directories.
 pub(crate) fn cleanup_stale_temp_files() {
     if let Ok(config_dir) = config::config_dir() {
@@ -153,5 +190,75 @@ mod tests {
 
         std::env::remove_var(config::ENV_HOME);
         assert!(profile.join(".ags-tmp-live").exists());
+    }
+}
+
+#[cfg(test)]
+mod upload_dir_tests {
+    use super::*;
+    use filetime::{set_file_mtime, FileTime};
+    use std::time::Duration;
+
+    /// The variables `std::env::temp_dir()` actually reads: `TMPDIR` on unix,
+    /// but `GetTempPath2`'s `TMP`/`TEMP` on Windows, where `TMPDIR` is ignored.
+    #[cfg(not(windows))]
+    const TEMP_DIR_VARS: &[&str] = &["TMPDIR"];
+    #[cfg(windows)]
+    const TEMP_DIR_VARS: &[&str] = &["TMP", "TEMP"];
+
+    /// Age a directory past the stale threshold.
+    fn mark_stale(path: &std::path::Path) {
+        let stale = std::time::SystemTime::now() - TEMP_FILE_STALE_AGE - Duration::from_secs(1);
+        set_file_mtime(path, FileTime::from_system_time(stale)).unwrap();
+    }
+
+    /// A staging directory left behind by a signal-killed upload is reclaimed
+    /// once it is stale; a fresh one (a concurrent upload) is left alone.
+    #[test]
+    #[serial_test::serial]
+    fn test_stale_upload_dirs_are_removed_and_fresh_ones_kept() {
+        let temp_root = tempfile::tempdir().unwrap();
+        let originals: Vec<_> = TEMP_DIR_VARS
+            .iter()
+            .map(|key| (*key, std::env::var_os(key)))
+            .collect();
+        for key in TEMP_DIR_VARS {
+            std::env::set_var(key, temp_root.path());
+        }
+
+        let stale = temp_root.path().join(format!(
+            "{}stale",
+            crate::runtime::ams_upload::TEMP_DIR_PREFIX
+        ));
+        let fresh = temp_root.path().join(format!(
+            "{}fresh",
+            crate::runtime::ams_upload::TEMP_DIR_PREFIX
+        ));
+        let unrelated = temp_root.path().join("someone-elses-dir");
+        for dir in [&stale, &fresh, &unrelated] {
+            std::fs::create_dir(dir).unwrap();
+            std::fs::write(dir.join("image.tar.gz"), b"archive").unwrap();
+        }
+        mark_stale(&stale);
+        mark_stale(&unrelated);
+
+        cleanup_stale_upload_dirs();
+
+        assert!(
+            !stale.exists(),
+            "a stale staging directory must be reclaimed"
+        );
+        assert!(
+            fresh.exists(),
+            "a fresh staging directory is an active upload"
+        );
+        assert!(unrelated.exists(), "only our own prefix is swept");
+
+        for (key, original) in originals {
+            match original {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
     }
 }

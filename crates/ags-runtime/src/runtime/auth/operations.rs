@@ -177,6 +177,7 @@ pub async fn login_with_client_credentials(
         &token_result,
         ags_protocol::request::GrantType::ClientCredentials,
         unix_now(),
+        &request.client_id,
     );
 
     persist_login(
@@ -236,7 +237,10 @@ pub async fn login_with_authorization_code(
         &token_result,
         ags_protocol::request::GrantType::AuthorizationCode,
         unix_now(),
+        &request.client_id,
     );
+    // Captured before `token_data` moves into `persist_login` below.
+    let access_token = token_data.access_token.clone();
 
     persist_login(
         &request.profile,
@@ -247,6 +251,18 @@ pub async fn login_with_authorization_code(
         sink,
     )
     .await?;
+
+    // Merge this install's pre-login anonymous person into the real user,
+    // exactly once per install. Authorization-code only: its `sub` is a real
+    // IAM user id, unlike a client-credentials `sub` (an IAM Client id — see
+    // `login_with_client_credentials`, which deliberately never calls this).
+    // Fire-and-forget and bounded (`EMIT_FLUSH_TIMEOUT`); never changes this
+    // function's return value.
+    if let Some(sub) = crate::runtime::telemetry::decode_sub(&access_token) {
+        let email = crate::runtime::telemetry::read_cached_email(&request.profile, &access_token);
+        crate::runtime::telemetry::emit_identity_merge(&request.profile, &sub, email.as_deref())
+            .await;
+    }
 
     Ok(LoginOutcome {
         kind: LoginOutcomeKind::LoggedIn,
@@ -282,6 +298,9 @@ pub async fn logout_profile(profile: &str) -> Result<LogoutOutcome, RuntimeError
         profile_config.client_id = None;
         Ok(())
     })?;
+    // The cached email was fetched for the token just cleared above; drop it
+    // so a future login re-fetches rather than silently reusing a stale value.
+    crate::runtime::telemetry::clear_cached_email(profile);
 
     Ok(LogoutOutcome {
         had_client_id,
@@ -305,6 +324,7 @@ pub async fn logout_all_profiles() -> Result<LogoutAllOutcome, RuntimeError> {
             profile_config.client_id = None;
             Ok(())
         });
+        crate::runtime::telemetry::clear_cached_email(name);
         cleared.push(name.clone());
     }
 
@@ -432,7 +452,10 @@ fn stored_identity_matches(
         }
     }
     if let Some(stored) = config.client_id.as_deref() {
-        if stored != requested_client_id {
+        // Normalised compare (shared helper) so the same client in a different
+        // casing/hyphenation is recognised as a match, consistent with the
+        // token-binding checks. base_url stays an exact compare.
+        if !crate::runtime::config::client_ids_match(stored, requested_client_id) {
             return false;
         }
     }
@@ -445,12 +468,22 @@ fn stored_identity_matches(
 /// fresh login — the refresh-token branch that previously lived in
 /// `check_already_authenticated` moved to `session::try_refresh_stored_session`,
 /// invoked via `probe_existing_session`.
-fn existing_access_token_still_valid(profile: &str) -> Option<String> {
+fn existing_access_token_still_valid(profile: &str, expected_client_id: &str) -> Option<String> {
     use crate::support::unix_now;
 
     let token_data = store::get_token_data(profile).ok()??;
-    let now = unix_now();
 
+    // A token minted by a different client is not a usable session for this
+    // login, regardless of freshness — force a fresh flow. Compared via the
+    // shared normalised helper so a casing/hyphenation difference for the same
+    // client is not treated as a mismatch (matches session::client_matches).
+    if let Some(stored) = token_data.client_id.as_deref() {
+        if !crate::runtime::config::client_ids_match(stored, expected_client_id) {
+            return None;
+        }
+    }
+
+    let now = unix_now();
     if now + session::TOKEN_EXPIRY_BUFFER_SECS < token_data.expires_at {
         let remaining = token_data.expires_at - now;
         return Some(format!(
@@ -494,7 +527,7 @@ pub async fn probe_existing_session(
         return Ok(None);
     }
 
-    if let Some(tip) = existing_access_token_still_valid(profile) {
+    if let Some(tip) = existing_access_token_still_valid(profile, &client_id) {
         return Ok(Some(LoginOutcome {
             kind: LoginOutcomeKind::AlreadyAuthenticated { tip },
             base_url,
@@ -504,7 +537,14 @@ pub async fn probe_existing_session(
         }));
     }
 
-    match session::try_refresh_stored_session(client, profile, session::RefreshMode::Probe).await? {
+    match session::try_refresh_stored_session(
+        client,
+        profile,
+        session::RefreshMode::Probe,
+        Some(&client_id),
+    )
+    .await?
+    {
         session::RefreshOutcome::Refreshed {
             expires_in_secs, ..
         } => Ok(Some(LoginOutcome {
@@ -663,8 +703,12 @@ pub async fn refresh_profile(
             sink.on_event(ProgressEvent::Message { text: warning });
         }
         let expires_in = result.expires_in;
-        let token_data =
-            tokens::token_result_to_token_data(&result, GrantType::ClientCredentials, unix_now());
+        let token_data = tokens::token_result_to_token_data(
+            &result,
+            GrantType::ClientCredentials,
+            unix_now(),
+            &client_id,
+        );
         persist_login(
             profile,
             &base_url,
@@ -697,9 +741,13 @@ pub async fn refresh_profile(
         sink.on_event(ProgressEvent::Started {
             message: "Refreshing token (authorization code)...".to_string(),
         });
-        let outcome =
-            session::try_refresh_stored_session(client, profile, session::RefreshMode::Force)
-                .await?;
+        let outcome = session::try_refresh_stored_session(
+            client,
+            profile,
+            session::RefreshMode::Force,
+            Some(&client_id),
+        )
+        .await?;
         sink.on_event(ProgressEvent::Finished);
 
         return match outcome {
@@ -734,6 +782,13 @@ pub async fn refresh_profile(
                     RuntimeError::from(AuthError::RefreshTokenExpired)
                 }
                 session::UnavailableReason::NoStoredToken => nothing_to_refresh_error(),
+                session::UnavailableReason::ClientMismatch { stored_client_id } => {
+                    RuntimeError::from(AuthError::StoredSessionClientMismatch {
+                        profile: profile.to_string(),
+                        stored_client_id,
+                        current_client_id: client_id.clone(),
+                    })
+                }
             }),
         };
     }
@@ -824,6 +879,7 @@ mod refresh_tests {
                 refresh_token: None,
                 refresh_expires_at: None,
                 grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: None,
             },
         )
         .unwrap();
@@ -891,6 +947,7 @@ mod refresh_tests {
                 refresh_token: Some("rt".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -955,6 +1012,7 @@ mod refresh_tests {
                 refresh_token: Some("rt".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1009,6 +1067,156 @@ mod refresh_tests {
             err.message.to_lowercase().contains("refresh")
                 || err.message.to_lowercase().contains("authenticate")
         );
+    }
+
+    /// `ags auth refresh` on an authorization-code profile whose stored token was
+    /// minted by a different client refuses with a clear mismatch error rather than
+    /// refreshing another client's token.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_refresh_errors_on_client_mismatch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+        // Clears AGS_ACCESS_TOKEN (else refresh_profile early-returns) + client
+        // id/secret + base URL so ProfileConfig drives resolution.
+        let _env = clear_cred_env();
+
+        // Local mock: the token endpoint must NOT be hit. Before the fix (the
+        // caller passes None), the mismatch is undetected and Force mode would
+        // attempt a refresh grant against base_url — pointing that at a MockServer
+        // with .expect(0) makes the red step fail deterministically and locally,
+        // with no external DNS/network dependency. After the fix the guard returns
+        // ClientMismatch first, so the endpoint stays untouched.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(0)
+            .mount(&server)
+            .await;
+
+        // Current client B, authorization-code grant, no secret.
+        ProfileConfig {
+            base_url: Some(server.uri()),
+            client_id: Some("client-B".to_string()),
+            grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            "default",
+            &TokenData {
+                access_token: "stale".to_string(),
+                expires_at: now.saturating_sub(60), // stale → Force will try to refresh
+                refresh_token: Some("rt".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: Some("client-A".to_string()),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let err = refresh_profile(&client, "default", &mut NullSink)
+            .await
+            .unwrap_err();
+        assert!(
+            err.message.contains("different client"),
+            "unexpected message: {}",
+            err.message
+        );
+    }
+
+    /// `login_with_client_credentials` stamps the minting client onto the stored
+    /// token end-to-end (through `persist_login`), not only inside the pure
+    /// converter. Guards the call site at `login_with_client_credentials` against
+    /// a future refactor silently dropping the `client_id` argument.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_login_with_client_credentials_stamps_client_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+        let _env = clear_cred_env();
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .and(body_string_contains("grant_type=client_credentials"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"cc-access","expires_in":3600,"token_type":"Bearer"}"#,
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let mut sink = NullSink;
+        login_with_client_credentials(
+            &reqwest::Client::new(),
+            ClientCredentialsLogin {
+                profile: "default".to_string(),
+                base_url: server.uri(),
+                client_id: "login-client-cc".to_string(),
+                client_secret: "sekret".to_string(),
+            },
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        let stored = store::get_token_data("default")
+            .unwrap()
+            .expect("token stored");
+        assert_eq!(stored.client_id.as_deref(), Some("login-client-cc"));
+        assert_eq!(stored.access_token, "cc-access");
+    }
+
+    /// `login_with_authorization_code` likewise stamps the minting client — a
+    /// distinct call site from the client-credentials path, so a copy-paste drop
+    /// at one is not masked by the other.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_login_with_authorization_code_stamps_client_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+        let _env = clear_cred_env();
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .and(body_string_contains("grant_type=authorization_code"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"ac-access","expires_in":3600,"token_type":"Bearer","refresh_token":"rt","refresh_expires_in":7200}"#,
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let mut sink = NullSink;
+        login_with_authorization_code(
+            &reqwest::Client::new(),
+            AuthorizationCodeLogin {
+                profile: "default".to_string(),
+                base_url: server.uri(),
+                client_id: "login-client-ac".to_string(),
+                code: "auth-code".to_string(),
+                code_verifier: "verifier".to_string(),
+            },
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        let stored = store::get_token_data("default")
+            .unwrap()
+            .expect("token stored");
+        assert_eq!(stored.client_id.as_deref(), Some("login-client-ac"));
+        assert_eq!(stored.access_token, "ac-access");
     }
 }
 
@@ -1153,6 +1361,7 @@ mod probe_tests {
                 refresh_token: Some("rt".to_string()),
                 refresh_expires_at: Some(now + 7200),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1223,6 +1432,7 @@ mod probe_tests {
                 refresh_token: Some("valid-rt".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1296,6 +1506,7 @@ mod probe_tests {
                 refresh_token: Some("dead-rt".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1355,6 +1566,7 @@ mod probe_tests {
                 refresh_token: None,
                 refresh_expires_at: None,
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1418,6 +1630,7 @@ mod probe_tests {
                 refresh_token: Some("dead-rt".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1469,6 +1682,7 @@ mod probe_tests {
                 refresh_token: Some("rt".to_string()),
                 refresh_expires_at: Some(now + 7200),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1519,6 +1733,7 @@ mod probe_tests {
                 refresh_token: Some("rt".to_string()),
                 refresh_expires_at: Some(now + 7200),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         )
         .unwrap();
@@ -1539,6 +1754,103 @@ mod probe_tests {
         assert!(
             outcome.is_none(),
             "expected None when client_id differs, got {outcome:?}"
+        );
+    }
+
+    /// Reproduces the reported CI regression: credentials come from env vars, so
+    /// ProfileConfig is empty (the config-identity gate is a no-op), and a fresh
+    /// token minted by a DIFFERENT client sits in the shared store. The probe must
+    /// NOT report AlreadyAuthenticated — it returns Ok(None) so a fresh login runs.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_ignores_fresh_token_from_other_client() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        // Empty ProfileConfig (env-cred style) → stored_identity_matches is a no-op.
+        let now = crate::support::test_helpers::now_secs();
+        store::store_token_data(
+            "default",
+            &store::TokenData {
+                access_token: "fresh-A".to_string(),
+                expires_at: now + 3600,
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("client-A".to_string()),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            "default",
+            "https://unused.invalid".to_string(),
+            "client-B".to_string(),
+            "client credentials",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            outcome.is_none(),
+            "expected fresh flow (None), got {outcome:?}"
+        );
+    }
+
+    /// The stored token's client_id differs from the requested one only by
+    /// casing/hyphenation — the SAME IAM client. The probe must recognise the
+    /// existing valid session (AlreadyAuthenticated), not force a fresh login.
+    /// Regression guard that the login probe uses the normalised comparison too.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_reuses_fresh_token_when_client_matches_after_normalisation() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        // Empty ProfileConfig (env-cred style) → stored_identity_matches is a no-op,
+        // so the token-minting-identity check is what's under test here.
+        let now = crate::support::test_helpers::now_secs();
+        store::store_token_data(
+            "default",
+            &store::TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("D39A8BB1-04E5-45A7-A4B1-EF6EC3D55A3C".to_string()),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let mut sink = CapturingSink::default();
+        let outcome = probe_existing_session(
+            &client,
+            "default",
+            "https://unused.invalid".to_string(),
+            "d39a8bb104e545a7a4b1ef6ec3d55a3c".to_string(),
+            "client credentials",
+            &mut sink,
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            matches!(
+                outcome,
+                Some(LoginOutcome {
+                    kind: LoginOutcomeKind::AlreadyAuthenticated { .. },
+                    ..
+                })
+            ),
+            "expected AlreadyAuthenticated (same client, different format), got {outcome:?}"
         );
     }
 }

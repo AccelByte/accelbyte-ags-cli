@@ -9,7 +9,10 @@ use ratatui::layout::Rect;
 /// Non-list rows the modal frame consumes: top + bottom border, top + bottom
 /// inner padding, the filter line, a spacer below the filter, and a spacer above
 /// the footer, plus the footer itself (2 + 2 + 1 + 1 + 1 + 1 = 8).
-const CHROME_ROWS: u16 = 8;
+///
+/// `pub(super)`: `FilePickerModal` derives its own chrome from this constant
+/// rather than duplicating the number.
+pub(super) const CHROME_ROWS: u16 = 8;
 const MIN_MODAL_WIDTH: u16 = 24;
 const MIN_MODAL_HEIGHT: u16 = CHROME_ROWS + 1; // at least one list row
 const MAX_MODAL_WIDTH: u16 = 96;
@@ -149,8 +152,10 @@ impl EnumPickerModal {
         use ratatui::text::{Line, Span};
         use ratatui::widgets::{
             Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar,
-            ScrollbarOrientation, ScrollbarState,
+            ScrollbarOrientation,
         };
+
+        use crate::frontend::terminal::scrollbar::scrollbar_state;
 
         let Some(layout) = self.layout(area) else {
             return; // too small — caller has already fallen back; draw nothing.
@@ -221,10 +226,8 @@ impl EnumPickerModal {
         // size (not the selected index), so the thumb is a continuous block sized
         // to the viewport and only moves when the list actually scrolls.
         let visible = list_row.height as usize;
-        if self.list.filtered.len() > visible {
-            let mut sb = ScrollbarState::new(self.list.filtered.len())
-                .position(self.list.list_state.offset())
-                .viewport_content_length(visible);
+        let total = self.list.filtered.len();
+        if let Some(mut sb) = scrollbar_state(total, visible, self.list.list_state.offset()) {
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(None)

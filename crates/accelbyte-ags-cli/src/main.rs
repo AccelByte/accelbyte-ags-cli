@@ -21,7 +21,19 @@ fn main() {
         }
     };
 
+    // Install the rustls crypto provider before any TLS work can begin.
+    // Both `ring` and `aws-lc-rs` features are resolved in the dependency
+    // graph, so auto-detection fails; without this every outbound TLS
+    // connection panics.
+    invocation::ensure_crypto_provider();
+
     runtime.block_on(async {
+        // Installed inside the runtime (it spawns a task) and before `run` is
+        // awaited, so a Ctrl-C at any point during the command is reported as
+        // a cancelled run instead of a silent kill. Unconditional: signal
+        // handling must not vary with whether telemetry is enabled.
+        invocation::spawn_interrupt_handler();
+
         if let Err(e) = invocation::run().await {
             // Bare-stderr escape hatch: reached only when the Frontend could not
             // be initialised (e.g. `frontend::frontend_for_surface` failed), so

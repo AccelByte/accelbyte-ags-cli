@@ -47,6 +47,7 @@ pub fn build_form_fields(
             schema: slot.schema.clone(),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         });
     }
     for sup in supplied {
@@ -71,6 +72,7 @@ pub fn build_form_fields(
             schema: sup.schema.clone(),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         });
     }
     fields
@@ -79,11 +81,16 @@ pub fn build_form_fields(
 /// Build the Phase-1 inputs form: one field per declared workflow input.
 /// Required inputs stay `required: true` even when prefilled (so clearing one
 /// re-blocks submit); optional inputs are prefilled with their current value
-/// (flag or default) and editable.
+/// (flag or default) and editable. `dynamic_enums` and `file_pickers` are
+/// independent surface-capability flags — both are `true` only for the
+/// Fullscreen surface's Phase-1 form; Inline passes `dynamic_enums: true`
+/// (it has its own in-viewport picker) but `file_pickers: false` (the
+/// file-picker directory browser is a Fullscreen-only modal).
 pub(crate) fn build_inputs_form(
     specs: &[WorkflowInputSpec],
     current: &BTreeMap<String, serde_json::Value>,
     dynamic_enums: bool,
+    file_pickers: bool,
 ) -> Vec<FormField> {
     specs
         .iter()
@@ -94,14 +101,11 @@ pub(crate) fn build_inputs_form(
                 .unwrap_or_else(|| serde_json::json!({"type": "string"}));
 
             // A string-typed input with an options_source becomes a DynamicEnum
-            // (a modal picker), but only when the surface can drive one — the
-            // fullscreen surface passes `dynamic_enums: true`. The inline surface
-            // has no picker, so it passes `false` and the input falls back to a
-            // plain editable text field. Every other input keeps its
-            // schema-derived field type. The DynamicEnum carrier is
-            // FieldValue::Enum (holds the value string).
+            // (a modal picker), but only when the surface can drive one. Every
+            // other input keeps its schema-derived field type. The DynamicEnum
+            // carrier is FieldValue::Enum (holds the value string).
             let is_string = schema.get("type").and_then(|t| t.as_str()) == Some("string");
-            let (field_type, dynamic, value) = if let (true, true, Some(source)) =
+            let (field_type, dynamic, file_picker, value) = if let (true, true, Some(source)) =
                 (dynamic_enums, is_string, spec.options_source.as_ref())
             {
                 let mut deps: Vec<String> = Vec::new();
@@ -129,8 +133,17 @@ pub(crate) fn build_inputs_form(
                         optional_deps,
                         resolved: None,
                     }),
+                    None,
                     value,
                 )
+            } else if let (true, true, Some(picker)) =
+                (file_pickers, is_string, spec.file_picker.as_ref())
+            {
+                let value = match current.get(&spec.name) {
+                    Some(serde_json::Value::String(s)) => FieldValue::Enum(Some(s.clone())),
+                    _ => FieldValue::Enum(None),
+                };
+                (FieldType::FilePicker, None, Some(picker.clone()), value)
             } else {
                 let field_type = schema_to_field_type(&schema);
                 // A declared workflow input authored as `format: date-time`
@@ -163,7 +176,7 @@ pub(crate) fn build_inputs_form(
                         _ => FieldValue::Empty,
                     },
                 };
-                (field_type, None, value)
+                (field_type, None, None, value)
             };
 
             FormField {
@@ -181,6 +194,7 @@ pub(crate) fn build_inputs_form(
                 schema,
                 read_only: false,
                 dynamic,
+                file_picker,
             }
         })
         .collect()
@@ -251,6 +265,7 @@ pub(crate) fn build_full_surface_fields(
                 schema,
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }
         })
         .collect()
@@ -350,6 +365,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             },
             WorkflowInputSpec {
                 name: "fleetName".into(),
@@ -360,12 +376,13 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             },
         ];
         let mut current = BTreeMap::new();
         current.insert("namespace".to_string(), serde_json::json!("dev")); // prefilled by flag
         current.insert("fleetName".to_string(), serde_json::json!("ranked-fleet")); // default
-        let fields = build_inputs_form(&specs, &current, true);
+        let fields = build_inputs_form(&specs, &current, true, false);
         let ns = fields.iter().find(|f| f.label == "namespace").unwrap();
         assert!(
             ns.required,
@@ -394,10 +411,11 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
         // Deliberately neither alphabetical nor location-sorted.
         let specs = vec![spec("namespace"), spec("fleetRegion"), spec("alpha")];
-        let fields = build_inputs_form(&specs, &BTreeMap::new(), false);
+        let fields = build_inputs_form(&specs, &BTreeMap::new(), false, false);
         let order: Vec<&str> = fields
             .iter()
             .filter_map(|f| match &f.key {
@@ -427,6 +445,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: StepFieldLocation::Path,
+                file_picker: None,
             },
             WorkflowInputSpec {
                 name: "clientName".into(),
@@ -437,6 +456,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: StepFieldLocation::Body,
+                file_picker: None,
             },
         ];
         // namespace already supplied via flag.
@@ -477,6 +497,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: StepFieldLocation::Body,
+                file_picker: None,
             },
             WorkflowInputSpec {
                 name: "limit".into(),
@@ -487,6 +508,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: StepFieldLocation::Query,
+                file_picker: None,
             },
         ];
         let fields = build_full_surface_fields(&full_inputs, &[]);
@@ -742,8 +764,9 @@ mod tests {
                 filter: None,
             }),
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
-        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), true);
+        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), true, false);
         let f = &fields[0];
         assert!(matches!(f.field_type, FieldType::DynamicEnum));
         let state: &DynamicEnumState = f.dynamic.as_ref().expect("dynamic state present");
@@ -785,8 +808,9 @@ mod tests {
                 filter: None,
             }),
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
-        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), false);
+        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), false, false);
         assert!(
             matches!(fields[0].field_type, FieldType::Scalar),
             "options_source input is plain text when dynamic enums are disabled"
@@ -810,8 +834,9 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
-        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), true);
+        let fields = build_inputs_form(&[spec], &std::collections::BTreeMap::new(), true, false);
         assert!(matches!(fields[0].field_type, FieldType::Scalar));
         assert!(fields[0].dynamic.is_none());
     }
@@ -832,10 +857,11 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
         let current =
             std::collections::BTreeMap::from([("searchBy".to_string(), serde_json::json!("a"))]);
-        let fields = build_inputs_form(&[spec], &current, true);
+        let fields = build_inputs_form(&[spec], &current, true, false);
         assert!(
             matches!(&fields[0].value, FieldValue::Enum(Some(s)) if s == "a"),
             "enum value carried as Enum, got {:?}",
@@ -858,9 +884,10 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
         let current: BTreeMap<String, serde_json::Value> = BTreeMap::new();
-        let fields = build_inputs_form(&specs, &current, true);
+        let fields = build_inputs_form(&specs, &current, true, false);
         let f = &fields[0];
         assert!(
             matches!(&f.value, FieldValue::JsonBody(s) if s.is_empty()),
@@ -881,12 +908,13 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: StepFieldLocation::Body,
+            file_picker: None,
         };
         let current = std::collections::BTreeMap::from([(
             "start".to_string(),
             serde_json::json!("2020-01-01T00:00:00Z"),
         )]);
-        let fields = build_inputs_form(&[spec], &current, true);
+        let fields = build_inputs_form(&[spec], &current, true, false);
         assert_eq!(fields[0].field_type, FieldType::DateTime);
         assert!(
             matches!(&fields[0].value, FieldValue::Scalar(s) if s == "2020-01-01T00:00:00Z"),
@@ -902,5 +930,33 @@ mod tests {
             schema_to_field_type(&serde_json::json!({"type": "string", "format": "date-time"})),
             FieldType::Scalar
         ));
+    }
+
+    #[test]
+    fn test_build_inputs_form_file_picker_gated_by_flag() {
+        use ags_protocol::workflow::WorkflowInputSpec;
+        let spec = WorkflowInputSpec {
+            name: "iconFile".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "string"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(ags_protocol::workflow::FilePickerSpec {
+                extensions: Some(vec!["png".to_string()]),
+                start_dir: None,
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        };
+        let current = BTreeMap::new();
+
+        let with_flag = build_inputs_form(std::slice::from_ref(&spec), &current, true, true);
+        assert_eq!(with_flag[0].field_type, FieldType::FilePicker);
+        assert!(with_flag[0].file_picker.is_some());
+
+        let without_flag = build_inputs_form(&[spec], &current, true, false);
+        assert_eq!(without_flag[0].field_type, FieldType::Scalar);
+        assert!(without_flag[0].file_picker.is_none());
     }
 }

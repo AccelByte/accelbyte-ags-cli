@@ -39,7 +39,7 @@ pub struct DryRunResult {
     /// Auth header is masked or elided; never emitted in cleartext.
     pub headers: Vec<(String, String)>,
     pub query: Vec<(String, String)>,
-    pub body: Option<serde_json::Value>,
+    pub body: Option<crate::request::RequestBody>,
 }
 
 /// The top-level return value from a successful command.
@@ -191,7 +191,9 @@ mod tests {
                 ("Authorization".to_string(), "Bearer <redacted>".to_string()),
             ],
             query: vec![],
-            body: Some(serde_json::json!({"emailAddress": "a@b.com"})),
+            body: Some(crate::request::RequestBody::Json(
+                serde_json::json!({"emailAddress": "a@b.com"}),
+            )),
         });
     }
 

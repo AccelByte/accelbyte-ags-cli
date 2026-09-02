@@ -9,10 +9,22 @@ use ags_protocol::workflow::{
     CompiledStep, GatherResult, StepOutcome as RuntimeStepOutcome, StepPreview, SuppliedInputView,
     WorkflowEvent, WorkflowFrontend, WorkflowInputNeeded,
 };
+use ags_runtime::runtime::telemetry::{TelemetryClient, WorkflowStepContext};
 
 use crate::errors::CliError;
 use crate::frontend::event::{FrontendEvent, StepOutcome};
 use crate::frontend::{ExecutionInteraction, Frontend};
+
+/// Step-telemetry identity + client for one registered `ags workflow run`
+/// invocation. Built once (the client requires an `.await` to construct) and
+/// handed to the adapter so its synchronous `on_event` can call the
+/// synchronous `TelemetryClient::capture` directly — no `.await` needed
+/// inside the `WorkflowFrontend` trait's non-async callback.
+pub struct WorkflowStepTelemetry {
+    pub client: TelemetryClient,
+    pub sub: String,
+    pub context: WorkflowStepContext,
+}
 
 /// Adapts a runtime `ProgressSink` onto a CLI `Frontend` for one runtime call.
 pub struct FrontendSink<'a> {
@@ -50,6 +62,20 @@ pub struct ExecutionFrontendAdapter<'a> {
     /// the workflow chrome ("Running workflow…", "Step 1: ok") does not leak
     /// into single-command output.
     suppress_lifecycle: bool,
+    /// `Some` only for a registered workflow run with telemetry enabled;
+    /// always `None` for a synthesised single command (constructed via
+    /// `new_for_synthesised_command`, which never sets this).
+    step_telemetry: Option<WorkflowStepTelemetry>,
+    /// step index → (service, operation) for the running workflow, captured
+    /// from `WorkflowStarted` so step events can name the API they called
+    /// without widening the protocol event.
+    step_operations: Vec<(String, String)>,
+    /// Run aggregate stashed from `WorkflowFinished`, kept for the caller to
+    /// emit `cli.workflow.run_completed` after the executor returns. `None`
+    /// until `WorkflowFinished` fires, which never happens on a `--no-input`
+    /// precheck rejection or a `?` that propagates out of `skip_step`/
+    /// `decide_step_failure` before the executor reaches it.
+    run_facts: Option<ags_protocol::workflow::RunFacts>,
 }
 
 impl<'a> ExecutionFrontendAdapter<'a> {
@@ -64,6 +90,27 @@ impl<'a> ExecutionFrontendAdapter<'a> {
             frontend,
             interaction,
             suppress_lifecycle: false,
+            step_telemetry: None,
+            step_operations: Vec::new(),
+            run_facts: None,
+        }
+    }
+
+    /// Same as `new`, but attaches step telemetry — use for a registered
+    /// multi-step workflow run when telemetry is enabled and a `sub` was
+    /// resolved.
+    pub fn new_with_telemetry(
+        frontend: &'a mut dyn Frontend,
+        interaction: &'a mut dyn ExecutionInteraction,
+        telemetry: WorkflowStepTelemetry,
+    ) -> Self {
+        Self {
+            frontend,
+            interaction,
+            suppress_lifecycle: false,
+            step_telemetry: Some(telemetry),
+            step_operations: Vec::new(),
+            run_facts: None,
         }
     }
 
@@ -77,7 +124,35 @@ impl<'a> ExecutionFrontendAdapter<'a> {
             frontend,
             interaction,
             suppress_lifecycle: true,
+            step_telemetry: None,
+            step_operations: Vec::new(),
+            run_facts: None,
         }
+    }
+
+    /// Reclaim the step-telemetry sink and the stashed run aggregate after the
+    /// executor has finished with this adapter. The exact `TelemetryClient`
+    /// instance matters: `posthog-rs`'s send queue is owned per-`Client` (a
+    /// dedicated background thread + channel per instance, confirmed by
+    /// reading `posthog-rs` 0.14.3's `client/transport.rs`), so a *different*
+    /// client's `flush()` would not touch these events at all — the caller
+    /// must flush this exact instance.
+    pub fn into_telemetry_parts(
+        self,
+    ) -> (
+        Option<Box<WorkflowStepTelemetry>>,
+        Option<ags_protocol::workflow::RunFacts>,
+    ) {
+        (self.step_telemetry.map(Box::new), self.run_facts)
+    }
+
+    /// Service and operation for `index`, or empty strings when the map has no
+    /// entry (a synthesised run, or an event arriving before `WorkflowStarted`).
+    fn operation_for(&self, index: usize) -> (String, String) {
+        self.step_operations
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| (String::new(), String::new()))
     }
 }
 
@@ -87,28 +162,88 @@ impl<'a> WorkflowFrontend for ExecutionFrontendAdapter<'a> {
             return;
         }
         let translated = match event {
-            WorkflowEvent::WorkflowStarted { compiled } => FrontendEvent::RunStarted {
-                workflow_banner: Some(compiled.name.clone()),
-            },
-            WorkflowEvent::StepStarted { index, id } => FrontendEvent::StepStarted {
-                index: *index,
-                id: id.clone(),
-            },
+            WorkflowEvent::WorkflowStarted { compiled } => {
+                self.step_operations = compiled
+                    .steps
+                    .iter()
+                    .map(|step| match &step.operation {
+                        Some(op) => (
+                            op.service.as_str().to_string(),
+                            op.operation.as_str().to_string(),
+                        ),
+                        None => match &step.action {
+                            Some(action_name) => ("local".to_string(), action_name.clone()),
+                            None => (String::new(), String::new()),
+                        },
+                    })
+                    .collect();
+                FrontendEvent::RunStarted {
+                    workflow_banner: Some(compiled.name.clone()),
+                }
+            }
+            WorkflowEvent::StepStarted { index, id } => {
+                // Computed before `&self.step_telemetry` is taken so the
+                // shared `self` borrow for `operation_for` never overlaps
+                // with the field borrow held across the telemetry call.
+                let (service, operation) = self.operation_for(*index);
+                if let Some(t) = &self.step_telemetry {
+                    ags_runtime::runtime::telemetry::capture_workflow_step_started(
+                        &t.client, &t.sub, &t.context, *index, id, &service, &operation,
+                    );
+                }
+                FrontendEvent::StepStarted {
+                    index: *index,
+                    id: id.clone(),
+                }
+            }
             WorkflowEvent::StepFinished {
                 index,
+                id,
                 summary,
                 captures,
                 outcome,
-                ..
-            } => FrontendEvent::StepFinished {
-                index: *index,
-                summary: summary.clone(),
-                captures: captures.clone(),
-                outcome: translate_step_outcome(*outcome),
-            },
+                reason,
+                attempts,
+                duration_ms,
+                error,
+            } => {
+                // Same ordering rationale as `StepStarted` above.
+                let (service, operation) = self.operation_for(*index);
+                if let Some(t) = &self.step_telemetry {
+                    let facts = ags_runtime::runtime::telemetry::StepCompletedFacts {
+                        outcome: step_outcome_telemetry_label(*outcome),
+                        reason: reason.map(|r| r.as_label()),
+                        attempts: *attempts,
+                        duration_ms: *duration_ms,
+                        error_class: error.as_ref().map(|e| e.class),
+                        http_status: error.as_ref().and_then(|e| e.http_status),
+                        error_code: error.as_ref().and_then(|e| e.code.clone()),
+                        input_fields: error
+                            .as_ref()
+                            .map(|e| e.input_fields.clone())
+                            .unwrap_or_default(),
+                        service,
+                        operation,
+                    };
+                    ags_runtime::runtime::telemetry::capture_workflow_step_completed(
+                        &t.client, &t.sub, &t.context, *index, id, &facts,
+                    );
+                }
+                FrontendEvent::StepFinished {
+                    index: *index,
+                    summary: summary.clone(),
+                    captures: captures.clone(),
+                    outcome: translate_step_outcome(*outcome),
+                }
+            }
             // The shared lifecycle helper owns the single `RunFinished`
             // event; the adapter does not emit a finish event of its own.
-            WorkflowEvent::WorkflowFinished { .. } => return,
+            // Stash the run aggregate so the caller can emit
+            // `cli.workflow.run_completed` after the executor returns.
+            WorkflowEvent::WorkflowFinished { facts, .. } => {
+                self.run_facts = Some(facts.clone());
+                return;
+            }
             WorkflowEvent::Progress { step_index, event } => FrontendEvent::Progress {
                 step_index: *step_index,
                 event: event.clone(),
@@ -189,6 +324,18 @@ fn translate_step_outcome(outcome: RuntimeStepOutcome) -> StepOutcome {
     }
 }
 
+/// Map a runtime `StepOutcome` to the telemetry `outcome` property value —
+/// distinct from `translate_step_outcome` (UI-facing enum) since telemetry
+/// wants a stable string, not a CLI-crate type.
+fn step_outcome_telemetry_label(outcome: RuntimeStepOutcome) -> &'static str {
+    match outcome {
+        RuntimeStepOutcome::Success => "success",
+        RuntimeStepOutcome::Failed => "failed",
+        RuntimeStepOutcome::Cancelled => "cancelled",
+        RuntimeStepOutcome::Skipped => "skipped",
+    }
+}
+
 /// Convert a CLI-layer [`CliError`] into a runtime-layer [`RuntimeError`].
 ///
 /// Used by the workflow adapter when bubbling gather/confirm errors back
@@ -265,13 +412,94 @@ mod tests {
             StepOutcome::Skipped
         );
     }
+
+    /// A registered workflow's step lifecycle must emit exactly one
+    /// `cli.workflow.step_started` and one `cli.workflow.step_completed` per
+    /// step, carrying the step's real index/id/outcome — proven here via a
+    /// disabled (no-op) `TelemetryClient`, whose `capture` calls are still
+    /// exercised (a disabled client is still hit, it just doesn't queue to a
+    /// real PostHog buffer) by driving two `StepStarted`/`StepFinished` pairs
+    /// through the adapter and confirming it doesn't panic — the ags-runtime
+    /// crate's own tests (Task 4) cover the exact JSON shape of each event.
+    ///
+    /// The `StepFinished` event here deliberately uses an `id` ("create
+    /// lobby") whose first whitespace-token differs from the id embedded in
+    /// `summary` ("create-lobby ok" → `split_whitespace().next()` would give
+    /// `"create-lobby"`, not `"create lobby"`). This proves (at least at the
+    /// compile/no-panic level — a disabled client can't be inspected for its
+    /// queued payload) that the adapter now passes through the event's real
+    /// `id` field for `step_completed` telemetry instead of reverse-
+    /// engineering it from `summary`; the exact payload assertion lives in
+    /// `ags-runtime`'s `capture_workflow_step_completed` tests.
+    #[test]
+    fn test_execution_frontend_adapter_emits_step_telemetry_when_configured() {
+        use ags_protocol::workflow::{StepOutcome as RuntimeStepOutcome, WorkflowEvent};
+        use ags_runtime::runtime::telemetry::{TelemetryClient, WorkflowStepContext};
+
+        let mut recording = RecordingFrontend::default();
+        struct NoopInteraction;
+        impl crate::frontend::ExecutionInteraction for NoopInteraction {
+            fn gather_workflow_inputs(
+                &mut self,
+                _needed: &[ags_protocol::workflow::WorkflowInputNeeded],
+                _step_context: &ags_protocol::workflow::CompiledStep,
+                _supplied: &[ags_protocol::workflow::SuppliedInputView],
+            ) -> Result<ags_protocol::workflow::GatherResult, CliError> {
+                Ok(ags_protocol::workflow::GatherResult::default())
+            }
+            fn confirm_step(
+                &mut self,
+                _step: &ags_protocol::workflow::CompiledStep,
+                _preview: &ags_protocol::workflow::StepPreview,
+            ) -> Result<ags_protocol::workflow::StepConfirmOutcome, CliError> {
+                Ok(ags_protocol::workflow::StepConfirmOutcome::Proceed)
+            }
+        }
+        let mut interaction = NoopInteraction;
+
+        let telemetry = WorkflowStepTelemetry {
+            client: TelemetryClient::disabled_for_test(),
+            sub: "user-123".to_string(),
+            context: WorkflowStepContext {
+                run_id: "run-1".into(),
+                workflow_id: "wf-1".into(),
+                steps_total: 1,
+                cli_version: "1.2.3".into(),
+                is_dry_run: false,
+                ui_surface: "fullscreen",
+            },
+        };
+        let mut adapter = ExecutionFrontendAdapter::new_with_telemetry(
+            &mut recording,
+            &mut interaction,
+            telemetry,
+        );
+
+        // Must not panic — this is the whole assertion, since capture() with a
+        // disabled client is a documented no-op.
+        adapter.on_event(&WorkflowEvent::StepStarted {
+            index: 0,
+            id: "create lobby".into(),
+        });
+        adapter.on_event(&WorkflowEvent::StepFinished {
+            index: 0,
+            id: "create lobby".into(),
+            summary: "create-lobby ok".into(),
+            captures: vec![],
+            outcome: RuntimeStepOutcome::Success,
+            reason: None,
+            attempts: 1,
+            duration_ms: 0,
+            error: None,
+        });
+    }
 }
 
 #[cfg(test)]
 mod adapter_tests {
     use super::*;
     use ags_protocol::workflow::{
-        CompiledStep, CompiledWorkflow, RunOutcome as RuntimeRunOutcome, WorkflowId,
+        CompiledStep, CompiledWorkflow, RunFacts, RunOutcome as RuntimeRunOutcome, WorkflowId,
     };
 
     /// Recording frontend used to verify event translation.
@@ -375,10 +603,12 @@ mod adapter_tests {
             id: "test-step".to_string(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("iam"),
                 operation: OperationId::new("testOp"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -452,6 +682,27 @@ mod adapter_tests {
         );
     }
 
+    /// `WorkflowFinished`'s `facts` must be stashed on the adapter and handed
+    /// back verbatim by `into_telemetry_parts`, so `drive_run` can build
+    /// `cli.workflow.run_completed` from the executor's real aggregate.
+    #[test]
+    fn test_adapter_stashes_run_facts_from_workflow_finished() {
+        let mut frontend = RecordingFrontend::default();
+        let mut interaction = RecordingInteraction::default();
+        let mut adapter = ExecutionFrontendAdapter::new(&mut frontend, &mut interaction);
+        let facts = RunFacts {
+            steps_succeeded: 2,
+            steps_started: 2,
+            ..RunFacts::default()
+        };
+        adapter.on_event(&WorkflowEvent::WorkflowFinished {
+            outcome: RuntimeRunOutcome::Success,
+            facts: facts.clone(),
+        });
+        let (_telemetry, stashed) = adapter.into_telemetry_parts();
+        assert_eq!(stashed, Some(facts));
+    }
+
     /// The adapter no longer emits a finish event of its own: the shared
     /// lifecycle helper owns the single `RunFinished`, so a runtime
     /// `WorkflowFinished` produces no frontend event.
@@ -467,6 +718,7 @@ mod adapter_tests {
             let mut adapter = ExecutionFrontendAdapter::new(&mut frontend, &mut interaction);
             adapter.on_event(&WorkflowEvent::WorkflowFinished {
                 outcome: runtime_outcome,
+                facts: RunFacts::default(),
             });
             assert_eq!(
                 frontend.events.len(),
@@ -567,6 +819,40 @@ mod adapter_tests {
         assert_eq!(interaction.seen_briefing.len(), 1);
         assert_eq!(interaction.seen_briefing[0].1, "WF");
         assert_eq!(interaction.seen_briefing[0].0, briefing);
+    }
+
+    /// A local-action step must be identified as `("local", "<action>")` in
+    /// the step_operations map, not as two empty strings. Empty strings would
+    /// group every local-step invocation into a single unnamed telemetry bucket.
+    #[test]
+    fn test_adapter_local_step_yields_local_telemetry_label() {
+        use ags_protocol::workflow::WorkflowFrontend;
+        let mut frontend = RecordingFrontend::default();
+        let mut interaction = RecordingInteraction::default();
+        let mut adapter = ExecutionFrontendAdapter::new(&mut frontend, &mut interaction);
+
+        let mut local_step = minimal_compiled_step();
+        local_step.operation = None;
+        local_step.kind = ags_protocol::workflow::StepKind::Local;
+        local_step.action = Some("ams/upload-image".to_string());
+        local_step.index = 0;
+
+        let mut compiled = minimal_compiled_workflow();
+        compiled.steps = vec![local_step];
+
+        adapter.on_event(&WorkflowEvent::WorkflowStarted {
+            compiled: compiled.clone(),
+        });
+
+        let (service, operation) = adapter.operation_for(0);
+        assert_eq!(
+            service, "local",
+            "local step service label must be 'local', not empty"
+        );
+        assert_eq!(
+            operation, "ams/upload-image",
+            "local step operation label must be the action name, not empty"
+        );
     }
 
     #[test]

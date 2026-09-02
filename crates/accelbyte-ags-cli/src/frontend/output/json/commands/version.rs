@@ -11,7 +11,10 @@ pub(crate) fn render_version_output(
 ) -> Result<RenderedOutput, CliError> {
     Ok(RenderedOutput {
         stdout: Some(crate::frontend::output::json::format_json(
-            &serde_json::json!({ "version": output.version }),
+            &serde_json::json!({
+                "version": output.version,
+                "workflow_protocol_version": output.workflow_protocol_version,
+            }),
         )?),
         stderr: None,
         is_stdout_first: true,

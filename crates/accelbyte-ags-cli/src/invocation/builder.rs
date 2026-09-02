@@ -9,7 +9,7 @@ use ags_runtime::catalogue::Catalogue;
 
 // ── Public entry points ──
 
-/// Build the root command structure (name, help, about, args, and auxiliary
+/// Build the root command structure (name, help, about, args, and standalone
 /// subcommands) without any service subcommands attached. Both the lazy
 /// routing path (`build_root_command`) and the fully-populated completion
 /// path (`build_full_command`) extend this shared shell with different
@@ -97,6 +97,7 @@ fn build_root_shell() -> Command {
     root = root.subcommand(build_describe_command());
     root = root.subcommand(build_doctor_command());
     root = root.subcommand(build_refresh_specs_command());
+    root = root.subcommand(build_extend_command());
 
     root
 }
@@ -313,6 +314,30 @@ pub fn build_completions_command() -> Command {
         )
 }
 
+/// Generate the "Profile keys: ... / Global keys: ..." help fragment from the
+/// config key registry so the lists stay in sync with `KNOWN_KEYS` in
+/// `ags-runtime` and never drift.
+fn config_key_help_lines() -> String {
+    use ags_runtime::runtime::config::{ConfigScope, KNOWN_KEYS};
+
+    let profile_keys: Vec<&str> = KNOWN_KEYS
+        .iter()
+        .filter(|k| k.scope == ConfigScope::Profile)
+        .map(|k| k.cli_name)
+        .collect();
+    let global_keys: Vec<&str> = KNOWN_KEYS
+        .iter()
+        .filter(|k| k.scope == ConfigScope::Global)
+        .map(|k| k.cli_name)
+        .collect();
+
+    format!(
+        " Profile keys: {}\n Global keys:  {}",
+        profile_keys.join(", "),
+        global_keys.join(", "),
+    )
+}
+
 /// Build the `ags config` command tree
 pub fn build_config_command() -> Command {
     let template = "{about-with-newline}\n\
@@ -340,12 +365,12 @@ pub fn build_config_command() -> Command {
             Command::new("set")
                 .help_template(template.clone())
                 .about("Set a configuration value")
-                .long_about(
+                .long_about(format!(
                     "Set a configuration value\n\n\
-                     \x20 Profile keys: base-url, client-id, namespace, grant-type\n\
-                     \x20 Global keys:  active-profile, format, no-color, timeout, page-limit\n\n\
+                     \x20{}\n\n\
                      \x20 Scope is auto-detected from the key. Use --global or --profile to override.",
-                )
+                    config_key_help_lines(),
+                ))
                 .arg(Arg::new("key").required(true).help("Config key"))
                 .arg(Arg::new("value").required(true).help("Value to set"))
                 .arg(
@@ -359,12 +384,12 @@ pub fn build_config_command() -> Command {
             Command::new("unset")
                 .help_template(template)
                 .about("Remove a configuration value")
-                .long_about(
+                .long_about(format!(
                     "Remove a configuration value\n\n\
-                     \x20 Profile keys: base-url, client-id, namespace, grant-type\n\
-                     \x20 Global keys:  active-profile, format, no-color, timeout, page-limit\n\n\
+                     \x20{}\n\n\
                      \x20 Scope is auto-detected from the key. Use --global or --profile to override.",
-                )
+                    config_key_help_lines(),
+                ))
                 .arg(Arg::new("key").required(true).help("Config key"))
                 .arg(
                     Arg::new("global")
@@ -458,6 +483,834 @@ pub fn build_refresh_specs_command() -> Command {
         )
 }
 
+/// Build the `ags extend` command tree: Extend-platform tooling and
+/// migration shortcuts.
+///
+/// Migration shortcut subcommands are added by iterating the static
+/// registration table so that renaming a shortcut costs one string edit
+/// in `service_shims.rs` and zero edits here.
+pub fn build_extend_command() -> Command {
+    use crate::invocation::handlers::extend::service_shims;
+
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    let cmd = Command::new("extend")
+        .help_template(template)
+        .about("Extend platform tooling")
+        .long_about(
+            "Extend platform tooling\n\n\
+             \x20 Extend specific commands and shortcuts to ease migration.",
+        )
+        .disable_help_subcommand(true)
+        .arg_required_else_help(true)
+        .subcommand_required(true)
+        .subcommand(build_clone_template_subcommand())
+        .subcommand(build_docker_login_subcommand())
+        .subcommand(build_image_upload_subcommand())
+        .subcommand(build_tunnel_subcommand())
+        .subcommand(build_update_secret_subcommand())
+        .subcommand(build_update_var_subcommand());
+
+    // The shim layer creates hidden parent groups (e.g. `app-ui` for the
+    // `create` migration shortcut). After shim registration, promote
+    // `app-ui` to visible and add the native `setup-env` subcommand.
+    let cmd = service_shims::add_shim_subcommands(cmd);
+    let cmd = cmd.mut_subcommand("app-ui", |sub| {
+        sub.hide(false)
+            .about("App UI commands")
+            .subcommand(build_setup_env_subcommand())
+            .subcommand(build_upload_subcommand())
+    });
+
+    // Build the `remote-debug` group natively with all three subcommands.
+    // The `disable` shim was removed from the SHIMS table, so no shim
+    // creates this group — it must be built here directly.
+    cmd.subcommand(build_remote_debug_subcommand())
+}
+
+/// Build the `clone-template` subcommand under `extend`.
+fn build_clone_template_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("clone-template")
+        .help_template(template)
+        .about("Clone a starter template for Extend apps")
+        .long_about(
+            "Clone a starter template for Extend apps.\n\n\
+             Without --template, prompts interactively through scenario,\n\
+             template, and language selection. Use --template for CI/scripted use.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("template")
+                .long("template")
+                .help("Select a template by name (non-interactive)")
+                .value_name("name"),
+        )
+        .arg(
+            Arg::new("destination")
+                .long("destination")
+                .short('d')
+                .help("Destination directory")
+                .value_name("path"),
+        )
+        .arg(
+            Arg::new("depth")
+                .long("depth")
+                .help("Shallow clone depth (default: 1, 0 for full)")
+                .value_name("n")
+                .value_parser(clap::value_parser!(u32)),
+        )
+}
+
+/// Build the `setup-env` subcommand under `app-ui`.
+fn build_setup_env_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("setup-env")
+        .help_template(template)
+        .about("Set up the .env.local file for an App UI project")
+        .long_about(
+            "Set up the .env.local file for an App UI project.\n\n\
+             Reads the App UI record from CSM and writes the four VITE_AB_*\n\
+             environment variables into .env.local in the project directory.\n\n\
+             If .env.example exists, its contents are used as a template and\n\
+             only the managed keys are replaced or appended. Comments, blank\n\
+             lines, and unmanaged keys are preserved.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("name")
+                .long("name")
+                .help("App UI name")
+                .value_name("name")
+                .required(true),
+        )
+        .arg(
+            Arg::new("project-path")
+                .long("project-path")
+                .help("Project directory (default: current directory)")
+                .value_name("path")
+                .default_value("."),
+        )
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .help("Overwrite existing .env.local")
+                .action(clap::ArgAction::SetTrue),
+        )
+}
+
+/// Build the `upload` subcommand under `app-ui`.
+///
+/// Five flags: `--name` (required), `--project-path`, `--build-path`,
+/// `--build-version`, `--no-build`. The `--verbosity` compat flag is
+/// registered through the shared `CompatFlag` mechanism. `--namespace`
+/// is a global flag and is NOT registered on this command.
+fn build_upload_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("upload")
+        .help_template(template)
+        .about("Build and upload an App UI static-asset bundle")
+        .long_about(
+            "Build and upload an App UI static-asset bundle.\n\n\
+             Runs the frontend build, archives the output directory into a zip,\n\
+             and uploads the archive to CSM. With --no-build, skips the build step\n\
+             and archives the existing build output directly.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n      \
+             --dry-run                    Preview without executing\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("name")
+                .long("name")
+                .help("App UI name")
+                .value_name("name")
+                .required(true),
+        )
+        .arg(
+            Arg::new("project-path")
+                .long("project-path")
+                .help("Project directory (default: current directory)")
+                .value_name("path")
+                .default_value("."),
+        )
+        .arg(
+            Arg::new("build-path")
+                .long("build-path")
+                .help("Build output directory, relative to project path (default: dist)")
+                .value_name("path")
+                .default_value("dist"),
+        )
+        .arg(
+            Arg::new("build-version")
+                .long("build-version")
+                .help("Build version identifier (default: random 8-char hex)")
+                .value_name("version"),
+        )
+        .arg(
+            Arg::new("no-build")
+                .long("no-build")
+                .help("Skip the frontend build step")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(crate::invocation::compat_flags::APP_UI_UPLOAD_VERBOSITY.to_arg())
+}
+
+/// Build the `docker-login` subcommand under `extend`.
+///
+/// Six flags matching the Go `extend-helper-cli` surface: `--namespace`,
+/// `--app`, `--print`, `--print-format`, plus two compat flags (`--login`,
+/// `--verbosity`) registered via the shared [`compat_flags`] mechanism so
+/// a notice is emitted when either is explicitly supplied.
+///
+/// `--print-format` (formerly `--format`) was renamed to avoid shadowing
+/// the global `--format` flag, which controls the output envelope.
+fn build_docker_login_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("docker-login")
+        .help_template(template)
+        .about("Log in to the Extend container registry")
+        .long_about(
+            "Log in to the Extend container registry.\n\n\
+             Fetches short-lived registry credentials from the Extend Helper\n\
+             Service and passes them to `docker login --password-stdin`.\n\n\
+             With --print, writes the credentials to stdout instead of\n\
+             running Docker.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("print")
+                .long("print")
+                .short('p')
+                .help("Print credentials to stdout instead of running docker login")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("print-format")
+                .long("print-format")
+                .help("Output format for --print")
+                .value_name("json|token")
+                .default_value("json"),
+        )
+        .arg(crate::invocation::compat_flags::DOCKER_LOGIN_LOGIN.to_arg())
+        .arg(crate::invocation::compat_flags::DOCKER_LOGIN_VERBOSITY.to_arg())
+}
+
+/// Build the `update-var` subcommand under `extend`.
+///
+/// Five flags: `--key`, `--value` (both required), `--description`,
+/// `--sensitive` (bool, default false — presence checked via
+/// `ArgMatches::value_source` to distinguish "not supplied" from
+/// "supplied"), `--force`. `--app`/`-a` is required, matching
+/// `docker-login`'s pattern. `--namespace`/`-n` is the global flag and is
+/// NOT registered here.
+fn build_update_var_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("update-var")
+        .help_template(template)
+        .about("Update or create a CSM app configuration variable")
+        .long_about(
+            "Update or create a CSM app configuration variable.\n\n\
+             Updates the variable named --key to --value if it exists. If it\n\
+             does not exist, pass --force to create it. --sensitive and\n\
+             --description are merged with the existing record when not\n\
+             explicitly supplied: an unset --sensitive preserves the existing\n\
+             mask, an unset --description preserves the existing description.\n\
+             Pass --sensitive false explicitly to remove masking.\n\n\
+             Prefer --value-stdin over --value to avoid exposing the value\n\
+             in shell history.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n      \
+             --dry-run                    Preview without executing\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("key")
+                .long("key")
+                .help("Variable name")
+                .value_name("key")
+                .required(true),
+        )
+        .arg(
+            Arg::new("value")
+                .long("value")
+                .help("Variable value (visible in shell history)")
+                .value_name("value")
+                .required_unless_present("value-stdin")
+                .conflicts_with("value-stdin")
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("value-stdin")
+                .long("value-stdin")
+                .help("Read variable value from stdin")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("value"),
+        )
+        .arg(
+            Arg::new("description")
+                .long("description")
+                .help("Variable description (preserved from the existing record if not supplied)")
+                .value_name("text"),
+        )
+        .arg(
+            Arg::new("sensitive")
+                .long("sensitive")
+                .help(
+                    "Mask the variable's value (defaults to false when creating; preserved from \
+                     the existing record on update if not supplied; pass 'false' explicitly to \
+                     remove masking)",
+                )
+                .value_parser(clap::value_parser!(bool))
+                .num_args(0..=1)
+                .default_missing_value("true"),
+        )
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .help("Create the variable if --key does not name an existing one")
+                .action(clap::ArgAction::SetTrue),
+        )
+}
+
+/// Build the `image-upload` subcommand under `extend`.
+///
+/// Nine flags matching the Go `extend-helper-cli` surface: `--app`,
+/// `--image-tag`, `--dockerfile`, `--platform`, `--work-dir`, `--login`,
+/// `--retry-limit`, `--retry-interval`, `--retry-rate`.
+///
+/// `--namespace`, `--dry-run`, and `--format` are globals and are NOT
+/// registered on this command. `--verbosity` is deferred to a separate PR.
+fn build_image_upload_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("image-upload")
+        .help_template(template)
+        .about("Build and push a container image to the Extend registry")
+        .long_about(
+            "Build and push a container image to the Extend registry.\n\n\
+             Builds a container image from a Dockerfile and pushes it to the\n\
+             Extend container registry for the specified app. Requires Docker\n\
+             (or Podman) to be installed and on PATH.\n\n\
+             With --login, authenticates to the registry before building.\n\
+             Without --login, assumes the registry is already authenticated.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n      \
+             --dry-run                    Preview without executing\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("image-tag")
+                .long("image-tag")
+                .short('t')
+                .help("Image tag to build and push")
+                .value_name("tag")
+                .required(true)
+                .value_parser(parse_docker_tag),
+        )
+        .arg(
+            Arg::new("dockerfile")
+                .long("dockerfile")
+                .short('f')
+                .help("Path to the Dockerfile")
+                .value_name("path")
+                .default_value("Dockerfile"),
+        )
+        .arg(
+            Arg::new("platform")
+                .long("platform")
+                .short('p')
+                .help("Target platform(s)")
+                .value_name("platform")
+                .action(clap::ArgAction::Append)
+                .default_value("linux/amd64"),
+        )
+        .arg(
+            Arg::new("work-dir")
+                .long("work-dir")
+                .short('w')
+                .help("Build context directory")
+                .value_name("path"),
+        )
+        .arg(
+            Arg::new("login")
+                .long("login")
+                .short('l')
+                .help("Authenticate to the registry before building")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("retry-limit")
+                .long("retry-limit")
+                .help("Number of retries on failure (0 = no retries)")
+                .value_name("n")
+                .default_value("0")
+                .value_parser(clap::value_parser!(u32)),
+        )
+        .arg(
+            Arg::new("retry-interval")
+                .long("retry-interval")
+                .help("Base interval between retries in seconds")
+                .value_name("seconds")
+                .default_value("1.0")
+                .allow_hyphen_values(true)
+                .value_parser(parse_finite_nonneg_f64),
+        )
+        .arg(
+            Arg::new("retry-rate")
+                .long("retry-rate")
+                .help("Exponential backoff rate multiplier")
+                .value_name("rate")
+                .default_value("2.0")
+                .allow_hyphen_values(true)
+                .value_parser(parse_finite_nonneg_f64),
+        )
+}
+
+/// Build the `update-secret` subcommand under `extend`.
+///
+/// Six flags: `--key` (required), `--value` / `--value-stdin` (exactly one
+/// required), `--description`, `--sensitive` (bool-valued via
+/// `num_args(0..=1)` + `default_missing_value("true")` — the same shape
+/// as `update-var`; only the CREATE default differs: `true` here vs `false`
+/// for `update-var`), `--force`. `--app`/`-a` is required.
+/// `--namespace`/`-n` is the global flag and is NOT registered here.
+///
+/// `--value-stdin` mirrors the `--client-secret-stdin` pattern from
+/// `build_login_subcommand()`: mutually exclusive with `--value`, reads a
+/// single line from stdin so the plaintext never appears in shell history.
+fn build_update_secret_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("update-secret")
+        .help_template(template)
+        .about("Update or create a CSM app secret")
+        .long_about(
+            "Update or create a CSM app secret.\n\n\
+             Updates the secret named --key to --value if it exists. If it\n\
+             does not exist, pass --force to create it. --sensitive and\n\
+             --description are merged with the existing record when not\n\
+             explicitly supplied: an unset --sensitive preserves the existing\n\
+             mask (or defaults to true on create), an unset --description\n\
+             preserves the existing description.\n\n\
+             Prefer --value-stdin over --value to avoid exposing the secret\n\
+             in shell history.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n      \
+             --dry-run                    Preview without executing\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("key")
+                .long("key")
+                .help("Secret name")
+                .value_name("key")
+                .required(true),
+        )
+        .arg(
+            Arg::new("value")
+                .long("value")
+                .help("Secret value (insecure — visible in shell history)")
+                .value_name("value")
+                .required_unless_present("value-stdin")
+                .conflicts_with("value-stdin")
+                .allow_hyphen_values(true),
+        )
+        .arg(
+            Arg::new("value-stdin")
+                .long("value-stdin")
+                .help("Read secret value from stdin")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("value"),
+        )
+        .arg(
+            Arg::new("description")
+                .long("description")
+                .help("Secret description (preserved from the existing record if not supplied)")
+                .value_name("text"),
+        )
+        .arg(
+            Arg::new("sensitive")
+                .long("sensitive")
+                .help(
+                    "Mask the secret's value (defaults to true; preserved from the \
+                     existing record on update if not supplied; pass 'false' explicitly \
+                     to remove masking)",
+                )
+                .value_parser(clap::value_parser!(bool))
+                .num_args(0..=1)
+                .default_missing_value("true"),
+        )
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .help("Create the secret if --key does not name an existing one")
+                .action(clap::ArgAction::SetTrue),
+        )
+}
+
+/// Build the `tunnel` subcommand under `extend`.
+///
+/// Three flags: `--resource-name` (required), `--local-port` (required, u16),
+/// `--pod-name` (optional). `--namespace` is a global flag and is NOT
+/// registered on this command.
+fn build_tunnel_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("tunnel")
+        .help_template(template)
+        .about("Open a TCP tunnel to an Extend app pod")
+        .long_about(
+            "Open a TCP tunnel to an Extend app pod.\n\n\
+             Binds a local TCP port and bridges connections to the CSM v2\n\
+             tunnel endpoint via WebSocket. Each accepted connection resolves\n\
+             a fresh access token and opens its own WebSocket session.\n\n\
+             The tunnel runs until Ctrl-C.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("resource-name")
+                .long("resource-name")
+                .help("Extend resource name to tunnel to")
+                .value_name("name")
+                .required(true),
+        )
+        .arg(
+            Arg::new("local-port")
+                .long("local-port")
+                .help("Local TCP port to bind (localhost only)")
+                .value_name("port")
+                .required(true)
+                .value_parser(clap::value_parser!(u16)),
+        )
+        .arg(
+            Arg::new("pod-name")
+                .long("pod-name")
+                .help("Target pod name (optional)")
+                .value_name("pod"),
+        )
+}
+
+/// Build the `connect` subcommand under `remote-debug`.
+///
+/// Three flags: `--app` (required), `--local-grpc-port` (default
+/// `"localhost:6565"`), `--local-http-port` (default `"localhost:8000"`).
+/// `--namespace` is a global flag and is NOT registered on this command.
+fn build_remote_debug_connect_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("connect")
+        .help_template(template)
+        .about("Connect to an Extend remote debug session")
+        .long_about(
+            "Connect to an Extend remote debug session.\n\n\
+             Resolves debug info from the CSM API, evaluates preconditions,\n\
+             and reconnects established sessions with exponential backoff.\n\n\
+             Requires the app to be running and debug mode to be enabled\n\
+             (see 'ags extend remote-debug enable').",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("local-grpc-port")
+                .long("local-grpc-port")
+                .help("Local gRPC address or bare port")
+                .value_name("addr")
+                .default_value("localhost:6565"),
+        )
+        .arg(
+            Arg::new("local-http-port")
+                .long("local-http-port")
+                .help("Local HTTP address or bare port")
+                .value_name("addr")
+                .default_value("localhost:8000"),
+        )
+}
+
+/// Build the `enable` subcommand under `remote-debug`.
+///
+/// One required flag: `--app`. `--namespace` is a global flag.
+fn build_remote_debug_enable_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("enable")
+        .help_template(template)
+        .about("Enable remote debugging for an Extend app")
+        .long_about(
+            "Enable remote debugging for an Extend app.\n\n\
+             Emits a performance warning, checks whether the app is currently\n\
+             running, and prompts for confirmation when it is (because enabling\n\
+             debug mode restarts the app). Use --yes to skip the prompt.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n  \
+             -y, --yes                    Skip confirmation prompt\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+}
+
+/// Build the `disable` subcommand under `remote-debug`.
+///
+/// One required flag: `--app`. `--namespace` is a global flag.
+fn build_remote_debug_disable_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("disable")
+        .help_template(template)
+        .about("Disable remote debugging for an Extend app")
+        .long_about(
+            "Disable remote debugging for an Extend app.\n\n\
+             Checks whether the app is currently running and prompts for\n\
+             confirmation when it is (because disabling debug mode restarts\n\
+             the app). Use --yes to skip the prompt.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n  \
+             -y, --yes                    Skip confirmation prompt\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+}
+
+/// Build the `remote-debug` command group with all three subcommands.
+///
+/// Previously the group was created implicitly by the shim table and
+/// promoted to visible via `mut_subcommand`. Now that `disable` is a
+/// native command (no longer a shim), the group is built directly here.
+fn build_remote_debug_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("remote-debug")
+        .help_template(template)
+        .about("Remote debug commands")
+        .disable_help_subcommand(true)
+        .arg_required_else_help(true)
+        .subcommand_required(true)
+        .subcommand(build_remote_debug_connect_subcommand())
+        .subcommand(build_remote_debug_enable_subcommand())
+        .subcommand(build_remote_debug_disable_subcommand())
+}
+
+/// Build the hand-written `ags ams upload` command.
+///
+/// Injected into the generated `ams` service tree by
+/// `routes::service::clap_tree`, so it appears in `ags ams --help` and in
+/// shell completions alongside the spec-derived resources. It is hand-written
+/// because no OpenAPI operation describes it: the CLI archives a directory
+/// locally, then ships it through pre-signed URLs.
+pub fn build_ams_upload_command() -> Command {
+    use ags_runtime::runtime::ams_upload::{TargetArchitecture, DEFAULT_PART_CONCURRENCY};
+
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("upload")
+        .help_template(template)
+        .about("Upload a dedicated-server image to AMS")
+        .long_about(
+            "Upload a dedicated-server image to AMS.\n\n\
+             \x20 Archives the build directory, uploads it, and registers it as an AMS\n\
+             \x20 image ready to be referenced by a fleet. Credentials and the platform\n\
+             \x20 host come from your login or profile, as with every other command.\n\n\
+             \x20 The entrypoint must be a 64-bit little-endian ELF binary (x86-64 or\n\
+             \x20 aarch64), or a shell script — in which case --target-arch is required.\n\n\
+             \x20 Requires the AMS:UPLOAD permission with Create and Update, entered\n\
+             \x20 un-namespaced. That is a different permission from the AMS:IMAGE behind\n\
+             \x20 'ags ams images', so being able to list images is not enough. For CI, use\n\
+             \x20 a confidential IAM client with AGS_CLIENT_ID / AGS_CLIENT_SECRET.\n\n\
+             \x20 --namespace is accepted but ignored: AMS derives the destination from\n\
+             \x20 the access token, so images land in the namespace the client belongs to.",
+        )
+        .term_width(120)
+        .bin_name("ags ams upload")
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("path")
+                .long("path")
+                .value_name("path")
+                .help("Directory to upload")
+                .default_value("."),
+        )
+        .arg(
+            Arg::new("executable")
+                .long("executable")
+                .value_name("path")
+                .help("Required. Entrypoint to run, relative to --path")
+                .required(true),
+        )
+        .arg(
+            Arg::new("image-name")
+                .long("image-name")
+                .value_name("name")
+                .help("Required. Name of the image to create")
+                .required(true),
+        )
+        .arg(
+            Arg::new("target-arch")
+                .long("target-arch")
+                .value_name("arch")
+                .help("Target architecture; required for a shell-script entrypoint")
+                .value_parser(TargetArchitecture::all()),
+        )
+        .arg(
+            Arg::new("symbol-files")
+                .long("symbol-files")
+                .help("Include debug-symbol files (.pdb, .sym, .debug) in the archive")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("skip-script-validation")
+                .long("skip-script-validation")
+                .help("Upload a shell-script entrypoint without validating it")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("upload-url")
+                .long("upload-url")
+                .value_name("url")
+                .help("AMS upload host to use instead of discovering one"),
+        )
+        .arg(
+            Arg::new("part-concurrency")
+                .long("part-concurrency")
+                .value_name("count")
+                .help("Parts to upload at once for archives over 500 MiB")
+                .value_parser(clap::value_parser!(u16).range(1..=32))
+                .default_value(DEFAULT_PART_CONCURRENCY.to_string()),
+        )
+}
+
 /// Build the `ags workflow` command and its `run` / `list` subcommands.
 pub fn build_workflow_command() -> Command {
     let subcommand_template = "{about-with-newline}\n\
@@ -493,9 +1346,69 @@ pub fn build_workflow_command() -> Command {
         )
         .subcommand(
             Command::new("list")
-                .help_template(subcommand_template)
+                .help_template(subcommand_template.clone())
                 .about("List registered workflows")
                 .disable_help_subcommand(true),
+        )
+        .subcommand(
+            Command::new("add")
+                .help_template(subcommand_template.clone())
+                .about("Validate and install a workflow YAML file")
+                .long_about(
+                    "Validate and install a workflow YAML file.\n\n\
+                     The file is parsed and compiled, then copied into the CLI's\n\
+                     config directory as <id>.yaml, named after its own `id:`\n\
+                     field. That installed copy — not <path> — is what\n\
+                     `workflow run`/`workflow list` use afterward, so editing\n\
+                     <path> later has no effect until you run `add` again.\n\
+                     Every file must declare a `workflow_protocol_version` field\n\
+                     naming the workflow YAML protocol version it targets;\n\
+                     `ags workflow template` fills this in automatically.\n\
+                     Use --validate-only to check the file without installing it.",
+                )
+                .disable_help_subcommand(true)
+                .arg(
+                    Arg::new("path")
+                        .required(true)
+                        .help("Path to the workflow YAML file"),
+                )
+                .arg(
+                    Arg::new("validate-only")
+                        .long("validate-only")
+                        .help("Validate without installing")
+                        .action(clap::ArgAction::SetTrue),
+                ),
+        )
+        .subcommand(
+            Command::new("template")
+                .help_template(subcommand_template.clone())
+                .about("Print or write a starter workflow YAML skeleton")
+                .disable_help_subcommand(true)
+                .arg(
+                    Arg::new("output")
+                        .long("output")
+                        .value_name("PATH")
+                        .help("Write the skeleton to this path instead of stdout"),
+                ),
+        )
+        .subcommand(
+            Command::new("remove")
+                .help_template(subcommand_template.clone())
+                .about("Remove an installed external workflow YAML file")
+                .long_about(
+                    "Remove a workflow previously installed via `ags workflow add`.\n\n\
+                     Only external workflows installed under the CLI's config\n\
+                     directory can be removed this way. Built-in workflows\n\
+                     (bundled into the `ags` binary, whether Rust or YAML)\n\
+                     cannot be removed and produce an error naming the\n\
+                     workflow as built-in.",
+                )
+                .disable_help_subcommand(true)
+                .arg(
+                    Arg::new("id")
+                        .required(true)
+                        .help("Id of the installed workflow to remove"),
+                ),
         )
 }
 
@@ -557,10 +1470,13 @@ pub fn build_workflow_completion_command() -> Command {
         .subcommand(run)
         .subcommand(
             Command::new("list")
-                .help_template(subcommand_template)
+                .help_template(subcommand_template.clone())
                 .about("List registered workflows")
                 .disable_help_subcommand(true),
         )
+        .subcommand(Command::new("add"))
+        .subcommand(Command::new("template"))
+        .subcommand(Command::new("remove"))
 }
 
 // ── Helpers ──
@@ -720,7 +1636,7 @@ fn global_flag_args() -> Vec<Arg> {
         Arg::new("verbose")
             .long("verbose")
             .short('v')
-            .help("Show HTTP request/response details")
+            .help("Show resolution trace and request/response details")
             .action(clap::ArgAction::SetTrue)
             .global(true),
         Arg::new("yes")
@@ -748,4 +1664,176 @@ fn global_flag_args() -> Vec<Arg> {
             .help("Max pages to fetch with --page-all (default 10, max 100)")
             .global(true),
     ]
+}
+
+// ── Value parsers for image-upload flags ──
+
+/// Parse an f64 value that must be finite and non-negative.
+///
+/// Used as the `value_parser` for `--retry-interval` and `--retry-rate`.
+/// Rejects negative, NaN, and infinite values at the CLI edge so they
+/// never reach `Duration::from_secs_f64` (which panics on such inputs).
+fn parse_finite_nonneg_f64(s: &str) -> Result<f64, String> {
+    let val: f64 = s
+        .parse()
+        .map_err(|e: std::num::ParseFloatError| e.to_string())?;
+    if !val.is_finite() {
+        return Err("must be a finite number".to_string());
+    }
+    if val < 0.0 {
+        return Err("must be non-negative".to_string());
+    }
+    Ok(val)
+}
+
+/// Parse and validate a Docker image tag for the clap `value_parser`.
+///
+/// Delegates to [`crate::invocation::handlers::extend::image_upload::check_docker_tag`]
+/// so the charset rule has a single implementation.
+fn parse_docker_tag(s: &str) -> Result<String, String> {
+    crate::invocation::handlers::extend::image_upload::check_docker_tag(s)?;
+    Ok(s.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_workflow_command_includes_add_and_template() {
+        let command = build_workflow_command();
+        assert!(command.find_subcommand("add").is_some());
+        assert!(command.find_subcommand("template").is_some());
+    }
+
+    #[test]
+    fn test_build_workflow_command_includes_remove() {
+        let command = build_workflow_command();
+        assert!(command.find_subcommand("remove").is_some());
+    }
+
+    #[test]
+    fn test_build_workflow_completion_command_includes_remove() {
+        let command = build_workflow_completion_command();
+        assert!(command.find_subcommand("remove").is_some());
+    }
+
+    // ── Extend subcommand flag-collision prohibition ──
+
+    /// No `extend` subcommand may register a long or short flag that shadows
+    /// a global flag consumed by `pre_scan_global_flags`. The global set is
+    /// derived from `KNOWN_GLOBAL_FLAGS` — the same constant the prescan
+    /// reads — so adding a new global flag automatically fails this test if
+    /// any existing subcommand already uses that name.
+    #[test]
+    fn test_extend_subcommands_do_not_shadow_global_flags() {
+        use std::collections::HashSet;
+
+        // Derive the global long-flag and short-flag sets from the single
+        // source of truth that `pre_scan_global_flags` consumes.
+        let global_longs: HashSet<&str> = crate::invocation::flags::KNOWN_GLOBAL_FLAGS
+            .iter()
+            .filter(|(f, _)| f.starts_with("--"))
+            .map(|(f, _)| *f)
+            .collect();
+        let global_shorts: HashSet<char> = crate::invocation::flags::KNOWN_GLOBAL_FLAGS
+            .iter()
+            .filter(|(f, _)| f.starts_with('-') && !f.starts_with("--"))
+            .filter_map(|(f, _)| f.chars().nth(1))
+            .collect();
+
+        let cmd = build_extend_command();
+        let mut collisions: Vec<String> = Vec::new();
+
+        // Recursive walk: check every subcommand at every depth.
+        fn walk(
+            cmd: &Command,
+            path: &str,
+            global_longs: &HashSet<&str>,
+            global_shorts: &HashSet<char>,
+            collisions: &mut Vec<String>,
+        ) {
+            for arg in cmd.get_arguments() {
+                if let Some(long) = arg.get_long() {
+                    let flag_str = format!("--{long}");
+                    if global_longs.contains(flag_str.as_str()) {
+                        collisions.push(format!("{path}: --{long} shadows global flag"));
+                    }
+                }
+                if let Some(short) = arg.get_short() {
+                    if global_shorts.contains(&short) {
+                        collisions.push(format!("{path}: -{short} shadows global flag"));
+                    }
+                }
+            }
+            for sub in cmd.get_subcommands() {
+                let child_path = format!("{path} {}", sub.get_name());
+                walk(sub, &child_path, global_longs, global_shorts, collisions);
+            }
+        }
+
+        for sub in cmd.get_subcommands() {
+            let path = format!("extend {}", sub.get_name());
+            walk(sub, &path, &global_longs, &global_shorts, &mut collisions);
+        }
+
+        assert!(
+            collisions.is_empty(),
+            "extend subcommand flags shadow global flags:\n{}",
+            collisions.join("\n")
+        );
+    }
+
+    /// Every flag in the `extend` command tree that is hidden or whose help
+    /// text mentions "backward compatibility" must be declared through
+    /// [`CompatFlag`] and registered in [`all_compat_flag_ids`]. A future
+    /// route that adds a silent no-op flag via raw `Arg::new(...).hide(true)`
+    /// bypassing CompatFlag will fail this test.
+    ///
+    /// Structural counterpart of `test_extend_subcommands_do_not_shadow_global_flags`.
+    #[test]
+    fn test_extend_hidden_compat_flags_registered_through_compat_flag() {
+        use std::collections::HashSet;
+
+        let known_compat_ids: HashSet<&str> =
+            crate::invocation::compat_flags::all_compat_flag_ids()
+                .iter()
+                .copied()
+                .collect();
+
+        let cmd = build_extend_command();
+        let mut unregistered: Vec<String> = Vec::new();
+
+        fn walk(cmd: &Command, path: &str, known: &HashSet<&str>, unregistered: &mut Vec<String>) {
+            for arg in cmd.get_arguments() {
+                let help_text = arg.get_help().map(|h| h.to_string()).unwrap_or_default();
+                let is_compat_like =
+                    arg.is_hide_set() || help_text.contains("backward compatibility");
+                if is_compat_like {
+                    let id = arg.get_id().as_str();
+                    if !known.contains(id) {
+                        let long = arg.get_long().unwrap_or(id);
+                        unregistered.push(format!(
+                            "{path}: --{long} is hidden/compat-marked but not in CompatFlag registry"
+                        ));
+                    }
+                }
+            }
+            for sub in cmd.get_subcommands() {
+                let child_path = format!("{path} {}", sub.get_name());
+                walk(sub, &child_path, known, unregistered);
+            }
+        }
+
+        for sub in cmd.get_subcommands() {
+            let path = format!("extend {}", sub.get_name());
+            walk(sub, &path, &known_compat_ids, &mut unregistered);
+        }
+
+        assert!(
+            unregistered.is_empty(),
+            "Hidden/compat-marked flags not registered through CompatFlag:\n{}",
+            unregistered.join("\n")
+        );
+    }
 }

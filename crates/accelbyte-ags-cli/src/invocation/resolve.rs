@@ -142,7 +142,6 @@ mod tests {
             api_version: ApiVersion(version),
             deprecated,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 

@@ -26,8 +26,8 @@ use ags_protocol::catalogue::{OperationId, ServiceId};
 use ags_protocol::workflow::{
     BindingSource, CaptureSource, CompletionResource, CompletionStep, LiteralBinding,
     MirrorBinding, OperationReference, ReferenceBinding, ReferenceTarget, StepDefinition,
-    StepInputBinding, StepOutputCapture, WorkflowBriefing, WorkflowCompletion, WorkflowDefinition,
-    WorkflowId, WorkflowInputSpec, WorkflowOutputAlias,
+    StepInputBinding, StepKind, StepOutputCapture, WorkflowBriefing, WorkflowCompletion,
+    WorkflowDefinition, WorkflowId, WorkflowInputSpec, WorkflowOutputAlias,
 };
 use serde_json::{json, Value};
 
@@ -150,10 +150,12 @@ fn step(
     StepDefinition {
         id: id.to_string(),
         description: Some(description.to_string()),
-        operation: OperationReference {
+        kind: StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: ServiceId::new("platform"),
             operation: OperationId::new(operation),
-        },
+        }),
         dependencies,
         confirm: flags.confirm,
         is_optional: false,
@@ -182,6 +184,7 @@ fn input(
         sensitive: false,
         options_source: None,
         location: ags_protocol::workflow::StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -191,6 +194,7 @@ fn build_definition() -> WorkflowDefinition {
     WorkflowDefinition {
         id: WorkflowId::new("in-game-store"),
         name: "Create an in-game store".to_string(),
+        workflow_protocol_version: None,
         intent: Some(
             "store catalog economy virtual currency soft currency item category durable consumable publish platform in-game"
                 .to_string(),

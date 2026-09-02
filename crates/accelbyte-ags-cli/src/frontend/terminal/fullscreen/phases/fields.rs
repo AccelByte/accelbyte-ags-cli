@@ -107,6 +107,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         FieldsPanel {
             step_number: 1,
@@ -162,6 +163,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             })
             .collect();
         let mut form = Form::new("Fields", fields).with_submit_focusable(true);
@@ -185,6 +187,114 @@ mod tests {
         assert!(
             buf.contains("field-18"),
             "focused field is scrolled into view: {buf}"
+        );
+    }
+
+    #[test]
+    fn test_render_hint_always_visible_when_fields_overflow() {
+        use ags_protocol::workflow::StepFieldId;
+        // 20 fields — more than fit in a short terminal — with the focused
+        // field (index 18) carrying a description. The hint box must still
+        // render even though the fields overflow the panel: this used to be
+        // dropped entirely (not shrunk) once Header/Field/Blank/Submit rows
+        // consumed all of the panel's vertical budget.
+        let fields: Vec<FormField> = (0..20u32)
+            .map(|i| FormField {
+                label: format!("field-{i}"),
+                field_type: FieldType::Scalar,
+                required: false,
+                value: FieldValue::Scalar(format!("v{i}")),
+                description: if i == 18 {
+                    "AccelByte user ID".into()
+                } else {
+                    String::new()
+                },
+                source: FieldSource::Literal,
+                key: FieldKey::Review(StepFieldId(i)),
+                schema: serde_json::json!({"type": "string"}),
+                read_only: false,
+                dynamic: None,
+                file_picker: None,
+            })
+            .collect();
+        let mut form = Form::new("Fields", fields).with_submit_focusable(true);
+        form.focus = 18;
+        let p = FieldsPanel {
+            step_number: 1,
+            step_name: "Many".into(),
+            description: String::new(),
+            form,
+            optional: false,
+        };
+        let mut term = Terminal::new(TestBackend::new(60, 14)).unwrap();
+        term.draw(|f| p.render(f, f.area())).unwrap();
+        let buf: String = term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(
+            buf.contains("AccelByte user ID"),
+            "focused field's hint remains visible despite overflow: {buf}"
+        );
+    }
+
+    #[test]
+    fn test_render_keeps_field_row_when_inner_height_is_four() {
+        use ags_protocol::workflow::StepFieldId;
+        // Same 20-field/focus-on-18-with-description fixture as
+        // `test_render_hint_always_visible_when_fields_overflow`, but one row
+        // taller (60x15 → inner.height == 4, vs. that test's 60x14 →
+        // inner.height == 3). At this exact height the hint-slot ladder must
+        // reserve only 3 rows (not the usual 4) so a field row still fits
+        // alongside a legible one-line hint, instead of spending the whole
+        // 4-row budget on the hint (0 field rows + blank hint padding).
+        let fields: Vec<FormField> = (0..20u32)
+            .map(|i| FormField {
+                label: format!("field-{i}"),
+                field_type: FieldType::Scalar,
+                required: false,
+                value: FieldValue::Scalar(format!("v{i}")),
+                description: if i == 18 {
+                    "AccelByte user ID".into()
+                } else {
+                    String::new()
+                },
+                source: FieldSource::Literal,
+                key: FieldKey::Review(StepFieldId(i)),
+                schema: serde_json::json!({"type": "string"}),
+                read_only: false,
+                dynamic: None,
+                file_picker: None,
+            })
+            .collect();
+        let mut form = Form::new("Fields", fields).with_submit_focusable(true);
+        form.focus = 18;
+        let p = FieldsPanel {
+            step_number: 1,
+            step_name: "Many".into(),
+            description: String::new(),
+            form,
+            optional: false,
+        };
+        let mut term = Terminal::new(TestBackend::new(60, 15)).unwrap();
+        term.draw(|f| p.render(f, f.area())).unwrap();
+        let buf: String = term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(
+            buf.contains("field-18"),
+            "focused field row stays visible at inner.height == 4: {buf}"
+        );
+        assert!(
+            buf.contains("AccelByte user ID"),
+            "hint text stays visible at inner.height == 4: {buf}"
         );
     }
 
@@ -284,6 +394,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             },
             FormField {
                 label: "beta".into(),
@@ -296,6 +407,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             },
         ];
         let mut form_a = Form::new("Parameters", fields.clone()).with_submit_focusable(true);
@@ -354,6 +466,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("Parameters", vec![field]).with_submit_focusable(true);
         let p = FieldsPanel {
@@ -460,6 +573,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let panel = FieldsPanel {
             step_number: 0,

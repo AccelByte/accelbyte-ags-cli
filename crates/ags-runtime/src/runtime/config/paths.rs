@@ -89,6 +89,13 @@ pub fn profiles_dir() -> Result<PathBuf, RuntimeError> {
     Ok(config_dir()?.join("profiles"))
 }
 
+/// Directory containing user-installed external workflow YAML files.
+/// Mirrors `profiles_dir()`'s resolution — a plain subdirectory of
+/// `config_dir()`, so it automatically respects `AGS_HOME`.
+pub fn workflows_dir() -> Result<PathBuf, RuntimeError> {
+    Ok(config_dir()?.join("workflows"))
+}
+
 /// Directory for a specific profile
 pub fn profile_dir(name: &str) -> Result<PathBuf, RuntimeError> {
     Ok(profiles_dir()?.join(name))
@@ -128,5 +135,22 @@ mod tests {
     fn test_resolve_errors_when_both_missing() {
         let err = resolve_platform_config_root(None, None).unwrap_err();
         assert!(err.message.contains("Cannot determine config directory"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_workflows_dir_is_config_dir_join_workflows() {
+        struct HomeEnvGuard;
+        impl Drop for HomeEnvGuard {
+            fn drop(&mut self) {
+                std::env::remove_var(super::ENV_HOME);
+            }
+        }
+        let _guard = HomeEnvGuard;
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var(super::ENV_HOME, tmp.path());
+
+        let dir = super::workflows_dir().unwrap();
+        assert_eq!(dir, tmp.path().join("workflows"));
     }
 }

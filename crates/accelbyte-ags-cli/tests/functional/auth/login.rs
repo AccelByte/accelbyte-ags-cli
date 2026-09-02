@@ -31,6 +31,7 @@ fn write_stale_token(profile: &str, refresh_token: Option<&str>) {
             refresh_token: refresh_token.map(|s| s.to_string()),
             refresh_expires_at: refresh_token.map(|_| now + 86_400),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();
@@ -352,6 +353,7 @@ async fn test_login_no_op_when_access_token_fresh() {
             refresh_token: Some("rt".to_string()),
             refresh_expires_at: Some(now + 7200),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();
@@ -724,6 +726,7 @@ async fn test_login_no_input_short_circuits_when_token_fresh() {
             refresh_token: Some("rt".to_string()),
             refresh_expires_at: Some(now + 7200),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();
@@ -778,6 +781,7 @@ async fn test_login_json_short_circuits_when_token_fresh() {
             refresh_token: Some("rt".to_string()),
             refresh_expires_at: Some(now + 7200),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();
@@ -912,6 +916,7 @@ async fn test_login_no_input_proceeds_when_base_url_differs() {
             refresh_token: Some("rt".to_string()),
             refresh_expires_at: Some(now + 7200),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();
@@ -959,6 +964,7 @@ async fn test_login_json_proceeds_when_client_id_differs() {
             refresh_token: Some("rt".to_string()),
             refresh_expires_at: Some(now + 7200),
             grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+            client_id: None,
         },
     )
     .unwrap();

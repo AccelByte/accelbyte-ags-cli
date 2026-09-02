@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 
 use ags_protocol::catalogue::HttpMethod;
-use ags_protocol::error::RuntimeError;
+use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
+use ags_protocol::request::{FormPart, RequestBody};
 
 /// Convert a `reqwest::Error` into a `RuntimeError` without exposing reqwest
 /// in the protocol crate. Use everywhere we previously relied on the
@@ -29,7 +30,7 @@ pub struct HttpRequest {
     /// URL query parameters appended by reqwest.
     pub query: Vec<(String, String)>,
     /// Optional JSON request body.
-    pub body: Option<serde_json::Value>,
+    pub body: Option<RequestBody>,
 }
 
 /// Response body, tagged by media-type family so binary payloads cannot be
@@ -278,15 +279,306 @@ impl HttpClient for ReqwestHttpClient {
             builder = builder.header(name, value);
         }
         if let Some(body) = &request.body {
-            builder = builder
-                .header("Content-Type", "application/json")
-                .json(body);
+            builder = match body {
+                RequestBody::Json(value) => builder
+                    .header("Content-Type", "application/json")
+                    .json(value),
+                RequestBody::Multipart(parts) => {
+                    let mut form = reqwest::multipart::Form::new();
+                    for part in parts {
+                        form = match part {
+                            FormPart::Text { name, value } => {
+                                form.text(name.clone(), value.clone())
+                            }
+                            FormPart::File {
+                                name,
+                                path,
+                                filename,
+                            } => {
+                                let part = reqwest::multipart::Part::file(path)
+                                    .await
+                                    .map_err(|err| RuntimeError {
+                                        kind: RuntimeErrorKind::Internal,
+                                        message: format!(
+                                            "failed to open file '{}' for upload: {err}",
+                                            path.display()
+                                        ),
+                                        details: None,
+                                        hint: None,
+                                        trace: None,
+                                    })?
+                                    .file_name(filename.clone());
+                                form.part(name.clone(), part)
+                            }
+                        };
+                    }
+                    builder.multipart(form)
+                }
+            };
         }
 
         let response = builder.send().await.map_err(network_error)?;
         let status = response.status().as_u16();
         let body = read_response_body_tagged(response).await?;
         Ok(HttpResponse { status, body })
+    }
+}
+
+// ── Binary Upload Transport ──
+
+/// Inactivity timeout for a streamed upload. An overall request timeout cannot
+/// be used here: a multi-hundred-megabyte part legitimately takes longer than
+/// any sane API deadline, so progress is judged per read instead.
+const UPLOAD_READ_TIMEOUT_SECS: u64 = 120;
+
+/// Base delay for the first upload retry.
+const UPLOAD_RETRY_BASE_DELAY: Duration = Duration::from_millis(500);
+
+/// Total time an upload may spend retrying before the failure is surfaced.
+/// Ported verbatim from armada-cli's `maxRetryElapseTime`.
+const UPLOAD_MAX_RETRY_ELAPSED: Duration = Duration::from_secs(120);
+
+/// A bounded byte range of a local file, uploaded as a request body.
+#[derive(Debug, Clone)]
+pub struct FileRange {
+    pub path: std::path::PathBuf,
+    pub offset: u64,
+    pub length: u64,
+}
+
+impl FileRange {
+    /// The whole file, for a single-shot (non-multipart) upload.
+    pub fn whole(path: impl Into<std::path::PathBuf>, length: u64) -> Self {
+        Self {
+            path: path.into(),
+            offset: 0,
+            length,
+        }
+    }
+}
+
+/// Build the HTTP client used for streamed binary uploads to pre-signed URLs.
+///
+/// Deliberately separate from [`build_http_client`]: uploads need no overall
+/// deadline and never follow redirects into a second signed URL.
+pub fn build_upload_client() -> Result<Client, RuntimeError> {
+    Client::builder()
+        .user_agent(APPLICATION_USER_AGENT)
+        .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+        .read_timeout(Duration::from_secs(UPLOAD_READ_TIMEOUT_SECS))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(network_error)
+}
+
+/// Result of a successful pre-signed PUT.
+#[derive(Debug, Clone)]
+pub struct BinaryPutOutcome {
+    /// The storage service's `ETag` for the uploaded bytes. Required to
+    /// finalize a multipart upload; absent for single-shot PUTs on some
+    /// backends.
+    pub etag: Option<String>,
+}
+
+/// Why a pre-signed PUT failed, so the caller can decide whether re-signing
+/// the URL is worth attempting.
+#[derive(Debug)]
+pub enum BinaryPutError {
+    /// The signed URL was rejected as unauthorised — typically an expired
+    /// signature on a long-running upload.
+    Unauthorized { status: u16 },
+    /// Anything else: a transport failure, or a non-2xx the retries could not
+    /// clear.
+    Failed(RuntimeError),
+}
+
+impl BinaryPutError {
+    /// Collapse into the underlying runtime error for surfacing to the user.
+    pub fn into_runtime_error(self) -> RuntimeError {
+        use ags_protocol::error::RuntimeErrorKind;
+        match self {
+            BinaryPutError::Unauthorized { status } => RuntimeError {
+                kind: if status == 401 {
+                    RuntimeErrorKind::NotAuthenticated
+                } else {
+                    RuntimeErrorKind::Forbidden
+                },
+                message: format!("The storage service rejected the upload (HTTP {status})"),
+                details: None,
+                hint: Some("The pre-signed URL may have expired; retry the upload.".to_string()),
+                trace: None,
+            },
+            BinaryPutError::Failed(error) => error,
+        }
+    }
+}
+
+/// Stream a bounded range of a file to `url` with a `PUT`, retrying transient
+/// failures, and return the storage service's `ETag`.
+///
+/// The body is read from disk in chunks as it is sent, so a 500 MiB part costs
+/// a buffer rather than 500 MiB of resident memory, and each retry re-opens the
+/// range instead of holding the bytes for a possible second attempt.
+///
+/// Retries cover exactly what armada-cli retried — connection/read timeouts and
+/// 5xx responses — within a total elapsed budget. A 401/403 is surfaced
+/// separately as [`BinaryPutError::Unauthorized`] so the caller can re-sign.
+pub async fn put_file_range(
+    client: &Client,
+    url: &str,
+    range: &FileRange,
+) -> Result<BinaryPutOutcome, BinaryPutError> {
+    let start = std::time::Instant::now();
+    let mut attempt = 0u32;
+
+    loop {
+        let body = upload_body(range).await.map_err(BinaryPutError::Failed)?;
+        let response = client
+            .put(url)
+            .header(reqwest::header::CONTENT_LENGTH, range.length)
+            .body(body)
+            .send()
+            .await;
+
+        // Timeouts and 5xx only, matching armada-cli. A refused connection or a
+        // bad scheme is permanent there and stays permanent here, so a typo'd
+        // storage host fails immediately instead of retrying for two minutes.
+        let is_retryable = match &response {
+            Err(error) => error.is_timeout(),
+            Ok(response) => response.status().is_server_error(),
+        };
+
+        if is_retryable {
+            if let Some(delay) = next_retry_delay(attempt, start.elapsed()) {
+                attempt += 1;
+                tokio::time::sleep(delay).await;
+                continue;
+            }
+        }
+
+        let response = response.map_err(|error| BinaryPutError::Failed(network_error(error)))?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+            return Err(BinaryPutError::Unauthorized {
+                status: status.as_u16(),
+            });
+        }
+        if !status.is_success() {
+            return Err(BinaryPutError::Failed(upload_status_error(
+                status.as_u16(),
+                response.text().await.ok(),
+            )));
+        }
+
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        return Ok(BinaryPutOutcome { etag });
+    }
+}
+
+/// Open the file range as a streaming request body.
+async fn upload_body(range: &FileRange) -> Result<reqwest::Body, RuntimeError> {
+    use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+    let io_error = |error: std::io::Error| RuntimeError {
+        kind: RuntimeErrorKind::Internal,
+        message: format!("Failed to read {}: {error}", range.path.display()),
+        details: None,
+        hint: None,
+        trace: None,
+    };
+
+    let mut file = tokio::fs::File::open(&range.path).await.map_err(io_error)?;
+    if range.offset > 0 {
+        file.seek(std::io::SeekFrom::Start(range.offset))
+            .await
+            .map_err(io_error)?;
+    }
+    let reader = file.take(range.length);
+    Ok(reqwest::Body::wrap_stream(
+        tokio_util::io::ReaderStream::new(reader),
+    ))
+}
+
+/// How long to wait before retry `attempt`, or `None` once the elapsed budget
+/// is spent. Exponential with no jitter, matching armada-cli's backoff.
+fn next_retry_delay(attempt: u32, elapsed: Duration) -> Option<Duration> {
+    if elapsed >= UPLOAD_MAX_RETRY_ELAPSED {
+        return None;
+    }
+    let delay = UPLOAD_RETRY_BASE_DELAY * 2u32.saturating_pow(attempt.min(6));
+    let remaining = UPLOAD_MAX_RETRY_ELAPSED - elapsed;
+    Some(delay.min(remaining))
+}
+
+/// Build the error for a non-2xx pre-signed PUT.
+fn upload_status_error(status: u16, body: Option<String>) -> RuntimeError {
+    use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
+    let detail = body
+        .map(|body| crate::support::strings::truncate_display_text(body.trim(), 500))
+        .filter(|body| !body.is_empty());
+    RuntimeError {
+        kind: RuntimeErrorKind::Upstream { status, code: None },
+        message: match detail {
+            Some(detail) => {
+                format!("The storage service rejected the upload (HTTP {status}): {detail}")
+            }
+            None => format!("The storage service rejected the upload (HTTP {status})"),
+        },
+        details: None,
+        hint: None,
+        trace: None,
+    }
+}
+
+#[cfg(test)]
+mod upload_transport_tests {
+    use super::*;
+
+    #[test]
+    fn test_retry_delay_grows_until_budget_is_spent() {
+        let first = next_retry_delay(0, Duration::ZERO).expect("first retry is allowed");
+        let second = next_retry_delay(1, Duration::from_secs(1)).expect("second retry is allowed");
+        assert!(second > first, "backoff must grow: {first:?} -> {second:?}");
+        assert!(
+            next_retry_delay(3, UPLOAD_MAX_RETRY_ELAPSED).is_none(),
+            "no retry once the elapsed budget is spent"
+        );
+    }
+
+    #[test]
+    fn test_retry_delay_never_exceeds_remaining_budget() {
+        let elapsed = UPLOAD_MAX_RETRY_ELAPSED - Duration::from_millis(10);
+        let delay = next_retry_delay(6, elapsed).expect("still inside the budget");
+        assert!(delay <= Duration::from_millis(10));
+    }
+
+    #[tokio::test]
+    async fn test_upload_body_reads_only_the_requested_range() {
+        use tokio::io::AsyncReadExt;
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("part.bin");
+        std::fs::write(&path, b"0123456789").unwrap();
+
+        let range = FileRange {
+            path: path.clone(),
+            offset: 3,
+            length: 4,
+        };
+        let mut file = tokio::fs::File::open(&range.path).await.unwrap();
+        tokio::io::AsyncSeekExt::seek(&mut file, std::io::SeekFrom::Start(range.offset))
+            .await
+            .unwrap();
+        let mut buffer = Vec::new();
+        file.take(range.length)
+            .read_to_end(&mut buffer)
+            .await
+            .unwrap();
+        assert_eq!(buffer, b"3456");
     }
 }
 
@@ -363,7 +655,7 @@ mod classify_tests {
 #[cfg(test)]
 mod send_classification_tests {
     use super::*;
-    use wiremock::matchers::{header, method, path};
+    use wiremock::matchers::{header, header_regex, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     /// A 200 JSON response surfaces as `HttpBody::Text` carrying the raw body string
@@ -538,5 +830,55 @@ mod send_classification_tests {
             "message should mention UTF-8: {}",
             err.message
         );
+    }
+
+    /// Sending a `RequestBody::Multipart` body produces a real
+    /// `Content-Type: multipart/form-data; boundary=...` request carrying
+    /// both a text part and a file part with the expected content.
+    #[tokio::test]
+    async fn test_multipart_request_sends_text_and_file_parts() {
+        use ags_protocol::request::{FormPart, RequestBody};
+
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("asset.png");
+        std::fs::write(&file_path, b"fake-png-bytes").unwrap();
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/upload"))
+            .and(header_regex(
+                "content-type",
+                "^multipart/form-data; boundary=.+$",
+            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "application/json")
+                    .set_body_string(r#"{"ok":true}"#),
+            )
+            .mount(&server)
+            .await;
+
+        let client = ReqwestHttpClient::new(build_http_client(Some(5)).unwrap());
+        let resp = client
+            .send(HttpRequest {
+                method: ags_protocol::catalogue::HttpMethod::Post,
+                url: format!("{}/upload", server.uri()),
+                headers: vec![],
+                query: vec![],
+                body: Some(RequestBody::Multipart(vec![
+                    FormPart::Text {
+                        name: "strategy".to_string(),
+                        value: "REPLACE".to_string(),
+                    },
+                    FormPart::File {
+                        name: "file".to_string(),
+                        path: file_path.clone(),
+                        filename: "asset.png".to_string(),
+                    },
+                ])),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.status, 200);
     }
 }

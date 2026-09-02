@@ -6,7 +6,7 @@ fn test_snapshot_root_catalogue() {
     let output = ags_isolated().args(["describe"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Snapshot the first service entry shape rather than all 24 services
+    // Snapshot the first service entry shape rather than every bundled service
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let first_child = &json["data"]["children"][0];
     insta::assert_json_snapshot!("root_catalogue_child", first_child);

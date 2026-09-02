@@ -220,6 +220,55 @@ pub(crate) fn render_workflow_catalogue(
     })
 }
 
+/// Render the outcome of `ags workflow add <path>`.
+pub(crate) fn render_workflow_add(
+    output: &ags_protocol::output_views::WorkflowAddOutput,
+    _options: &crate::frontend::RenderOptions,
+) -> Result<RenderedOutput, CliError> {
+    let color_enabled = crate::frontend::style::is_stderr_enabled();
+    let message = if output.validated_only {
+        format!("Workflow '{}' is valid", output.id.as_str())
+    } else {
+        let path = output
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        format!("Installed workflow '{}' at {path}", output.id.as_str())
+    };
+    Ok(RenderedOutput {
+        stdout: None,
+        stderr: Some(crate::frontend::style::success(&message, color_enabled)),
+        is_stdout_first: false,
+    })
+}
+
+/// Render the outcome of `ags workflow remove <id>`.
+pub(crate) fn render_workflow_remove(
+    output: &ags_protocol::output_views::WorkflowRemoveOutput,
+    _options: &crate::frontend::RenderOptions,
+) -> Result<RenderedOutput, CliError> {
+    let color_enabled = crate::frontend::style::is_stderr_enabled();
+    let mut lines = vec![crate::frontend::style::success(
+        &format!(
+            "Removed workflow '{}' ({})",
+            output.id.as_str(),
+            output.path.display()
+        ),
+        color_enabled,
+    )];
+    if output.builtin_still_registered {
+        lines.push(
+            "A built-in workflow with the same id is still registered and unaffected.".to_string(),
+        );
+    }
+    Ok(RenderedOutput {
+        stdout: None,
+        stderr: Some(lines.join("\n")),
+        is_stdout_first: false,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,5 +568,37 @@ mod tests {
             "item renders first field as label, rest as detail: {s}"
         );
         assert!(s.contains("psn: abc"), "second item rendered: {s}");
+    }
+
+    #[test]
+    fn test_render_workflow_remove_reports_success() {
+        let output = ags_protocol::output_views::WorkflowRemoveOutput {
+            id: WorkflowId::new("my-workflow"),
+            path: std::path::PathBuf::from("/tmp/workflows/my-workflow.yaml"),
+            builtin_still_registered: false,
+        };
+        let rendered = render_workflow_remove(&output, &make_options()).unwrap();
+        let stderr = rendered.stderr.as_deref().unwrap_or("");
+        assert!(
+            stderr.contains("Removed workflow 'my-workflow'"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("still registered"), "{stderr}");
+        assert!(rendered.stdout.is_none());
+    }
+
+    #[test]
+    fn test_render_workflow_remove_notes_shadowed_builtin() {
+        let output = ags_protocol::output_views::WorkflowRemoveOutput {
+            id: WorkflowId::new("competitive-multiplayer"),
+            path: std::path::PathBuf::from("/tmp/workflows/competitive-multiplayer.yaml"),
+            builtin_still_registered: true,
+        };
+        let rendered = render_workflow_remove(&output, &make_options()).unwrap();
+        let stderr = rendered.stderr.as_deref().unwrap_or("");
+        assert!(
+            stderr.contains("still registered and unaffected"),
+            "{stderr}"
+        );
     }
 }

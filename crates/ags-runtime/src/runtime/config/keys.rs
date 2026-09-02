@@ -50,6 +50,11 @@ pub static KNOWN_KEYS: &[ConfigKeyDef] = &[
         json_name: "page_limit",
         scope: ConfigScope::Global,
     },
+    ConfigKeyDef {
+        cli_name: "first-run-hint-seen",
+        json_name: "first_run_hint_seen",
+        scope: ConfigScope::Global,
+    },
     // Profile-scoped keys
     ConfigKeyDef {
         cli_name: "base-url",
@@ -70,6 +75,11 @@ pub static KNOWN_KEYS: &[ConfigKeyDef] = &[
         cli_name: "grant-type",
         json_name: "grant_type",
         scope: ConfigScope::Profile,
+    },
+    ConfigKeyDef {
+        cli_name: "update-check",
+        json_name: "update_check",
+        scope: ConfigScope::Global,
     },
 ];
 
@@ -126,6 +136,19 @@ pub fn normalise_client_id(value: &str) -> String {
         .to_ascii_lowercase()
 }
 
+/// Whether two client IDs refer to the same IAM client, comparing in normalised
+/// form (hyphens stripped, lowercased). A casing/hyphenation difference between
+/// sources — e.g. a raw `AGS_CLIENT_ID` env value vs a value stored normalised by
+/// `ags config set client-id` — is therefore not treated as a different client.
+///
+/// The single source of truth for client-ID equality across the auth paths
+/// (token binding in `session::client_matches`, the login probe's
+/// `existing_access_token_still_valid` and `stored_identity_matches`), so those
+/// comparisons cannot drift apart.
+pub fn client_ids_match(a: &str, b: &str) -> bool {
+    normalise_client_id(a) == normalise_client_id(b)
+}
+
 /// Returns true if the value is a valid namespace (lowercase alphanumeric and hyphens, max 48 chars).
 pub fn is_valid_namespace(value: &str) -> bool {
     !value.is_empty()
@@ -140,6 +163,22 @@ pub fn is_valid_namespace(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Client-ID equality is normalised: same client with different casing and
+    /// hyphenation matches; genuinely different IDs do not.
+    #[test]
+    fn test_client_ids_match_ignores_case_and_hyphens() {
+        assert!(client_ids_match(
+            "D39A8BB1-04E5-45A7-A4B1-EF6EC3D55A3C",
+            "d39a8bb104e545a7a4b1ef6ec3d55a3c"
+        ));
+        assert!(client_ids_match("abc", "ABC"));
+        assert!(!client_ids_match(
+            "d39a8bb104e545a7a4b1ef6ec3d55a3c",
+            "00000000000000000000000000000000"
+        ));
+    }
+
     /// Key lookup returns the registered definition.
     #[test]
     fn test_find_key_returns_registered_definition() {

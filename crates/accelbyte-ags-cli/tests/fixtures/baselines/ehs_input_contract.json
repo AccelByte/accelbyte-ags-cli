@@ -1,0 +1,58 @@
+{
+  "grpc-reflection": [
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "appName",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "host",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "securityType",
+          "required": false
+        }
+      ],
+      "path": "/ehs/v1/admin/namespaces/{namespace}/reflection",
+      "permissions": [],
+      "summary": "Lists a gRPC server's services and methods using server reflection",
+      "x_operation_id": "ehs/admin/grpc-reflection/v1/get"
+    }
+  ],
+  "repository-credentials": [
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/ehs/v1/namespaces/{namespace}/apps/{app}/token",
+      "permissions": [],
+      "summary": "Retrieves Docker registry credentials for pushing container images to a publisher game app",
+      "x_operation_id": "ehs/admin/repository-credentials/v1/get"
+    }
+  ]
+}

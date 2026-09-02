@@ -65,6 +65,20 @@ pub(crate) fn render_output(
                 )
             }
         },
+        CommandOutput::AmsUpload(ams_upload_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::ams_upload::render_ams_upload_output(
+                    ams_upload_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::ams_upload::render_ams_upload_output(
+                    ams_upload_output,
+                    options,
+                )
+            }
+        },
         CommandOutput::DryRun(dry_run_result) => match format {
             RenderFormat::Human => {
                 crate::frontend::output::human::commands::service::render_dry_run_output(
@@ -119,9 +133,79 @@ pub(crate) fn render_output(
                 )
             }
         },
+        CommandOutput::CloneTemplate(clone_template_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::clone_template::render_clone_template_output(
+                    clone_template_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::clone_template::render_clone_template_output(
+                    clone_template_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::SetupEnv(setup_env_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::setup_env::render_setup_env_output(
+                    setup_env_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::setup_env::render_setup_env_output(
+                    setup_env_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::AppUiUpload(upload_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::app_ui_upload::render_app_ui_upload_output(
+                    upload_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::app_ui_upload::render_app_ui_upload_output(
+                    upload_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::UpdateVar(update_var_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::update_var::render_update_var_output(
+                    update_var_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::update_var::render_update_var_output(
+                    update_var_output,
+                    options,
+                )
+            }
+        },
         CommandOutput::BinaryWritten(binary_written_output) => {
             render_binary_written(format, binary_written_output)
         }
+        CommandOutput::UpdateSecret(update_secret_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::update_secret::render_update_secret_output(
+                    update_secret_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::update_secret::render_update_secret_output(
+                    update_secret_output,
+                    options,
+                )
+            }
+        },
         CommandOutput::RefreshSpecs(refresh_specs_output) => match format {
             RenderFormat::Human => {
                 crate::frontend::output::human::commands::refresh_specs::render_refresh_specs_output(
@@ -194,6 +278,37 @@ pub(crate) fn render_output(
                 )
             }
         },
+        CommandOutput::WorkflowAdd(workflow_add_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::workflow::render_workflow_add(
+                    workflow_add_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::workflow::render_workflow_add(
+                    workflow_add_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::WorkflowTemplate(workflow_template_output) => {
+            render_workflow_template(format, workflow_template_output)
+        }
+        CommandOutput::WorkflowRemove(workflow_remove_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::workflow::render_workflow_remove(
+                    workflow_remove_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::workflow::render_workflow_remove(
+                    workflow_remove_output,
+                    options,
+                )
+            }
+        },
     }
 }
 
@@ -245,6 +360,43 @@ fn render_binary_written(
     }
 }
 
+/// Render a `WorkflowTemplate` output for the selected text format. When the
+/// destination is stdout, the YAML text itself IS the stdout payload (raw,
+/// pipeable, no JSON wrapping even under `--format json` — same "single
+/// format for the payload itself" precedent as `Skeleton`/`Describe`, except
+/// here the payload is already the exact string to emit). When written to a
+/// file, only a confirmation is rendered, mirroring `render_binary_written`.
+fn render_workflow_template(
+    format: RenderFormat,
+    output: &ags_protocol::output_views::WorkflowTemplateOutput,
+) -> Result<RenderedOutput, CliError> {
+    match &output.destination {
+        BinaryWrittenDestination::Stdout => Ok(RenderedOutput {
+            stdout: Some(output.yaml.clone()),
+            stderr: None,
+            is_stdout_first: true,
+        }),
+        BinaryWrittenDestination::File(path) => match format {
+            RenderFormat::Human => Ok(RenderedOutput {
+                stdout: None,
+                stderr: Some(format!("✔ Wrote workflow template to {}", path.display())),
+                is_stdout_first: false,
+            }),
+            RenderFormat::Json => {
+                let value = serde_json::json!({
+                    "status": "written",
+                    "destination": path.display().to_string(),
+                });
+                Ok(RenderedOutput {
+                    stdout: Some(crate::frontend::output::json::format_json(&value)?),
+                    stderr: None,
+                    is_stdout_first: true,
+                })
+            }
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,17 +431,17 @@ mod tests {
         // dispatch arm — the same "not yet supported" error lived here pre-PR.
         use ags_protocol::catalogue::HttpMethod;
         use ags_protocol::result::DryRunResult;
-        use ags_protocol::workflow::StepDryRunPreview;
+        use ags_protocol::workflow::{StepDryRunAction, StepDryRunPreview};
         let preview = StepDryRunPreview {
             step_id: "create-stat".to_string(),
             step_index: 0,
-            command: DryRunResult {
+            action: StepDryRunAction::Request(DryRunResult {
                 http_method: HttpMethod::Post,
                 url: "https://example.test/social/v1/admin/namespaces/dev/stats".to_string(),
                 headers: vec![],
                 query: vec![],
                 body: None,
-            },
+            }),
             synthesised_outputs: BTreeMap::new(),
         };
         let output = CommandOutput::WorkflowDryRun {
@@ -303,5 +455,34 @@ mod tests {
         assert_eq!(json["workflow"], "competitive-multiplayer");
         assert_eq!(json["dry_run"], true);
         assert!(json["steps"].is_array());
+    }
+
+    #[test]
+    fn test_render_output_workflow_add_json_reports_installed_path() {
+        let output = CommandOutput::WorkflowAdd(ags_protocol::output_views::WorkflowAddOutput {
+            id: WorkflowId::new("my-workflow"),
+            validated_only: false,
+            path: Some(std::path::PathBuf::from("/tmp/workflows/my-workflow.yaml")),
+        });
+        let rendered = render_output(RenderFormat::Json, &output, &RenderOptions::default())
+            .expect("must render");
+        let json: serde_json::Value =
+            serde_json::from_str(rendered.stdout.as_deref().unwrap()).unwrap();
+        assert_eq!(json["id"], "my-workflow");
+        assert_eq!(json["validated_only"], false);
+        assert_eq!(json["path"], "/tmp/workflows/my-workflow.yaml");
+    }
+
+    #[test]
+    fn test_render_output_workflow_template_stdout_is_raw_yaml() {
+        let output =
+            CommandOutput::WorkflowTemplate(ags_protocol::output_views::WorkflowTemplateOutput {
+                yaml: "id: my-workflow\n".to_string(),
+                destination: BinaryWrittenDestination::Stdout,
+            });
+        let rendered = render_output(RenderFormat::Human, &output, &RenderOptions::default())
+            .expect("must render");
+        assert_eq!(rendered.stdout.as_deref(), Some("id: my-workflow\n"));
+        assert!(rendered.stderr.is_none());
     }
 }

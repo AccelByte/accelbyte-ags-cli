@@ -1,0 +1,189 @@
+# Starter skeleton for an `ags` workflow. This file documents every field the
+# schema supports, not just what a first workflow needs — copy what you use,
+# delete or leave commented what you don't. `ags workflow add <path>` is the
+# only thing that validates a workflow (against the live catalogue); this
+# skeleton itself is never checked, so a commented block below may be
+# slightly wrong for your operation without anything complaining until you
+# actually run `add`.
+#
+# Two hard rules, not graceful degradation — getting these wrong is a
+# validation error, not a silent no-op:
+#   - A binding is discriminated by which key is present, not a `type:` tag:
+#     `const:` -> literal, `from:` -> reference, `format:` -> template
+#     string, `mirror_of:` -> same-step mirror.
+#   - `outputs[].source` only supports `responseBody`. `transform.kind` only
+#     supports `json_path` and `arithmetic`. There is no escape hatch for
+#     anything else.
+
+id: my-workflow                    # registry key — must be unique
+name: My workflow                  # human-facing display name
+workflow_protocol_version: "{{WORKFLOW_PROTOCOL_VERSION}}"     # required — the workflow YAML protocol version this file targets
+intent: free text keywords for fuzzy matching     # optional
+description: One-line summary shown in `ags workflow list`   # optional
+
+# Optional long-form introduction shown before any input is gathered.
+# `overview` is plain text with `**bold**` and `` `code` `` inline markers;
+# paragraphs are separated by blank lines. `prerequisites`/`creates` are one
+# bullet per entry, same inline markers. Omit the whole `briefing:` key if you
+# don't need one — workflows without it skip straight to gathering inputs.
+# briefing:
+#   overview: |
+#     Multi-sentence explanation of what this workflow does and why.
+#   prerequisites:
+#     - "**Admin credentials** with X permission."
+#   creates:
+#     - "**A thing** this workflow produces."
+
+is_reviewed_by_default: true       # false = run straight through, no per-step pause
+
+inputs:
+  - name: namespace
+    description: Your game's namespace
+    required: true
+    schema: {type: string}
+    # default: null            # optional — used when no flag/gather value is supplied
+    # sensitive: false          # optional, default false — masks the value in previews/logs
+    # location: body            # optional: path | query | header | body (default body)
+
+  - name: userId
+    description: The AccelByte user ID to look up
+    required: true
+    schema: {type: string}
+
+  # A dynamic-enum input fetches its choices at runtime instead of the user
+  # typing a raw value. Uncomment and adapt to add one of your own — note the
+  # `!from_input` YAML tag: `OptionParameterBinding` is a plain (non-untagged)
+  # enum, so its wire form needs YAML's native tag syntax here, not a
+  # JSON-style nested map (`{from_input: someInput}` will NOT parse the same
+  # way `!from_input someInput` does for this field).
+  # - name: fleetRegion
+  #   description: The region to operate in
+  #   required: true
+  #   schema: {type: string}
+  #   options_source:
+  #     operation: {service: ams, operation: ams/admin/info/v1/list-regions}
+  #     parameters:
+  #       namespace: !from_input namespace
+  #       # !from_input_optional <input> also exists — same as !from_input,
+  #       # but doesn't gate the picker: an empty input opens it in
+  #       # direct-entry mode instead of waiting on a fetch.
+  #       # A literal parameter also works: pageSize: !literal 50
+  #     items_path: "$.regions"    # JSONPath to the array in the response body
+  #     value: "$"                # JSONPath (per item) to the bound value
+  #     # label: "$.name"           # optional — falls back to the stringified value
+  #     # label_detail: "$.emailAddress"    # optional secondary detail shown in brackets
+  #     # fallback_description: "Type the value directly"   # optional, shown on surfaces with no picker
+  #     # filter: {path: "$.status", equals: DRAFT}          # optional — keep only matching elements
+
+  # A file-picker input opens a directory-browsing modal (fullscreen surface
+  # only) instead of the user typing a raw path. Uncomment and adapt.
+  # - name: iconFile
+  #   description: Pick a local image file
+  #   required: true
+  #   schema: {type: string}
+  #   file_picker:
+  #     extensions: [png, jpg, jpeg]   # optional; omit to allow any file
+  #     # start_dir: "/path/to/assets"  # optional; falls back to CWD if unset
+  #                                      # or if it doesn't exist at gather time
+
+steps:
+  - id: my-step
+    description: Human-facing step description
+    operation: {service: iam, operation: iam/admin/users/v3/get}   # replace with a real x-operationId
+    # dependencies: []          # optional — other step ids that must complete first
+    # confirm: false            # optional — true pauses for an explicit yes/no before dispatch
+    # is_optional: false        # optional — true lets the user skip this step at its pause gate
+    # continue_on_failure: false  # optional — true makes a dispatch failure non-fatal: the step is
+    #                              # recorded skipped, its outputs fall back to their defaults, the
+    #                              # run continues. Distinct from is_optional (a user *choosing* to skip).
+    # skip_if_exists: false     # optional — true treats an HTTP 409 on this step as "already exists":
+    #                              # the step is skipped (outputs fall back to their defaults) and the
+    #                              # run continues. Every output must declare a default for this to compile.
+    # is_reviewed: null         # optional — per-step override of is_reviewed_by_default (true/false/omit)
+    inputs:
+      - field: namespace
+        source: {from: "workflow/namespace"}
+      - field: userId
+        source: {from: "workflow/userId"}
+
+      # Every binding kind a field's `source:` can take:
+      #
+      # - {field: setBy, source: {const: "SERVER"}}
+      #   A literal value baked into the workflow.
+      # - {field: apiKey, source: {const: "shh", sensitive: true}}
+      #   `sensitive: true` masks the value in previews/logs.
+      # - {field: name, source: {format: "{resourcePrefix}-session"}}
+      #   A template string interpolating `{name}` placeholders that
+      #   reference declared workflow inputs.
+      # - field: ruleSet
+      #   source: {from: "step/create-ruleset", output: name}
+      #   References a prior step's captured output (see the `outputs:` key
+      #   below) instead of a workflow input — note the step must run before
+      #   this one (usually implied by `dependencies:`, since a binding alone
+      #   doesn't order execution).
+      # - field: minPlayers
+      #   source:
+      #     from: "workflow/playersPerTeam"
+      #     transform: {kind: arithmetic, op: mul, operand: {kind: workflow_input, value: teamCount}}
+      #   Applies a transform to the resolved value before binding it.
+      #   `arithmetic` supports only `mul`/`add`, on two integer operands
+      #   (this binding's own value, and `operand`, which is either
+      #   `{kind: workflow_input, value: <name>}` or `{kind: integer, value: <n>}`).
+      #   `json_path: {kind: json_path, path: "$.value"}` extracts a nested
+      #   field from the resolved value instead.
+      # - field: name
+      #   source: {mirror_of: "localizations.en-US.title"}
+      #   Copies the *effective* value of another field bound in the same
+      #   step (including any step-review edit to it) — keeps two tightly-
+      #   coupled fields (e.g. a display name mirroring a localized title)
+      #   from diverging. The target must not itself be a mirror, and a
+      #   mirror binding's own `show_in_review` must be false.
+      #
+      # Any binding may also carry:
+      # - show_in_review: true    # surfaces this field (even a literal) as an
+      #                              # editable row in the step-walk review form
+      # - description: "Shown in the hint area when this field is focused"
+      #
+      # Nested-field bindings patch one leaf of a literal object skeleton —
+      # same `field:` key, just a dotted/indexed path string, no schema change:
+      # - field: "data.matching_rule[0].reference"
+      #   source: {const: 200}
+      #   show_in_review: true
+      #   description: "How far two players' ratings may differ and still match"
+
+    # Captures values from this step's dispatch response, for later steps to
+    # reference via `from: "step/<this-step-id>", output: <name>`. Only
+    # `responseBody` + JSONPath is supported — see the note at the top of
+    # this file.
+    # outputs:
+    #   - name: statCode
+    #     source: responseBody
+    #     path: "$.statCode"
+    #     # default: null           # optional fallback if the path misses; omit to
+    #     #                            # fail the step when the capture can't resolve
+    #     # sensitive: false        # optional — masks the captured value in previews/logs
+
+# Top-level aliases exposing captured step outputs as part of the workflow's
+# final result (the `outputs` map in `CommandOutput::Workflow`). Optional —
+# omit entirely if the workflow's only interesting effect is the API calls
+# themselves.
+# outputs:
+#   - name: account_displayName
+#     from_step_id: my-step        # bare step id — no "step/" prefix here
+#     output: statCode             # must match one of that step's outputs[].name
+#     # sensitive: false            # optional — masks this aliased value
+#     # section: Account            # optional grouping header for human rendering
+#     # label: "Display name"       # optional; falls back to `name` when absent
+#     # item_fields: [name, status] # for an array-valued output rendered as a
+#     #                                # sub-list: first field is the line label, the
+#     #                                # rest are shown as detail. Omit to render an
+#     #                                # array output as a plain count instead.
+
+# Optional post-run panel, shown only after a successful multi-step run.
+# `value`/`command` may use `{name}` placeholders resolved against workflow
+# inputs at run-end (e.g. `{resourcePrefix}` if you declared that input).
+# completion:
+#   created:
+#     - {label: "Match pool", value: "{resourcePrefix}-pool"}
+#   next_steps:
+#     - {description: "Inspect the match pool", command: "ags matchmaking match-pools get --namespace {namespace} --pool {resourcePrefix}-pool"}

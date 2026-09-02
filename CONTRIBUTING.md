@@ -48,6 +48,17 @@ cargo run -- refresh-specs       # Re-parse every bundled spec
 4. Update docs, snapshots, or fixtures if the change intentionally affects them.
 5. Use a Conventional Commit message.
 
+### Continuous integration
+
+Pushing a branch to Bitbucket triggers a GitLab pipeline
+([`accelbyte/project-justice/ags-cli`](https://gitlab.com/accelbyte/project-justice/ags-cli))
+that runs `cargo fmt --check`, `cargo clippy -- -D warnings` and the workspace test
+suite on Linux, then reports the result back as a build status on the commit. A
+ClamAV scan additionally runs on `main`.
+
+The GitHub workflows in `.github/workflows/` remain the source of truth for the
+cross-platform test matrix, `cargo-deny`, and release packaging.
+
 ### Regenerating the demo reel
 
 The README GIF is produced from `demos/onboarding/onboarding.tape` using [VHS](https://github.com/charmbracelet/vhs) driven against a local mock server. To regenerate after tape or mock changes:
@@ -65,15 +76,24 @@ New demos are authored with the `vhs-demo` skill, which grounds the tape and moc
 
 ### Workspace layout
 
-This repository is a Cargo workspace with three crates under `crates/`:
+This repository is a Cargo workspace with four crates under `crates/`:
 
 - `ags-protocol` — leaf crate containing the typed protocol contracts (request, result, event, error, output shapes, and the `catalogue` identifier/schema types). It may also hold pure **port traits** shared across crates — behavioural contracts with no logic that the runtime calls and the frontend implements (e.g. `WorkflowFrontend`), so neither side depends on the other. No `tokio`, `reqwest`, `clap`, or other CLI/HTTP deps. Backwards-compatible types only.
 - `ags-runtime` — depends on `ags-protocol`. Contains all business logic: command execution, auth, config, diagnostics, dispatch, the OpenAPI catalogue, and the shared `support` utilities (`output_sink`, `file_system`, `strings`, etc.).
 - `accelbyte-ags-cli` — depends on both. Produces the `ags` binary. Contains argv parsing (`invocation/`), rendering (`frontend/`), the top-level `CliError`, the `lib.rs`/`main.rs`, and all integration tests under `crates/accelbyte-ags-cli/tests/`.
+- `extend-proxy-client` — standalone leaf crate; a Rust port of `extend-helper-cli`'s Go tunneling client (`modules/extend-proxy`/`pkg/client`), consumed directly by the CLI's `extend remote-debug connect` orchestration — see [extend-proxy-client status](#extend-proxy-client-status) below.
 
-Dependency direction is strictly `accelbyte-ags-cli → ags-runtime → ags-protocol`. Reverse edges are forbidden and rejected by `cargo check --workspace`. When adding a new module, place it in the lowest crate that needs to expose it.
+Dependency direction is `accelbyte-ags-cli → ags-runtime → ags-protocol`, with the CLI also allowed to depend on the standalone `extend-proxy-client` leaf crate. Reverse edges are forbidden and rejected by `cargo check --workspace`. When adding a new module, place it in the lowest crate that needs to expose it.
 
-`cargo test --workspace` from the repo root runs everything across all three crates. The `ags` binary builds with `cargo build -p accelbyte-ags-cli` (or `cargo run -p accelbyte-ags-cli -- <args>`).
+`cargo test --workspace` from the repo root runs everything across all four crates. The `ags` binary builds with `cargo build -p accelbyte-ags-cli` (or `cargo run -p accelbyte-ags-cli -- <args>`).
+
+#### `extend-proxy-client` status
+
+This crate is consumed by `accelbyte-ags-cli::invocation::handlers::extend::remote_debug::connect_once`, which builds the proxy agent and service forwarder used by `ags extend remote-debug connect`. The integration intentionally lives in the CLI invocation layer for consistency with the existing imperative Extend handlers; moving the orchestration into an `ags-runtime` facade remains follow-up architecture work.
+
+- Dependency direction is `accelbyte-ags-cli → extend-proxy-client`. The proxy crate remains a leaf with no dependencies on `ags-protocol`, `ags-runtime`, or `accelbyte-ags-cli`.
+- Its own conformance suites (`tests/go_testpeer.rs`, `tests/sidecar_conformance.rs`) are the primary proof of wire-compatibility with the real Go sidecar; they are `#[ignore]`d and not run in CI (require an externally-built Go test-peer binary or a Docker Compose harness). Run them manually before relying on protocol-level changes here — see `crates/extend-proxy-client/tests/README.md` for exact steps.
+- `Config::sidecar_ws` is a plain `ws://` (not `wss://`) URL by design, matching the Go original: `extend-helper-cli`'s `internal/cmd/remote_debug.go:227` builds `ws://localhost:<port>/tunnel?gameNamespace=...` — the client always dials the sidecar over loopback in plaintext. The hop that actually leaves the machine is TLS, established separately by the sidecar itself (`internal/tunnel/tunnel.go:57` builds `wss://<host>/csm/v2/admin/namespaces/<ns>/tunnel?...`). So plaintext `ws://` never touches the network. This is why `detect-insecure-websocket` findings on this crate's `ws://` literals are suppressed with `// nosemgrep` rather than fixed — when the future `remote-debug` command wires up a real call site passing a `ws://localhost` URL, it will trip the same rule and can point back at this note.
 
 ### Architecture guardrails
 
@@ -87,6 +107,7 @@ Each module has a single responsibility. Cross-module imports must follow the al
 | `runtime` | `ags-runtime` | Owns execution — endpoint calls, auth, config, diagnostics, validation, workflow transitions |
 | `frontend` | `accelbyte-ags-cli` | Owns all user-visible formatting — tables, inspect views, JSON output, progress, colour |
 | `support` | `ags-runtime` | Small shared utilities — filesystem helpers, string transforms, TTY/time utilities |
+| `proxy client` | `extend-proxy-client` | Standalone tunnel-agent protocol, session, and forwarding implementation consumed by `remote-debug connect` |
 
 **Forbidden dependencies:**
 
@@ -95,6 +116,7 @@ Crate-level (enforced by `cargo check --workspace`):
 - `ags-protocol` must not depend on any other workspace crate
 - `ags-runtime` must not depend on `accelbyte-ags-cli`
 - `accelbyte-ags-cli` is the only crate allowed to expose `frontend` or `invocation`
+- `extend-proxy-client` must not depend on `ags-protocol`, `ags-runtime`, or `accelbyte-ags-cli`; `accelbyte-ags-cli` may consume it directly
 
 Module-level within a crate:
 
@@ -121,7 +143,7 @@ Module-level within a crate:
 | `scripts/generate_cli_command_catalogue.py` | **Canonical Python reference** for the command catalogue. Rust must match its output exactly |
 | `crates/ags-runtime/src/runtime/dispatch/error_codes/` | AccelByte error code lookup tables (one file per service) |
 | `crates/ags-runtime/src/runtime/dispatch/classify.rs` | Error classification pipeline: error code → HTTP status → user-friendly message |
-| `crates/ags-runtime/specs/*.json.gz` | All 24 gzip-compressed OpenAPI 2.0 specs bundled into the binary via `include_bytes!` |
+| `crates/ags-runtime/specs/*.json.gz` | Every gzip-compressed OpenAPI 2.0 spec bundled into the binary via `include_bytes!` — one per service in the manifest |
 | `crates/accelbyte-ags-cli/tests/fixtures/baselines/<service>_input_contract.json` | Per-service Python-generated reference data for parser validation |
 
 ## Reference docs
@@ -133,7 +155,9 @@ All CLI behaviour is governed by the normative reference docs in `docs/reference
 | `docs/reference/cli-reference.md` | Normative requirements (MUST/SHOULD/MAY) for CLI behaviour |
 | `docs/reference/output-reference.md` | Output formatting, tone, hierarchy, and rendering rules |
 | `docs/reference/testing-reference.md` | Testing strategy, test categories, and validation requirements |
-| `docs/reference/cli-command-catalogue.md` | Full command catalogue for all 24 services (auto-generated) |
+| `docs/reference/cli-command-catalogue.md` | Full command catalogue for every bundled service (auto-generated) |
+| `docs/reference/ams-upload.md` | `ags ams upload`: IAM client setup, minimum permissions, troubleshooting, and migration from the standalone `ams` CLI |
+| `docs/reference/review-conventions.md` | Review conventions: the RULE-NN rule set enforced in code review, with per-area pages and runnable self-checks |
 
 The current module layout, dependency directions, and operational invariants are captured in [Architecture guardrails](#architecture-guardrails) above.
 
@@ -291,7 +315,7 @@ cargo test --release -p ags-runtime --lib catalogue     # Parser/catalogue relea
 
 > **Note:** Some parser and catalogue tests are gated on `#[cfg(not(debug_assertions))]` and only run under `cargo test --release`. These cover the graceful-fallback paths for unsupported HTTP verbs, parameter locations, and value types. Run `cargo test --release -p ags-runtime --lib catalogue` when modifying parser error-handling code.
 
-The input contract tests loop over all 24 services. For each one they load the bundled spec, parse it via `parser::parse_spec`, and compare the result against the per-service baseline at `crates/accelbyte-ags-cli/tests/fixtures/baselines/<service>_input_contract.json`. The comparison is split into two tests:
+The input contract tests loop over every service in the manifest. For each one they load the bundled spec, parse it via `parser::parse_spec`, and compare the result against the per-service baseline at `crates/accelbyte-ags-cli/tests/fixtures/baselines/<service>_input_contract.json`. The comparison is split into two tests:
 
 - **`test_no_breaking_changes`** — a one-way gate. Every resource, operation, parameter (`name`/`location`/`required`), `http_method`, `path`, and `has_request_body` recorded in the baseline must still be present and unchanged in the parse. Additions (new operations or parameters) are **tolerated**; removals or mutations **fail**. A failure here is a genuine breaking change — **do not regenerate the baselines to silence it**.
 - **`test_baseline_is_current`** — the freshness check. Any divergence from the baseline (including additions and summary changes) fails, signalling the baseline is stale. This is the only signal that should prompt regeneration — and only **after** `test_no_breaking_changes` is green:
@@ -376,8 +400,8 @@ Each workflow file contains:
     affordance only: the fullscreen Phase-1 form renders it as a type-to-filter
     modal picker, while non-interactive and `--format json` runs treat the input
     as a plain string. `compile_workflow` validates the source (operation exists,
-    is GET, paths parse). See `fleetImageId` / `fleetRegion` / `fleetInstanceId`
-    in `competitive_multiplayer.rs`.
+    is GET, paths parse). See `fleetRegion` / `fleetInstanceId` in
+    `competitive_multiplayer.rs`.
 
 If your workflow needs step-output capture, extend the `outputs` field on
 the relevant `StepDefinition` directly rather than adding a helper.
@@ -450,6 +474,74 @@ your workflow file:
    output (step previews, no network calls). Register it in
    `crates/accelbyte-ags-cli/tests/functional.rs` via a `#[path = ...]`
    attribute so it is picked up by `cargo test --test functional`.
+
+### YAML authoring alternative
+
+Every built-in workflow above is a Rust literal, but you can also author a
+workflow as a standalone YAML file and install it without touching the
+binary at all — useful for a quick one-off, or for a workflow that shouldn't
+be bundled into the CLI itself.
+
+Run `ags workflow template [--output <path>]` to print (or write) a starter
+YAML skeleton with the annotated shape `WorkflowDefinition` expects — the
+same fields as the Rust struct, since `WorkflowDefinition` derives
+`Serialize`/`Deserialize` and nothing downstream cares how it was
+constructed. Hand-edit the file: fill in a real `id`, steps, and inputs, following
+the same binding wire forms documented above (`from`, `const`, `format`,
+nested-field paths, `options_source`, etc.).
+
+Every external workflow must declare `workflow_protocol_version: "<version>"`
+— the workflow YAML protocol/schema version the file was authored against,
+deliberately unrelated to the `ags` CLI's own release version. `ags workflow
+template` fills this in for you automatically with the protocol version this
+CLI build speaks (`ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION`); `ags
+workflow add` rejects any file that omits it outright. This isn't a
+compatibility check (nothing verifies the workflow will actually work under a
+different protocol version) — it's a provenance hint: `ags workflow run`
+prints a one-line, non-blocking warning whenever an installed external
+workflow's declared protocol version doesn't match this CLI build's own (in
+either direction — older or newer), so a shared or long-unused workflow's
+confusing behavior has a place to start looking, instead of failing silently
+with no explanation.
+
+**If you change the shape of `WorkflowDefinition`/`StepDefinition`** (add,
+remove, rename, or change the wire form of a field — anything that changes
+what a workflow YAML file is expected to look like), bump
+`WORKFLOW_PROTOCOL_VERSION` in `crates/ags-protocol/src/workflow.rs`
+alongside that change. Nothing enforces this automatically — no test fails
+if you change the schema without bumping it — so it relies on you noticing.
+Use ordinary semver judgment: a breaking wire-format change (a required
+field's name or type changes, a variant is removed) is at least a minor
+bump; a purely additive, backward-compatible field is optional to bump at
+all, since an older workflow file still parses fine either way.
+
+Then run `ags workflow add <path>` to validate it (parses the YAML, compiles
+it against the bundled catalogue exactly like a built-in) and install it into
+`workflows_dir()` under `<id>.yaml`. Pass `--validate-only` to check the file
+without installing it. `workflows_dir()` mirrors `profiles_dir()`'s
+resolution — a plain subdirectory of the config directory, so it
+automatically respects `AGS_HOME` — and every file in it is loaded into the
+workflow registry alongside the built-ins the next time `ags` runs. An id
+that collides with an already-registered workflow (built-in or previously
+installed) is rejected outright; choose a different id, or run
+`ags workflow remove <id>` to remove the existing external workflow first.
+
+Run `ags workflow remove <id>` to uninstall a workflow previously added this
+way. It only ever deletes a file under `workflows_dir()` — it matches by the
+file's own `id:` field (not its filename, since a hand-copied file's name
+need not match its id), so it finds a match regardless of how the file was
+named. A built-in workflow (a Rust struct or a bundled YAML file compiled
+into the `ags` binary) cannot be removed and produces an error naming it as
+built-in. If an installed file's id happens to collide with a built-in's
+(the file was already shadowed — `external.rs`'s loader lets the built-in
+win and never registers the file), `remove` still deletes it, but says so
+explicitly rather than implying the workflow is gone entirely.
+
+One wire-format detail is easy to miss: `options_source.parameters` values
+(`OptionParameterBinding`) are a plain (non-`#[serde(untagged)]`) enum, so in
+YAML they need the native `!from_input <name>` tag form, not a JSON-style
+nested map like `{from_input: someInput}`. See the commented-out example in
+`ags workflow template`'s output for the exact syntax.
 
 ## Key Design Decisions
 

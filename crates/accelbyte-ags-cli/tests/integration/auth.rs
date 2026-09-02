@@ -543,6 +543,7 @@ async fn test_client_credentials_self_heals_on_refresh_rejection() {
             refresh_token: Some("dead-refresh".to_string()),
             refresh_expires_at: Some(now + 86_400),
             grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+            client_id: None,
         },
     )
     .unwrap();

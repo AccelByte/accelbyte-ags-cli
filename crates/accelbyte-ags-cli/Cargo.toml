@@ -2,15 +2,19 @@
 name = "accelbyte-ags-cli"
 version.workspace = true
 edition = "2021"
+authors = ["AccelByte Inc."]
 description = "Unified CLI for AccelByte Gaming Services"
 license = "MIT"
 rust-version = "1.85"
 repository = "https://github.com/AccelByte/accelbyte-ags-cli"
 homepage = "https://accelbyte.io/gaming-services"
-readme = "README.md"
+readme = "../../README.md"
 keywords = ["accelbyte", "cli", "gaming"]
 categories = ["command-line-utilities"]
 publish = false
+
+[package.metadata.dist]
+dist = true
 
 [lib]
 name = "ags"
@@ -23,7 +27,11 @@ path = "src/main.rs"
 [dependencies]
 ags-protocol = { workspace = true }
 ags-runtime = { workspace = true }
+extend-proxy-client = { workspace = true }
 tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 crossterm = { workspace = true }
@@ -40,6 +48,11 @@ sha2 = { workspace = true }
 rand = { workspace = true }
 url = { workspace = true }
 anstream = { workspace = true }
+regex = { workspace = true }
+zip = { workspace = true }
+rustls = { version = "0.23", features = ["ring"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
@@ -55,5 +68,4 @@ tokio-test = { workspace = true }
 serial_test = { workspace = true }
 filetime = { workspace = true }
 tempfile = { workspace = true }
-regex = { workspace = true }
 portable-pty = { workspace = true }

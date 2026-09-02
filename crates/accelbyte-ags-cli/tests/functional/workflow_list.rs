@@ -33,6 +33,14 @@ fn test_workflow_list_json_is_valid() {
             .any(|entry| { entry["id"] == "competitive-multiplayer" && entry["name"].is_string() }),
         "expected an entry for competitive-multiplayer with a name: {stdout}"
     );
+    assert!(
+        parsed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["id"] == "competitive-multiplayer-yaml-poc"),
+        "bundled YAML workflow must be visible in `ags workflow list`: {stdout}"
+    );
 }
 
 /// `ags workflow --help` lists the subcommands but not the registered-workflow

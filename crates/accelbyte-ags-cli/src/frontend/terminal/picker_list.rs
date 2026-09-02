@@ -9,10 +9,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
     },
     Frame,
 };
+
+use super::scrollbar::scrollbar_state;
 
 /// Surface-neutral picker list: type-to-filter, scrollable, highlight-tracked.
 ///
@@ -206,10 +207,8 @@ impl PickerList {
         frame.render_stateful_widget(list_widget, list_row, &mut self.list_state);
 
         let visible_height = list_row.height as usize;
-        if self.filtered.len() > visible_height {
-            let mut sb = ScrollbarState::new(self.filtered.len())
-                .position(self.list_state.offset())
-                .viewport_content_length(visible_height);
+        let total = self.filtered.len();
+        if let Some(mut sb) = scrollbar_state(total, visible_height, self.list_state.offset()) {
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(None)

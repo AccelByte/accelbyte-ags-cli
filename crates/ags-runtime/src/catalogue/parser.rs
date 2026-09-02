@@ -260,7 +260,6 @@ fn parse_operation(
         api_version,
         deprecated: false,
         response_content_type: operation.produces.first().cloned(),
-        has_file_upload: operation_has_file_upload(operation),
     };
 
     Some(ParsedOperation {
@@ -286,28 +285,6 @@ fn extract_permissions(x_security: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// True when any parameter is a `multipart/form-data` file upload
-/// (`in: formData`, `type: file`). `type: file` is otherwise collapsed to
-/// `ValueType::String`, so file-ness must be read from the raw operation here.
-fn operation_has_file_upload(operation: &SwaggerOperation) -> bool {
-    operation.parameters.iter().any(|p| {
-        if p.location != "formData" {
-            return false;
-        }
-        // OAS2 file uploads always declare `type: file` inline. A `$ref`-only
-        // formData parameter would deserialize with an empty `parameter_type`
-        // and slip through here. The bundled specs never use `$ref` for
-        // formData params; assert in debug so a future spec refresh that does
-        // surfaces during development rather than silently disabling the guard.
-        debug_assert!(
-            !p.parameter_type.is_empty(),
-            "formData param '{}' has no inline type; file-upload detection may miss it",
-            p.name
-        );
-        p.parameter_type == "file"
-    })
-}
-
 /// Extract parameters for an operation from the spec.
 fn get_operation_params(spec: &SwaggerSpec, path: &str, http_method: &str) -> Vec<ParameterSchema> {
     let method_key = http_method.to_lowercase();
@@ -331,6 +308,8 @@ fn get_operation_params(spec: &SwaggerSpec, path: &str, http_method: &str) -> Ve
                         description: (!parameter.description.is_empty())
                             .then(|| parameter.description.clone()),
                         default: parameter.default.clone(),
+                        is_file: location == ParameterLocation::FormData
+                            && parameter.parameter_type == "file",
                     })
                 })
                 .collect();
@@ -735,63 +714,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_operation_has_file_upload_detects_formdata_file() {
-        assert!(operation_has_file_upload(&file_upload_operation(
-            "csm/admin/app-ui/v1/upload-assets"
-        )));
-    }
-
-    #[test]
-    fn test_operation_has_file_upload_false_for_urlencoded_formdata() {
-        use super::super::openapi::SwaggerParameter;
-        let mut op = file_upload_operation("svc/admin/oauth2/v1/token");
-        op.parameters[0] = SwaggerParameter {
-            name: "grant_type".to_string(),
-            location: "formData".to_string(),
-            is_required: true,
-            parameter_type: "string".to_string(),
-            description: String::new(),
-            format: String::new(),
-            enum_values: None,
-            schema: None,
-            default: None,
-        };
-        assert!(!operation_has_file_upload(&op));
-    }
-
-    #[test]
-    fn test_operation_has_file_upload_false_for_no_params() {
-        let mut op = file_upload_operation("svc/admin/bans/v1/list");
-        op.parameters.clear();
-        assert!(!operation_has_file_upload(&op));
-    }
-
-    #[test]
-    fn test_parse_spec_sets_has_file_upload_for_formdata_file() {
-        let mut paths: HashMap<String, HashMap<String, SwaggerOperation>> = HashMap::new();
-        paths.insert(
-            "/assets".to_string(),
-            HashMap::from([(
-                "post".to_string(),
-                file_upload_operation("svc/admin/assets/v1/upload"),
-            )]),
-        );
-        let spec = SwaggerSpec {
-            swagger: "2.0".to_string(),
-            info: SwaggerInfo::default(),
-            paths,
-            definitions: HashMap::new(),
-        };
-        let service = parse_spec("svc", &spec);
-        let ops = flatten_ops(&service.resources[0]);
-        let upload = ops
-            .iter()
-            .find(|op| op.name == "upload")
-            .expect("upload op present");
-        assert!(upload.has_file_upload);
-    }
-
     /// Lock the exact set of surfaced (non-deprecated) multipart file-upload
     /// operations across all bundled specs. Asserting the full sorted list (not
     /// a bare count) makes a spec refresh's diff self-documenting and catches an
@@ -805,7 +727,7 @@ mod tests {
             .map(|svc| parse_spec(svc, &load_bundled_spec(svc).expect("bundled spec loads")))
             .flat_map(|schema| schema.resources)
             .flat_map(|resource| resource.operations().cloned().collect::<Vec<_>>())
-            .filter(|op| op.has_file_upload)
+            .filter(|op| op.parameters.iter().any(|p| p.is_file))
             .map(|op| op.id.to_string())
             .collect();
         ids.sort();
@@ -1930,5 +1852,95 @@ mod tests {
     #[cfg(not(debug_assertions))]
     fn test_value_type_from_parameter_unknown_returns_none_in_release() {
         assert_eq!(value_type_from_parameter("object", None), None);
+    }
+
+    /// `get_operation_params` marks a `formData` `type: file` parameter's
+    /// `is_file` true.
+    #[test]
+    fn test_get_operation_params_marks_file_formdata_param() {
+        let mut paths: HashMap<String, HashMap<String, SwaggerOperation>> = HashMap::new();
+        paths.insert(
+            "/upload".to_string(),
+            HashMap::from([(
+                "post".to_string(),
+                file_upload_operation("svc/admin/assets/v1/upload"),
+            )]),
+        );
+        let spec = SwaggerSpec {
+            swagger: "2.0".to_string(),
+            info: SwaggerInfo::default(),
+            paths,
+            definitions: HashMap::new(),
+        };
+        let params = get_operation_params(&spec, "/upload", "POST");
+        let file_param = params.iter().find(|p| p.name == "file").unwrap();
+        assert!(file_param.is_file);
+    }
+
+    /// A non-file `formData` parameter (e.g. a `string` sidecar field) is
+    /// not marked `is_file`.
+    #[test]
+    fn test_get_operation_params_does_not_mark_string_formdata_param() {
+        use super::super::openapi::SwaggerParameter;
+        let mut op = file_upload_operation("svc/admin/assets/v1/upload");
+        op.parameters.push(SwaggerParameter {
+            name: "strategy".to_string(),
+            location: "formData".to_string(),
+            is_required: false,
+            parameter_type: "string".to_string(),
+            description: String::new(),
+            format: String::new(),
+            enum_values: None,
+            schema: None,
+            default: None,
+        });
+        let mut paths: HashMap<String, HashMap<String, SwaggerOperation>> = HashMap::new();
+        paths.insert(
+            "/upload".to_string(),
+            HashMap::from([("post".to_string(), op)]),
+        );
+        let spec = SwaggerSpec {
+            swagger: "2.0".to_string(),
+            info: SwaggerInfo::default(),
+            paths,
+            definitions: HashMap::new(),
+        };
+        let params = get_operation_params(&spec, "/upload", "POST");
+        let strategy_param = params.iter().find(|p| p.name == "strategy").unwrap();
+        assert!(!strategy_param.is_file);
+    }
+
+    /// A path parameter is never marked `is_file`, even though its raw
+    /// Swagger `type` could coincidentally be a string like any other —
+    /// `is_file` is only ever set when `location == FormData`.
+    #[test]
+    fn test_get_operation_params_path_param_is_file_false() {
+        use super::super::openapi::SwaggerParameter;
+        let mut op = file_upload_operation("svc/admin/items/v1/get");
+        op.parameters.push(SwaggerParameter {
+            name: "namespace".to_string(),
+            location: "path".to_string(),
+            is_required: true,
+            parameter_type: "string".to_string(),
+            description: String::new(),
+            format: String::new(),
+            enum_values: None,
+            schema: None,
+            default: None,
+        });
+        let mut paths: HashMap<String, HashMap<String, SwaggerOperation>> = HashMap::new();
+        paths.insert(
+            "/items/{namespace}".to_string(),
+            HashMap::from([("get".to_string(), op)]),
+        );
+        let spec = SwaggerSpec {
+            swagger: "2.0".to_string(),
+            info: SwaggerInfo::default(),
+            paths,
+            definitions: HashMap::new(),
+        };
+        let params = get_operation_params(&spec, "/items/{namespace}", "GET");
+        let param = params.iter().find(|p| p.name == "namespace").unwrap();
+        assert!(!param.is_file);
     }
 }

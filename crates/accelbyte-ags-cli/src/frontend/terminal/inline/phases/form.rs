@@ -24,6 +24,9 @@ pub enum PhaseResult {
     /// User activated a `DynamicEnum` field — the driver should open the modal
     /// picker for the given field index (fetching choices first if needed).
     OpenEnumPicker(usize),
+    /// User activated a `FilePicker` field — the driver should open the
+    /// directory-browsing modal for the given field index.
+    OpenFilePicker(usize),
 }
 
 /// Phase that hosts an inline [`Form`] and translates key events into
@@ -230,6 +233,9 @@ impl Phase for FormPhase {
                             self.form.begin_edit();
                             PhaseStep::Continue
                         }
+                        FieldType::FilePicker => {
+                            PhaseStep::Done(PhaseResult::OpenFilePicker(self.form.focus))
+                        }
                     }
                 } else {
                     PhaseStep::Continue
@@ -275,6 +281,9 @@ impl Phase for FormPhase {
                         }
                         FieldType::DynamicEnum => {
                             return PhaseStep::Done(PhaseResult::OpenEnumPicker(self.form.focus));
+                        }
+                        FieldType::FilePicker => {
+                            return PhaseStep::Done(PhaseResult::OpenFilePicker(self.form.focus));
                         }
                         _ => {}
                     }
@@ -326,6 +335,7 @@ mod tests {
                     schema: serde_json::json!({"type": "string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
                 FormField {
                     label: "second".into(),
@@ -338,6 +348,7 @@ mod tests {
                     schema: serde_json::json!({"type": "string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         )
@@ -404,6 +415,7 @@ mod tests {
             schema: serde_json::json!({"type": "string", "format": "date-time"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut form = Form::new("t", vec![field]);
         form.focus = 0;
@@ -486,6 +498,7 @@ mod tests {
                 schema: serde_json::json!({"type": "object"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         let mut phase = FormPhase::new(form);
@@ -515,6 +528,7 @@ mod tests {
                 schema: serde_json::json!({"type": "object"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         let mut phase = FormPhase::new(form);
@@ -577,6 +591,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]).with_submit_focusable(true));
         // focus 0 (the field), all required filled → Enter must begin edit, NOT submit.
@@ -607,6 +622,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
@@ -633,6 +649,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::SHIFT));
@@ -657,6 +674,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE));
@@ -686,6 +704,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -723,6 +742,7 @@ mod tests {
             schema,
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut form = Form::new("t", vec![field]).with_submit_focusable(true);
         form.focus = form.fields.len(); // Submit slot
@@ -765,6 +785,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -816,6 +837,7 @@ mod tests {
             schema: serde_json::json!({"type": "object"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let mut phase = FormPhase::new(Form::new("t", vec![field]));
         let step = phase.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
@@ -893,6 +915,7 @@ mod tests {
                 optional_deps: vec![],
                 resolved,
             }),
+            file_picker: None,
         }
     }
 
@@ -929,6 +952,51 @@ mod tests {
         match phase.on_key(key(KeyCode::Char(' '))) {
             PhaseStep::Done(PhaseResult::OpenEnumPicker(idx)) => assert_eq!(idx, 0),
             other => panic!("expected OpenEnumPicker, got {:?}", other.kind()),
+        }
+    }
+
+    fn sample_file_picker_field_for_phase_test(
+    ) -> crate::frontend::terminal::inline::form::FormField {
+        use crate::frontend::terminal::inline::form::{
+            FieldKey, FieldSource, FieldType, FormField,
+        };
+        FormField {
+            label: "icon-file".into(),
+            field_type: FieldType::FilePicker,
+            required: true,
+            value: FieldValue::Empty,
+            description: "pick a file".into(),
+            source: FieldSource::UserInput,
+            key: FieldKey::Input("iconFile".into()),
+            schema: serde_json::json!({"type": "string"}),
+            read_only: false,
+            dynamic: None,
+            file_picker: Some(ags_protocol::workflow::FilePickerSpec {
+                extensions: Some(vec!["png".to_string()]),
+                start_dir: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_enter_on_file_picker_field_opens_picker() {
+        use crate::frontend::terminal::inline::form::Form;
+        let field = sample_file_picker_field_for_phase_test();
+        let mut phase = FormPhase::new(Form::new("f", vec![field]));
+        match phase.on_key(key(KeyCode::Enter)) {
+            PhaseStep::Done(PhaseResult::OpenFilePicker(idx)) => assert_eq!(idx, 0),
+            other => panic!("expected OpenFilePicker, got {:?}", other.kind()),
+        }
+    }
+
+    #[test]
+    fn test_space_on_file_picker_field_opens_picker() {
+        use crate::frontend::terminal::inline::form::Form;
+        let field = sample_file_picker_field_for_phase_test();
+        let mut phase = FormPhase::new(Form::new("f", vec![field]));
+        match phase.on_key(key(KeyCode::Char(' '))) {
+            PhaseStep::Done(PhaseResult::OpenFilePicker(idx)) => assert_eq!(idx, 0),
+            other => panic!("expected OpenFilePicker, got {:?}", other.kind()),
         }
     }
 

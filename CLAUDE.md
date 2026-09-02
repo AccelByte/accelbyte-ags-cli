@@ -1,6 +1,6 @@
 # AGS CLI
 
-A Rust CLI that dynamically generates commands from AccelByte's 24 OpenAPI 2.0 specs.
+A Rust CLI that dynamically generates commands from AccelByte's bundled OpenAPI 2.0 specs.
 
 ## Workflows
 
@@ -13,7 +13,7 @@ workflows are in `runtime/workflows/builtins/`. See
 
 ## Workspace layout
 
-Three crates under `crates/`. Dependency direction is strictly `accelbyte-ags-cli → ags-runtime → ags-protocol`. Reverse edges are forbidden.
+Four crates under `crates/`. Dependency direction is strictly `accelbyte-ags-cli → ags-runtime → ags-protocol`. Reverse edges are forbidden.
 
 ### `ags-protocol/` — leaf crate (serde, serde_json, thiserror only)
 
@@ -38,13 +38,15 @@ crates/ags-protocol/src/
 
 ```
 crates/ags-runtime/
-├── specs/                       # 24 gzip-compressed OpenAPI 2.0 specs, bundled via include_bytes!
+├── specs/                       # Gzip-compressed OpenAPI 2.0 specs, bundled via include_bytes!
+├── workflows/                   # Bundled workflow YAML files (sibling to specs/), included via include_str!
+├── templates/                   # Non-workflow starter YAML (e.g. `ags workflow template`'s skeleton), included via include_str!
 └── src/
     ├── lib.rs                   # Crate root: pub mod runtime; catalogue; support;
     ├── catalogue/               # OpenAPI spec loading, parsing, caching
     │   ├── bundled.rs           # Bundled spec loading (include_bytes! + gzip)
     │   ├── cache.rs             # On-disk parsed-schema cache I/O
-    │   ├── manifest.rs          # 24-service allowlist + display names + descriptions
+    │   ├── manifest.rs          # Service allowlist + display names + descriptions
     │   ├── memory_cache.rs      # In-process cache of parsed ServiceSchema values
     │   ├── openapi.rs           # OpenAPI 2.0 (Swagger) wire types used by the parser
     │   ├── parser.rs            # SwaggerSpec → ServiceSchema (driven by x-operationId)
@@ -53,6 +55,15 @@ crates/ags-runtime/
     ├── runtime/                 # All business logic and external interaction
     │   ├── cleanup.rs           # Startup cleanup of stale temp files
     │   ├── execution.rs         # Top-level command execution coordinator
+    │   ├── ams_upload/          # `ags ams upload` — bespoke (non-workflow) upload pipeline
+    │   │   ├── mod.rs           # UploadRequest, TargetArchitecture, Runtime facade methods
+    │   │   ├── entrypoint.rs    # Name/directory checks, filename case, entrypoint classification
+    │   │   ├── elf.rs           # ELF accept matrix (ELFCLASS64 + little-endian + x86-64/aarch64)
+    │   │   ├── archive.rs       # Directory walk, symbol-file exclusion, tar.gz build
+    │   │   ├── discovery.rs     # AMS upload-host discovery (hard fail, no prod fallback)
+    │   │   ├── api.rs           # AMS upload wire contract (images, presign, multipart, complete)
+    │   │   ├── pipeline.rs      # Orchestration: validate → pack → upload → complete
+    │   │   └── errors.rs        # AmsUploadError domain type
     │   ├── auth/                # OAuth2 flows, credential storage, sessions
     │   │   ├── credentials.rs   # Client/base URL credential resolution
     │   │   ├── errors.rs        # AuthError domain type
@@ -83,8 +94,10 @@ crates/ags-runtime/
     │   │   ├── auth.rs          # Auth facade
     │   │   ├── config.rs        # Config facade
     │   │   ├── diagnostics.rs   # Diagnostics facade
+    │   │   ├── extend.rs        # Extend facade — EHS credential fetch for docker-login / image-upload
     │   │   ├── profile.rs       # Profile facade
-    │   │   └── service.rs       # Service call facade
+    │   │   ├── service.rs       # Service call facade
+    │   │   └── workflow.rs      # `workflow add`/`workflow template` facade — filesystem-only, no HTTP/auth
     │   └── workflows/           # Workflow engine (data types live in ags-protocol::workflow)
     │       ├── synthesised.rs   # Build a 1-step workflow from a single CLI command
     │       ├── auto_derive.rs   # Expand a step's OpenAPI schema into auto-derived input fields
@@ -95,11 +108,17 @@ crates/ags-runtime/
     │       ├── jsonpath.rs      # JSONPath subset for transforms and capture paths
     │       ├── nested_path.rs   # Parser for nested-field binding paths (`data.x[0].y`)
     │       ├── dry_run.rs       # Synthesise placeholder step outputs for --dry-run previews
-    │       └── builtins/        # Registered built-in workflows (competitive_multiplayer.rs) + registry
+    │       ├── external.rs      # Load user-installed workflow YAML from workflows_dir() at registry() init
+    │       ├── bundled.rs       # Load the compiled-in YAML-authored builtin(s) (sibling to builtins/, not nested — it's a loader, not a workflow)
+    │       ├── local_actions/   # Closed registry of local actions for `kind: local` workflow steps
+    │       │   ├── mod.rs       # Action trait, lookup(), known_names(), test-only echo action
+    │       │   └── docker_login.rs # `docker-login` action: `docker login --password-stdin` (secret via stdin, never argv)
+    │       └── builtins/        # Registered built-in workflows, one Rust file per workflow (competitive_multiplayer.rs, etc.) + registry
     └── support/                 # Shared utilities (also used by frontend)
         ├── mod.rs               # Time, TTY, and small shared helpers
         ├── file_system.rs       # Restricted writes, advisory locks, temp cleanup, FileLock
         ├── output_sink.rs       # Stdout/file destination resolution; OutputSinkError
+        ├── process.rs           # Bounded child-process wait with timeout; WaitError; wait_with_timeout
         ├── strings.rs           # Naming, sanitization, and display transforms
         └── test_helpers.rs      # Shared test fixtures (cfg(test))
 ```
@@ -115,8 +134,10 @@ crates/accelbyte-ags-cli/
 │   ├── invocation/              # CLI layer: flag parsing, command tree, routing
 │   │   ├── builder.rs           # Dynamic Clap tree from ServiceSchema
 │   │   ├── clap_helpers.rs      # Reusable clap value-parser and argument builders
+│   │   ├── compat_flags.rs     # Backward-compatible flag definitions for migrated commands
 │   │   ├── completions_generator.rs  # Completion script generation (clap_complete)
 │   │   ├── errors.rs            # Invocation error types
+│   │   ├── first_run.rs         # One-time first-run onboarding hint: gate predicate, emitter, seen-flag read
 │   │   ├── flags.rs             # GlobalFlags, pre-scan, namespace resolution
 │   │   ├── context.rs           # Frontend context: consumer kind + interaction surface resolution
 │   │   ├── policy.rs            # (route, shape) → base surface decision matrix
@@ -126,15 +147,47 @@ crates/accelbyte-ags-cli/
 │   │   ├── resolve.rs           # Resolves --api-scope/--api-version to a concrete contract
 │   │   ├── router.rs            # Root-route classification + page-limit parsing
 │   │   ├── routes/              # Root execution routes
+│   │   │   ├── ams_upload/      # `ags ams upload` route ownership (hand-written ams resource)
 │   │   │   ├── auth/            # `ags auth ...` route ownership + OAuth callback server
 │   │   │   ├── service/         # Dynamic service-command route (parse → synthesize → execute)
 │   │   │   ├── builtin/         # Root help/version + built-in command route
-│   │   │   └── workflow/        # `ags workflow run ...` route ownership
+│   │   │   ├── extend_docker_login.rs # `ags extend docker-login` route ownership
+│   │   │   ├── extend_image_upload.rs # `ags extend image-upload` route ownership
+│   │   │   └── workflow/        # `ags workflow run/list/add/template` route ownership
 │   │   └── handlers/            # Leaf handlers invoked by the routes
 │   │       ├── completions.rs   # `ags completions` dispatch
 │   │       ├── config.rs        # Config get/set/unset dispatch
 │   │       ├── describe/        # `ags describe` — machine-readable introspection
 │   │       ├── doctor.rs        # Diagnostic check dispatch
+│   │       ├── extend/          # `ags extend` subcommands: clone-template, app-ui, update-var, update-secret, migration shortcuts
+│   │       │   ├── mod.rs       # Route `ags extend <subcommand>` to the appropriate handler
+│   │       │   ├── app_ui/      # `ags extend app-ui` subcommands
+│   │       │   │   ├── mod.rs   # Route `ags extend app-ui <subcommand>` to the appropriate handler
+│   │       │   │   ├── setup_env.rs # `ags extend app-ui setup-env` — write .env.local from CSM App UI record
+│   │       │   │   └── upload.rs    # `ags extend app-ui upload` — build, archive, and upload App UI assets
+│   │       │   ├── clone_template/ # `ags extend clone-template` — clone Extend starter templates
+│   │       │   ├── image_upload/  # `ags extend image-upload` — build and push container image
+│   │       │   │   └── mod.rs     # Handler, pure functions, Docker introspection, OCI tag check, retry logic
+│   │       │   ├── remote_debug/ # `ags extend remote-debug` — enable, disable, and connect debug sessions
+│   │       │   │   ├── mod.rs     # remote_debug connect handler, retry policy, namespace and output envelopes
+│   │       │   │   ├── connect_once.rs # Debug-info preconditions, tunnel/agent/forwarder orchestration
+│   │       │   │   ├── debug_mode.rs # Shared debug-mode handler skeleton, dry-run gate, parameter struct, test helpers
+│   │       │   │   ├── disable.rs # Disable debug mode with running-app confirmation
+│   │       │   │   └── enable.rs  # Performance warning, running-app confirmation, debug-mode update
+│   │       │   ├── tunnel/        # `ags extend tunnel` — TCP-to-WebSocket bridge for Extend apps
+│   │       │   │   ├── mod.rs     # Handler, exit envelope, namespace/base-URL resolution
+│   │       │   │   └── bridge.rs  # TCP listener, WS dial with 401 retry, bidirectional relay
+│   │       │   ├── csm_error.rs   # Shared CSM error-detail extraction (errorCode/errorMessage from response body)
+│   │       │   ├── update_secret/ # `ags extend update-secret` — upsert a CSM app secret
+│   │       │   │   ├── mod.rs     # Handler, dry-run preview, merge-rule dispatch
+│   │       │   │   ├── api.rs     # CSM secret list/create/update API calls (reqwest, wiremock-testable)
+│   │       │   │   └── merge.rs   # Compute effective applyMask/description from existing record + overrides
+│   │       │   ├── update_var/    # `ags extend update-var` — upsert a CSM app configuration variable
+│   │       │   │   ├── mod.rs     # Handler, dry-run preview, merge-rule dispatch
+│   │       │   │   ├── api.rs     # CSM variable list/create/update API calls (reqwest, wiremock-testable)
+│   │       │   │   └── merge.rs   # Compute effective applyMask/description from existing record + overrides
+│   │       │   ├── service_shims.rs # Migration shortcut registration table and Clap tree builder
+│   │       │   └── session_log.rs   # Shared session event log for tunnel/remote-debug (lifecycle + connection events + tracing bridge for verbose proxy-client output)
 │   │       ├── profile.rs       # Profile CRUD dispatch
 │   │       ├── refresh_specs.rs # `ags refresh-specs` subcommand dispatch
 │   │       └── version.rs       # Version output dispatch
@@ -194,6 +247,10 @@ crates/accelbyte-ags-cli/
 └── tests/                       # Integration tests — functional/, integration/, contract_input/,
                                  # contract_output/, snapshot/, security/, performance/, architecture
 ```
+
+### `extend-proxy-client/` — standalone leaf crate consumed by `remote-debug connect`
+
+A Rust port of `extend-helper-cli`'s Go tunneling client, consumed directly by the CLI invocation layer for the tunnel agent and service forwarder. See [extend-proxy-client status](CONTRIBUTING.md#extend-proxy-client-status) in CONTRIBUTING.md for its dependency guardrails and conformance-test requirements.
 
 All project conventions, coding rules, design standards, testing, and gotchas are in [CONTRIBUTING.md](CONTRIBUTING.md). Read it before making changes.
 

@@ -1,12 +1,15 @@
 //! Execution core — the Runtime facade and its supporting modules.
 
+pub mod ams_upload;
 pub mod auth;
 mod cleanup;
 pub mod config;
 pub mod diagnostics;
 pub mod dispatch;
 pub mod execution;
-mod facade;
+pub mod facade;
+pub mod telemetry;
+pub mod update_check;
 pub mod workflows;
 
 use crate::catalogue::Catalogue;
@@ -17,6 +20,7 @@ use crate::runtime::execution::ExecutionContext;
 /// `invocation::run()` before any command is dispatched.
 pub fn bootstrap() {
     cleanup::cleanup_stale_temp_files();
+    cleanup::cleanup_stale_upload_dirs();
 }
 
 /// Top-level runtime facade. Holds process-scoped state and delegates

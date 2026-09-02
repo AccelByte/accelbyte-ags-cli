@@ -159,11 +159,6 @@ pub struct OperationSchema {
     /// response media type.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_content_type: Option<String>,
-    /// True when the operation takes a `multipart/form-data` `type: file`
-    /// parameter. The CLI cannot construct multipart bodies yet; dispatch
-    /// rejects these before any HTTP call.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub has_file_upload: bool,
 }
 
 /// API version number for an operation. Wraps a `u32`; `Display` emits
@@ -227,6 +222,12 @@ pub struct ParameterSchema {
     pub location: ParameterLocation,
     pub required: bool,
     pub value_type: ValueType,
+    /// True when this `formData` parameter is an OAS2 file upload
+    /// (`type: file`). Meaningless for any other `location`; always `false`
+    /// there. `type: file` otherwise collapses into `ValueType::String` at
+    /// parse time, so this is the only place file-ness survives per-parameter.
+    #[serde(default)]
+    pub is_file: bool,
     pub description: Option<String>,
     #[serde(default)]
     pub default: Option<serde_json::Value>,
@@ -420,7 +421,6 @@ mod tests {
             api_version: ApiVersion(3),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         });
     }
 
@@ -441,6 +441,7 @@ mod tests {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: Some("Target namespace".to_string()),
                 default: None,
             }],
@@ -466,7 +467,6 @@ mod tests {
             api_version: ApiVersion(4),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         });
     }
 
@@ -504,6 +504,7 @@ mod tests {
             location: ParameterLocation::Query,
             required: false,
             value_type: ValueType::Integer,
+            is_file: false,
             description: Some("Page size".to_string()),
             default: None,
         });
@@ -642,7 +643,6 @@ mod tests {
                     api_version: ApiVersion(4),
                     deprecated: false,
                     response_content_type: None,
-                    has_file_upload: false,
                 }],
             }],
         });
@@ -668,7 +668,6 @@ mod tests {
             api_version: ApiVersion(4),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         round_trip(&op);
     }

@@ -431,6 +431,7 @@ mod tests {
             location,
             required: false,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }
@@ -476,7 +477,6 @@ mod tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 

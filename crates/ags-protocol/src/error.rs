@@ -41,6 +41,24 @@ pub enum RuntimeErrorKind {
     Internal,
 }
 
+impl RuntimeErrorKind {
+    /// Coarse failure classification for telemetry — a closed vocabulary, safe
+    /// to transmit. Lives here rather than in the CLI crate because the
+    /// workflow executor needs it per step and only ever holds a `RuntimeError`.
+    pub fn telemetry_class(&self) -> &'static str {
+        match self {
+            RuntimeErrorKind::NotAuthenticated => "auth",
+            RuntimeErrorKind::Forbidden => "permission",
+            RuntimeErrorKind::NotFound => "not_found",
+            RuntimeErrorKind::Validation => "usage",
+            RuntimeErrorKind::Rejected => "rejected",
+            RuntimeErrorKind::Upstream { .. } | RuntimeErrorKind::ResponseTooLarge => "upstream",
+            RuntimeErrorKind::Network => "network",
+            RuntimeErrorKind::Internal => "internal",
+        }
+    }
+}
+
 /// Structured supplementary fields from an upstream error payload.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ErrorDetails {
@@ -81,6 +99,15 @@ pub struct ErrorMetadata {
     pub suggestion_kind: SuggestionKind,
     /// Optional aside shown after the suggestion line
     pub tip: Option<String>,
+    /// Machine-readable error code for telemetry — the AccelByte error code
+    /// from an upstream payload, or a client-side `<domain>.<kind>` constant.
+    /// Never rendered to the user.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    /// HTTP status for telemetry, when the failure came from an upstream
+    /// response. Never rendered to the user.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
     /// Verbose execution trace, populated when `--verbose` is set so the
     /// frontend can show the request/response diagnostic block on error.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -96,6 +123,8 @@ impl ErrorMetadata {
             suggestion: Some(suggestion.into()),
             suggestion_kind: SuggestionKind::Fix,
             tip: None,
+            code: None,
+            http_status: None,
             trace: None,
         }
     }
@@ -250,5 +279,28 @@ mod tests {
             suggestion_kind: Some(SuggestionKind::Fix),
             tip: Some("Check the payload fields and retry.".to_string()),
         });
+    }
+
+    #[test]
+    fn test_telemetry_class_covers_every_kind() {
+        assert_eq!(RuntimeErrorKind::NotAuthenticated.telemetry_class(), "auth");
+        assert_eq!(RuntimeErrorKind::Forbidden.telemetry_class(), "permission");
+        assert_eq!(RuntimeErrorKind::NotFound.telemetry_class(), "not_found");
+        assert_eq!(RuntimeErrorKind::Validation.telemetry_class(), "usage");
+        assert_eq!(RuntimeErrorKind::Rejected.telemetry_class(), "rejected");
+        assert_eq!(
+            RuntimeErrorKind::Upstream {
+                status: 502,
+                code: None
+            }
+            .telemetry_class(),
+            "upstream"
+        );
+        assert_eq!(
+            RuntimeErrorKind::ResponseTooLarge.telemetry_class(),
+            "upstream"
+        );
+        assert_eq!(RuntimeErrorKind::Network.telemetry_class(), "network");
+        assert_eq!(RuntimeErrorKind::Internal.telemetry_class(), "internal");
     }
 }

@@ -43,6 +43,11 @@ pub(crate) fn load_from_cache(path: &Path) -> Result<Option<ServiceSchema>, Runt
     let data = match std::fs::read_to_string(path) {
         Ok(d) => d,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        // On Windows, a concurrent atomic write (temp → rename) holds a
+        // mandatory lock that surfaces as PermissionDenied. Caching is a
+        // best-effort optimisation, so treat this as a cache miss and let the
+        // caller fall back to the bundled spec.
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => return Ok(None),
         Err(e) => {
             return Err(config::internal_error(format!(
                 "Failed to read spec cache: {e}"

@@ -17,4 +17,5 @@ pub fn register_builtins(registry: &mut WorkflowRegistry) {
     registry.register(Box::new(player_overview::PlayerOverview::new()));
     registry.register(Box::new(in_game_store::InGameStore::new()));
     registry.register(Box::new(season_pass::SeasonPass::new()));
+    super::bundled::register_bundled_yaml_workflows(registry);
 }

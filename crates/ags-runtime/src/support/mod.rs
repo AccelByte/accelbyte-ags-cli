@@ -2,6 +2,7 @@
 
 pub mod file_system;
 pub mod output_sink;
+pub mod process;
 pub mod strings;
 
 #[cfg(test)]

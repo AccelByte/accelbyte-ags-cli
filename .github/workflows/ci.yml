@@ -68,3 +68,61 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v2
         with:
           command: check
+
+  dist-sync-check:
+    name: Dist config sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install dist
+        shell: bash
+        # nosemgrep -- cargo-dist bootstraps itself: official installer, HTTPS + TLS1.2, pinned v0.32.0
+        run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.sh | sh"
+
+      - name: Check dist-workspace.toml and release.yml are in sync
+        run: dist generate --check
+
+      - name: Verify release.yml hand-edits survived regeneration
+        shell: bash
+        run: |
+          errors=0
+
+          # Verify nosemgrep risk-acceptance comments are present in release.yml
+          count=$(grep -c '# nosemgrep' .github/workflows/release.yml || echo 0)
+          if [ "$count" -lt 3 ]; then
+            echo "::error::Expected at least 3 '# nosemgrep' comments in release.yml, found $count"
+            errors=$((errors + 1))
+          fi
+
+          # Verify ci.yml's own nosemgrep is present (curl-pipe-to-shell must be annotated)
+          ci_count=$(grep -c '# nosemgrep' .github/workflows/ci.yml || echo 0)
+          if [ "$ci_count" -lt 1 ]; then
+            echo "::error::Missing '# nosemgrep' in ci.yml — curl-pipe-to-shell must be annotated"
+            errors=$((errors + 1))
+          fi
+
+          # Verify tightened tag globs (two patterns, no open-ended wildcard)
+          if ! grep -q "v\[0-9\]+\.\[0-9\]+\.\[0-9\]+'" .github/workflows/release.yml; then
+            echo "::error::Missing exact-version tag glob (v[0-9]+.[0-9]+.[0-9]+) in release.yml"
+            errors=$((errors + 1))
+          fi
+          if ! grep -q "v\[0-9\]+\.\[0-9\]+\.\[0-9\]+-\*'" .github/workflows/release.yml; then
+            echo "::error::Missing prerelease tag glob (v[0-9]+.[0-9]+.[0-9]+-*) in release.yml"
+            errors=$((errors + 1))
+          fi
+
+          # Verify top-level permissions are read-only (anchored to lines before 'jobs:',
+          # so a job-level 'contents: read' cannot mask a top-level write)
+          awk '/^jobs:/{exit} {print}' .github/workflows/release.yml | grep -q 'contents: read' || {
+            echo "::error::Top-level permissions in release.yml must be 'contents: read', not 'write'"
+            errors=$((errors + 1))
+          }
+
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors hand-edit guard(s) failed. See dist-workspace.toml for the required edits."
+            exit 1
+          fi
+          echo "All hand-edit guards passed."

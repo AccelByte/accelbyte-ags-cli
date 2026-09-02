@@ -115,10 +115,20 @@ fn test_config_get_single_global_key() {
         .stdout(predicate::str::contains("json"));
 }
 
-/// Get a key that has not been set shows "not set"
+/// Get a key that has not been set shows "not set".
+///
+/// Uses its own temp directory rather than the shared `ags_isolated()` path
+/// to avoid cross-test pollution: a prior test on the same thread could
+/// create the profiles directory, leaving a state where the auto-create-
+/// default-profile branch no longer fires and the "No active profile"
+/// error path is hit instead.
 #[test]
 fn test_config_get_unset_key() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().to_str().unwrap();
+
     ags_isolated()
+        .env("AGS_HOME", home)
         .args(["config", "get", "namespace"])
         .assert()
         .success()
@@ -590,4 +600,63 @@ fn test_config_set_client_id_accepts_valid_hex() {
         ])
         .assert()
         .success();
+}
+
+// ── first-run-hint-seen (boolean, global) ──
+
+/// Set first-run-hint-seen to true and verify it round-trips via get.
+#[test]
+fn test_config_set_first_run_hint_seen_roundtrips() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().to_str().unwrap();
+
+    ags_isolated()
+        .env("AGS_HOME", home)
+        .args(["config", "set", "first-run-hint-seen", "true"])
+        .assert()
+        .success();
+
+    ags_isolated()
+        .env("AGS_HOME", home)
+        .args(["config", "get", "first-run-hint-seen"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("true"));
+}
+
+/// Set first-run-hint-seen to a non-boolean value fails with a usage error.
+#[test]
+fn test_config_set_first_run_hint_seen_rejects_non_bool() {
+    ags_isolated()
+        .args(["config", "set", "first-run-hint-seen", "notabool"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Invalid value"));
+}
+
+/// Unset first-run-hint-seen removes the stored value.
+#[test]
+fn test_config_unset_first_run_hint_seen() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().to_str().unwrap();
+
+    ags_isolated()
+        .env("AGS_HOME", home)
+        .args(["config", "set", "first-run-hint-seen", "true"])
+        .assert()
+        .success();
+
+    ags_isolated()
+        .env("AGS_HOME", home)
+        .args(["config", "unset", "first-run-hint-seen"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("first-run-hint-seen unset"));
+
+    ags_isolated()
+        .env("AGS_HOME", home)
+        .args(["config", "get", "first-run-hint-seen"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("not set"));
 }

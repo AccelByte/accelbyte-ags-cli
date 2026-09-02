@@ -1,7 +1,10 @@
 //! Top-level command routes: auth, service, builtin, and workflow.
 
+pub mod ams_upload;
 pub mod auth;
 pub mod builtin;
+pub mod extend_docker_login;
+pub mod extend_image_upload;
 pub mod service;
 pub mod workflow;
 

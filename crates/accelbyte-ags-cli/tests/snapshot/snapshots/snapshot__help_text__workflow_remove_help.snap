@@ -1,0 +1,22 @@
+---
+source: crates/accelbyte-ags-cli/tests/snapshot/help_text.rs
+expression: stdout
+---
+Remove a workflow previously installed via `ags workflow add`.
+
+Only external workflows installed under the CLI's config
+directory can be removed this way. Built-in workflows
+(bundled into the `ags` binary, whether Rust or YAML)
+cannot be removed and produce an error naming the
+workflow as built-in.
+
+Usage:
+  workflow remove <id>
+
+Arguments:
+  <id>
+          Id of the installed workflow to remove
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

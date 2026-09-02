@@ -2,7 +2,7 @@ use crate::common::cli_helpers::ags;
 
 // ── Root help ──
 
-/// Root --help lists all 24 services, standalone commands, flags, examples, and exit codes
+/// Root --help lists every bundled service, standalone commands, flags, examples, and exit codes
 #[test]
 fn test_root_help() {
     let output = ags().arg("--help").output().unwrap();
@@ -25,6 +25,7 @@ fn test_root_help() {
       describe       Machine-readable command discovery and introspection (JSON)
       doctor         Check environment, configuration, and connectivity
       refresh-specs  Rebuild the parsed-schema cache from bundled specs
+      extend         Extend platform tooling
       workflow       Run a registered multi-step workflow
 
     Services (API groups):
@@ -35,6 +36,7 @@ fn test_root_help() {
       chat               Chat messaging, moderation, inbox, and profanity filtering
       cloud-save         Cloud save records for games and players (binary and JSON)
       csm                Custom service management, deployments, and container images
+      ehs                Extend helper container image registry credentials and gRPC reflection
       game-telemetry     Game telemetry event ingestion and querying
       gdpr               GDPR data deletion, retrieval, and platform account closure
       group              Player groups, memberships, roles, and join requests
@@ -62,7 +64,7 @@ fn test_root_help() {
           --no-input                 Disable all interactive prompts
           --output <output>          Write response body to <path> (use '-' for stdout)
       -q, --quiet                    Suppress non-essential output
-      -v, --verbose                  Show HTTP request/response details
+      -v, --verbose                  Show resolution trace and request/response details
       -y, --yes                      Skip confirmation prompts
           --skeleton                 Output a JSON request body template (for operations with --json)
           --timeout <timeout>        Request timeout in seconds (default 60)
@@ -399,6 +401,31 @@ fn test_profile_create_help() {
 #[test]
 fn test_doctor_help() {
     let output = ags().args(["doctor", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!(stdout);
+}
+
+// ── Workflow help ──
+
+/// `workflow add --help` shows the long_about explaining the file is copied
+/// into the config directory and that the installed copy, not the source
+/// path, is what `run`/`list` use afterward
+#[test]
+fn test_workflow_add_help() {
+    let output = ags().args(["workflow", "add", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!(stdout);
+}
+
+/// `workflow remove --help` shows the long_about explaining that only
+/// external (previously `add`ed) workflows can be removed this way, and that
+/// built-in workflows produce an error instead.
+#[test]
+fn test_workflow_remove_help() {
+    let output = ags()
+        .args(["workflow", "remove", "--help"])
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     insta::assert_snapshot!(stdout);
 }

@@ -68,6 +68,79 @@ impl GlobalFlags {
             PaginationHint::Auto
         }
     }
+
+    /// Reconstruct `(flag_name, value)` pairs for every global flag that was
+    /// set, so telemetry's `command_flag` capture sees them —
+    /// `pre_scan_global_flags` strips these out of argv before
+    /// `extract_flags` ever runs, so without this they are silently absent
+    /// from telemetry rather than merely redacted (the 2026-08-14 bug).
+    /// Value-carrying fields reconstruct the exact string the user would
+    /// have typed (verified against each type's own `FromStr`), so
+    /// telemetry's `VALUE_SAFE_FLAGS` allowlist sees the same shape it would
+    /// see from raw argv.
+    pub fn telemetry_pairs(&self) -> Vec<(String, Option<String>)> {
+        let mut pairs = Vec::new();
+        if matches!(self.verbosity, ags_protocol::request::Verbosity::Verbose) {
+            pairs.push(("--verbose".to_string(), None));
+        }
+        if matches!(self.verbosity, ags_protocol::request::Verbosity::Quiet) {
+            pairs.push(("--quiet".to_string(), None));
+        }
+        if self.is_no_input {
+            pairs.push(("--no-input".to_string(), None));
+        }
+        if self.is_no_color {
+            pairs.push(("--no-color".to_string(), None));
+        }
+        if self.is_auto_confirmed {
+            pairs.push(("--yes".to_string(), None));
+        }
+        if let Some(format) = &self.format {
+            let value = match format {
+                ags_protocol::request::OutputFormat::Human => "human",
+                ags_protocol::request::OutputFormat::Json => "json",
+            };
+            pairs.push(("--format".to_string(), Some(value.to_string())));
+        }
+        if let Some(ui) = &self.ui {
+            let value = match ui {
+                UiFlag::Auto => "auto",
+                UiFlag::Plain => "plain",
+                UiFlag::Inline => "inline",
+                UiFlag::Fullscreen => "fullscreen",
+            };
+            pairs.push(("--ui".to_string(), Some(value.to_string())));
+        }
+        if let Some(namespace) = &self.namespace {
+            pairs.push(("--namespace".to_string(), Some(namespace.clone())));
+        }
+        if let Some(profile) = &self.profile {
+            pairs.push(("--profile".to_string(), Some(profile.clone())));
+        }
+        if self.is_dry_run {
+            pairs.push(("--dry-run".to_string(), None));
+        }
+        if self.is_skeleton {
+            pairs.push(("--skeleton".to_string(), None));
+        }
+        if let Some(timeout) = self.timeout {
+            pairs.push(("--timeout".to_string(), Some(timeout.to_string())));
+        }
+        if self.is_page_all {
+            pairs.push(("--page-all".to_string(), None));
+        }
+        if let Some(page_limit) = &self.page_limit_raw {
+            pairs.push(("--page-limit".to_string(), Some(page_limit.clone())));
+        }
+        if let Some(output) = &self.output {
+            let value = match output {
+                ags_protocol::request::OutputDestination::Stdout => "-".to_string(),
+                ags_protocol::request::OutputDestination::File(path) => path.display().to_string(),
+            };
+            pairs.push(("--output".to_string(), Some(value)));
+        }
+        pairs
+    }
 }
 
 impl From<&GlobalFlags> for crate::frontend::RenderOptions {
@@ -80,32 +153,39 @@ impl From<&GlobalFlags> for crate::frontend::RenderOptions {
     }
 }
 
+/// Every flag string the global prescan recognizes, paired with whether it
+/// takes a value. This is the single source of truth consumed by
+/// `pre_scan_global_flags`; the collision-prohibition test in `builder.rs`
+/// also reads it so that new global flags automatically invalidate any
+/// subcommand that shadows them.
+pub(crate) const KNOWN_GLOBAL_FLAGS: &[(&str, bool)] = &[
+    ("--verbose", false),
+    ("-v", false),
+    ("--quiet", false),
+    ("-q", false),
+    ("--no-input", false),
+    ("--no-color", false),
+    ("--yes", false),
+    ("-y", false),
+    ("--format", true),
+    ("--ui", true),
+    ("--namespace", true),
+    ("-n", true),
+    ("--output", true),
+    ("--profile", true),
+    ("--dry-run", false),
+    ("--skeleton", false),
+    ("--timeout", true),
+    ("--page-all", false),
+    ("--page-limit", true),
+];
+
 /// Pre-scan argv to extract global flags before two-phase parsing.
 /// Returns (extracted flags, remaining args).
 pub fn pre_scan_global_flags(
     args: &[String],
 ) -> Result<(GlobalFlags, Vec<String>), crate::errors::CliError> {
-    // Map of known flags and whether they take a value
-    let mut known_flags: HashMap<&str, bool> = HashMap::new();
-    known_flags.insert("--verbose", false);
-    known_flags.insert("-v", false);
-    known_flags.insert("--quiet", false);
-    known_flags.insert("-q", false);
-    known_flags.insert("--no-input", false);
-    known_flags.insert("--no-color", false);
-    known_flags.insert("--yes", false);
-    known_flags.insert("-y", false);
-    known_flags.insert("--format", true);
-    known_flags.insert("--ui", true);
-    known_flags.insert("--namespace", true);
-    known_flags.insert("-n", true);
-    known_flags.insert("--output", true);
-    known_flags.insert("--profile", true);
-    known_flags.insert("--dry-run", false);
-    known_flags.insert("--skeleton", false);
-    known_flags.insert("--timeout", true);
-    known_flags.insert("--page-all", false);
-    known_flags.insert("--page-limit", true);
+    let known_flags: HashMap<&str, bool> = KNOWN_GLOBAL_FLAGS.iter().copied().collect();
 
     let mut flags = GlobalFlags::default();
     let mut remaining = Vec::new();
@@ -707,6 +787,177 @@ mod tests {
             Some(OutputDestination::File(std::path::PathBuf::from(
                 "file.png"
             )))
+        );
+    }
+
+    // ── Global flags consumed regardless of command position ──
+
+    /// `--namespace` and `--format` are consumed by the prescan regardless
+    /// of where they appear — even after `extend docker-login`. There is no
+    /// command-specific boundary; the route reads namespace from
+    /// `flags.namespace` via its fallback path.
+    #[test]
+    fn test_pre_scan_consumes_namespace_after_extend_docker_login() {
+        let args: Vec<String> = [
+            "extend",
+            "docker-login",
+            "--namespace",
+            "game-ns",
+            "--app",
+            "myapp",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let (flags, remaining) = pre_scan_global_flags(&args).unwrap();
+        assert_eq!(
+            flags.namespace,
+            Some("game-ns".to_string()),
+            "--namespace must be consumed globally"
+        );
+        assert_eq!(
+            remaining,
+            vec!["extend", "docker-login", "--app", "myapp"],
+            "--namespace and its value must not appear in remaining"
+        );
+    }
+
+    /// The `--namespace=value` equals form is consumed globally after
+    /// `extend docker-login`, exactly as the `--namespace value` space
+    /// form is. The two syntaxes must agree.
+    #[test]
+    fn test_pre_scan_consumes_namespace_equals_form_after_extend_docker_login() {
+        let args: Vec<String> = [
+            "extend",
+            "docker-login",
+            "--namespace=game-ns",
+            "--app",
+            "myapp",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let (flags, remaining) = pre_scan_global_flags(&args).unwrap();
+        assert_eq!(
+            flags.namespace,
+            Some("game-ns".to_string()),
+            "--namespace=value must be consumed globally (equals form)"
+        );
+        assert_eq!(
+            remaining,
+            vec!["extend", "docker-login", "--app", "myapp"],
+            "--namespace=value must not appear in remaining"
+        );
+    }
+
+    // ── Route-local flags pass through the prescan ──
+
+    /// `--print-format <value>` (space form) is NOT a global flag; the
+    /// prescan must leave it in remaining so the route's clap parser
+    /// receives it.
+    #[test]
+    fn test_pre_scan_passes_through_print_format_space_form() {
+        let args: Vec<String> = [
+            "extend",
+            "docker-login",
+            "--namespace",
+            "game-ns",
+            "--app",
+            "myapp",
+            "--print-format",
+            "token",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let (flags, remaining) = pre_scan_global_flags(&args).unwrap();
+        assert_eq!(
+            flags.namespace,
+            Some("game-ns".to_string()),
+            "--namespace is still consumed"
+        );
+        assert!(
+            remaining.contains(&"--print-format".to_string()),
+            "--print-format must pass through to remaining: {remaining:?}"
+        );
+        assert!(
+            remaining.contains(&"token".to_string()),
+            "the --print-format value must pass through to remaining: {remaining:?}"
+        );
+    }
+
+    /// `--print-format=<value>` (equals form) is NOT a global flag; the
+    /// prescan must leave it in remaining so the route's clap parser
+    /// receives it. Must agree with the space form above.
+    #[test]
+    fn test_pre_scan_passes_through_print_format_equals_form() {
+        let args: Vec<String> = [
+            "extend",
+            "docker-login",
+            "--namespace=game-ns",
+            "--app",
+            "myapp",
+            "--print-format=token",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let (flags, remaining) = pre_scan_global_flags(&args).unwrap();
+        assert_eq!(
+            flags.namespace,
+            Some("game-ns".to_string()),
+            "--namespace=value is still consumed (equals form)"
+        );
+        assert!(
+            remaining.contains(&"--print-format=token".to_string()),
+            "--print-format=value must pass through to remaining: {remaining:?}"
+        );
+    }
+
+    #[test]
+    fn test_telemetry_pairs_reconstructs_set_global_flags() {
+        let flags = GlobalFlags {
+            namespace: Some("ns1".to_string()),
+            format: Some(ags_protocol::request::OutputFormat::Json),
+            is_no_color: true,
+            ..GlobalFlags::default()
+        };
+        let pairs = flags.telemetry_pairs();
+        assert_eq!(
+            pairs,
+            vec![
+                ("--no-color".to_string(), None),
+                ("--format".to_string(), Some("json".to_string())),
+                ("--namespace".to_string(), Some("ns1".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_telemetry_pairs_empty_for_default_flags() {
+        assert_eq!(GlobalFlags::default().telemetry_pairs(), Vec::new());
+    }
+
+    #[test]
+    fn test_telemetry_pairs_reconstructs_output_stdout_and_file() {
+        let stdout_flags = GlobalFlags {
+            output: Some(ags_protocol::request::OutputDestination::Stdout),
+            ..GlobalFlags::default()
+        };
+        assert_eq!(
+            stdout_flags.telemetry_pairs(),
+            vec![("--output".to_string(), Some("-".to_string()))]
+        );
+
+        let file_flags = GlobalFlags {
+            output: Some(ags_protocol::request::OutputDestination::File(
+                "out.json".into(),
+            )),
+            ..GlobalFlags::default()
+        };
+        assert_eq!(
+            file_flags.telemetry_pairs(),
+            vec![("--output".to_string(), Some("out.json".to_string()))]
         );
     }
 }

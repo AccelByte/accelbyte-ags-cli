@@ -37,6 +37,9 @@ fn cli(args: &[&str]) -> CmdOutput {
         .args(args)
         .env("AGS_NO_KEYCHAIN", "1")
         .env("AGS_HOME", unique_dir)
+        // Suppress the background update check — this standalone binary cannot
+        // reach tests/common/cli_helpers::ags() which sets the var centrally.
+        .env("AGS_NO_UPDATE_CHECK", "1")
         .output()
         .expect("failed to execute ags binary");
     CmdOutput { inner }

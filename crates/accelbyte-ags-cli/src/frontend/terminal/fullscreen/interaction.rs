@@ -445,6 +445,154 @@ fn drive_enum_picker_modal_inner(
     outcome
 }
 
+/// Inner loop with an injected key reader so it is testable without a
+/// terminal. Mirrors `drive_enum_picker_modal_inner`'s structure — the
+/// surface-held modal is the single authoritative copy for the whole loop,
+/// and cleanup runs on every exit path (`Ok` or `Err`).
+fn drive_file_picker_modal_inner(
+    surface: &mut FullscreenSurface,
+    modal: crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal,
+    mut next_key: impl FnMut() -> Result<KeyEvent, CliError>,
+) -> Result<Option<String>, CliError> {
+    surface.file_picker = Some(modal);
+    let outcome: Result<Option<String>, CliError> = loop {
+        if surface
+            .file_picker
+            .as_ref()
+            .unwrap()
+            .layout(surface.terminal_area())
+            .is_none()
+        {
+            break Ok(None);
+        }
+        if let Err(e) = surface.render() {
+            break Err(e);
+        }
+        let key = match next_key() {
+            Ok(k) => k,
+            Err(e) => break Err(e),
+        };
+        if surface
+            .file_picker
+            .as_ref()
+            .unwrap()
+            .layout(surface.terminal_area())
+            .is_none()
+        {
+            break Ok(None);
+        }
+
+        let area = surface.terminal_area();
+        let modal = surface.file_picker.as_mut().unwrap();
+        match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => break Ok(None),
+            (KeyCode::Char('c'), KeyModifiers::CONTROL) => break Ok(None),
+            (KeyCode::Enter, _) => {
+                // Directory-aware commit: a highlighted directory drills in;
+                // a highlighted file commits its absolute path; with zero
+                // matches, the typed filter commits as a literal value.
+                match modal.selected_entry() {
+                    Some(entry) if entry.is_dir => {
+                        let target = entry.path.clone();
+                        if let Err(e) = modal.navigate_to(target, extensions_of(modal), None) {
+                            modal.set_transient_message(format!("Can't open that directory: {e}"));
+                        }
+                    }
+                    Some(entry) => break Ok(Some(entry.path.to_string_lossy().into_owned())),
+                    None => {
+                        // Intentional parity with `EnumPickerModal`'s
+                        // free-text escape hatch (see its own Enter handler
+                        // above): a zero-match filter commits as a literal
+                        // value, same as `options_source`'s manual-entry
+                        // affordance, and — unlike that affordance —
+                        // `extensions`/existence checks are still not applied
+                        // by design (see cli-reference.md §10.5.9.2). The
+                        // value itself is still absolutized via
+                        // `custom_value()` (join against `current_dir` when
+                        // relative), so it stays consistent with every other
+                        // commit path.
+                        if let Some(custom) = modal.custom_value() {
+                            break Ok(Some(custom));
+                        }
+                    }
+                }
+            }
+            (KeyCode::Up, _) => modal.move_up(),
+            (KeyCode::Down, _) => modal.move_down(),
+            (KeyCode::PageUp, _) => {
+                let page = modal
+                    .layout(area)
+                    .map(|l| l.list_height as usize)
+                    .unwrap_or(1);
+                modal.page_up(page);
+            }
+            (KeyCode::PageDown, _) => {
+                let page = modal
+                    .layout(area)
+                    .map(|l| l.list_height as usize)
+                    .unwrap_or(1);
+                modal.page_down(page);
+            }
+            (KeyCode::Backspace, _) => {
+                if modal.custom_value_source_is_empty() {
+                    // Filter already empty: go up one directory level.
+                    let parent = modal.current_dir().parent().map(|p| p.to_path_buf());
+                    if let Some(parent) = parent {
+                        let extensions = extensions_of(modal);
+                        if let Err(e) = modal.navigate_to(parent, extensions, None) {
+                            modal.set_transient_message(format!("Can't open that directory: {e}"));
+                        }
+                    }
+                } else {
+                    modal.pop_char();
+                }
+            }
+            (KeyCode::Tab, _) => {
+                if let Some(candidate) = modal.resolve_typed_path() {
+                    let extensions = extensions_of(modal);
+                    match std::fs::metadata(&candidate) {
+                        Ok(meta) if meta.is_dir() => {
+                            if let Err(e) = modal.navigate_to(candidate, extensions, None) {
+                                modal.set_transient_message(format!(
+                                    "Can't open that directory: {e}"
+                                ));
+                            }
+                        }
+                        Ok(meta) if meta.is_file() => {
+                            if let Some(parent) = candidate.parent().map(|p| p.to_path_buf()) {
+                                let file_name = candidate
+                                    .file_name()
+                                    .map(|n| n.to_string_lossy().into_owned());
+                                if let Err(e) =
+                                    modal.navigate_to(parent, extensions, file_name.as_deref())
+                                {
+                                    modal.set_transient_message(format!(
+                                        "Can't open that directory: {e}"
+                                    ));
+                                }
+                            }
+                        }
+                        _ => modal.set_transient_message("Not found".to_string()),
+                    }
+                }
+            }
+            (KeyCode::Char(c), m) if !m.contains(KeyModifiers::CONTROL) => modal.push_char(c),
+            _ => {}
+        }
+    };
+    surface.file_picker = None;
+    outcome
+}
+
+/// The extension filter attached to an open `FilePickerModal` — threaded
+/// through every `navigate_to` call so drilling in/up/jumping never loses
+/// the workflow-declared filter.
+fn extensions_of(
+    modal: &crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal,
+) -> Option<Vec<String>> {
+    modal.extensions().cloned()
+}
+
 /// Phase-1 form driver. Like `drive_panel_form` but also handles
 /// `PhaseResult::OpenEnumPicker`: on activation it fetches the field's choices
 /// if not cached (the resolver renders its own loading spinner + handles
@@ -458,7 +606,18 @@ fn drive_inputs_panel_form(
     form: Form,
 ) -> Result<Option<Form>, CliError> {
     use crate::frontend::terminal::form_runner::crossterm_next_key;
+    drive_inputs_panel_form_inner(surface, resolver, description, form, crossterm_next_key)
+}
 
+/// Inner loop with an injected key reader so it is testable without a
+/// terminal, mirroring `drive_enum_picker_modal`/`_inner`'s split.
+fn drive_inputs_panel_form_inner(
+    surface: &Rc<RefCell<FullscreenSurface>>,
+    resolver: Option<&dyn DynamicOptionResolver>,
+    description: String,
+    form: Form,
+    mut next_key: impl FnMut() -> Result<KeyEvent, CliError>,
+) -> Result<Option<Form>, CliError> {
     let fields_phase = |form: Form| {
         Phase::Fields(FieldsPanel {
             step_number: 0,
@@ -472,7 +631,7 @@ fn drive_inputs_panel_form(
     surface.borrow_mut().current_phase = fields_phase(form);
     loop {
         surface.borrow_mut().render()?;
-        let key = crossterm_next_key()?;
+        let key = next_key()?;
         if is_ctrl_c(key) {
             return Ok(None);
         }
@@ -575,8 +734,99 @@ fn drive_inputs_panel_form(
                     }
                 }
             }
+            PhaseStep::Done(PhaseResult::OpenFilePicker(idx)) => {
+                let mut form = {
+                    let mut s = surface.borrow_mut();
+                    let Phase::Fields(panel) = &mut s.current_phase else {
+                        unreachable!()
+                    };
+                    std::mem::replace(panel.form_mut(), Form::new("", vec![]))
+                };
+                let Some(picker) = form.fields[idx].file_picker.clone() else {
+                    // No file_picker spec attached — nothing to open. Restore
+                    // the form unchanged; this only happens if a caller ever
+                    // constructs a FilePicker-typed field without a spec,
+                    // which build_inputs_form (Task 6) never does.
+                    surface.borrow_mut().current_phase = fields_phase(form);
+                    continue;
+                };
+                let start_dir = resolve_file_picker_start_dir(&picker);
+                let title = form.fields[idx].label.clone();
+                let extensions = picker.extensions.clone();
+                match crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal::new(
+                    title, start_dir, extensions,
+                ) {
+                    Ok(modal) => {
+                        let area = surface.borrow().terminal_area();
+                        if modal.layout(area).is_none() {
+                            form.focus = idx;
+                            form.begin_edit();
+                            surface.borrow_mut().current_phase = fields_phase(form);
+                        } else {
+                            surface.borrow_mut().current_phase = fields_phase(form);
+                            let chosen = {
+                                let mut s = surface.borrow_mut();
+                                drive_file_picker_modal_inner(&mut s, modal, &mut next_key)?
+                            };
+                            let mut s = surface.borrow_mut();
+                            if let Phase::Fields(panel) = &mut s.current_phase {
+                                apply_picker_result(panel.form_mut(), idx, chosen);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        apply_file_picker_open_error(&mut form, &e);
+                        surface.borrow_mut().current_phase = fields_phase(form);
+                    }
+                }
+            }
         }
     }
+}
+
+/// Resolve a `FilePickerSpec`'s starting directory: the declared `start_dir`
+/// if it exists and is a directory, otherwise the process's current working
+/// directory. The fallback is silent (not a validation-note-worthy failure)
+/// — `start_dir` is a convenience default, not a hard requirement.
+///
+/// Always returns an absolute path — the committed field value must be
+/// absolute (documented in `docs/reference/cli-reference.md`), and a relative
+/// starting directory also breaks Backspace-up: `Path::parent()` on a single
+/// relative component (e.g. `"assets"`) yields `Some("")`, which
+/// `fs::read_dir` rejects.
+fn resolve_file_picker_start_dir(
+    picker: &ags_protocol::workflow::FilePickerSpec,
+) -> std::path::PathBuf {
+    if let Some(dir) = &picker.start_dir {
+        let path = std::path::PathBuf::from(dir);
+        if path.is_dir() {
+            return absolutize(path);
+        }
+    }
+    match std::env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(_) => absolutize(std::path::PathBuf::from(".")),
+    }
+}
+
+/// Surface a `FilePickerModal::new` I/O failure (e.g. permission denied, or
+/// the directory raced out from under us between
+/// `resolve_file_picker_start_dir`'s existence check and the `fs::read_dir`
+/// call inside `list_directory`) as a validation note on the field's form,
+/// instead of opening the modal. Split out from the driving loop so the
+/// exact message this produces can be unit tested without needing to win a
+/// real filesystem race.
+fn apply_file_picker_open_error(form: &mut Form, error: &std::io::Error) {
+    form.validation_note = Some(format!("Couldn't open that directory: {error}"));
+}
+
+/// Best-effort absolutize: `std::path::absolute` doesn't touch the
+/// filesystem (it lexically resolves `.`/`..` against the CWD, unlike
+/// `fs::canonicalize`), so it only fails in edge cases (e.g. an empty path).
+/// On error, fall back to the CWD so the caller never gets a relative path
+/// back; if even that fails, return the input unchanged rather than panic.
+fn absolutize(path: std::path::PathBuf) -> std::path::PathBuf {
+    std::path::absolute(&path).unwrap_or_else(|_| std::env::current_dir().unwrap_or(path))
 }
 
 /// Resolve (or reuse the cache for) field `idx`'s dynamic-enum choices, mutating
@@ -757,6 +1007,10 @@ fn drive_panel_form(
             // Dynamic-enum resolution happens only in the Phase-1
             // `drive_inputs_panel_form`. Ignored defensively.
             PhaseStep::Done(PhaseResult::OpenEnumPicker(_)) => {}
+            // Unreachable here, same reasoning as the OpenEnumPicker arm
+            // above: the review-step form is built by `Form::from_step_plan`,
+            // which never creates `FilePicker` fields either.
+            PhaseStep::Done(PhaseResult::OpenFilePicker(_)) => {}
         }
     }
 }
@@ -928,6 +1182,10 @@ impl ExecutionInteraction for FullscreenInteraction {
                     // fields. Dynamic-enum resolution happens only in the Phase-1
                     // `drive_inputs_panel_form`. Ignored defensively.
                     PhaseStep::Done(PhaseResult::OpenEnumPicker(_)) => {}
+                    // Unreachable here: `gather_workflow_inputs` builds its form via
+                    // `build_form_fields`, which never creates `FilePicker` fields
+                    // either. Ignored defensively.
+                    PhaseStep::Done(PhaseResult::OpenFilePicker(_)) => {}
                 }
             };
 
@@ -1032,10 +1290,11 @@ impl ExecutionInteraction for FullscreenInteraction {
         use crate::frontend::terminal::fullscreen::step_strip::StepState;
 
         // Shared orchestration builds the form + projects inputs (with dynamic-
-        // enum support, which this surface has). The closure is the fullscreen-
-        // specific drive: it marks the Inputs strip row Current while gathering
-        // and Complete/Skipped on the outcome, and resolves dynamic enums.
-        let collected = collect_inputs_form(specs, current, true, |form| {
+        // enum and file-picker support, which this surface has). The closure is
+        // the fullscreen-specific drive: it marks the Inputs strip row Current
+        // while gathering and Complete/Skipped on the outcome, and resolves
+        // dynamic enums.
+        let collected = collect_inputs_form(specs, current, true, true, |form| {
             self.surface
                 .borrow_mut()
                 .set_inputs_row_state(StepState::Current);
@@ -1177,6 +1436,9 @@ fn review_step_optional_inner(
             }
             // Unreachable: `Form::from_step_plan` never creates DynamicEnum fields.
             PhaseStep::Done(PhaseResult::OpenEnumPicker(_)) => {}
+            // Unreachable: `Form::from_step_plan` never creates FilePicker
+            // fields either.
+            PhaseStep::Done(PhaseResult::OpenFilePicker(_)) => {}
         }
     };
 
@@ -1315,6 +1577,362 @@ mod tests {
             surface.enum_picker.is_none(),
             "overlay is cleared even when the loop exits via Err"
         );
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_selects_a_file() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.png"), b"").unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // Entries are `[.., icon.png]`, so one Down moves off the initial ".."
+        // selection onto the file before Enter selects it.
+        let mut keys = vec![key(KeyCode::Down), key(KeyCode::Enter)].into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(dir.path().join("icon.png").to_string_lossy().into_owned())
+        );
+        assert!(
+            surface.file_picker.is_none(),
+            "modal cleaned up after commit"
+        );
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_drills_into_directory() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("sub")).unwrap();
+        std::fs::write(root.path().join("sub").join("icon.png"), b"").unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // "sub" sorts before nothing else at this dir (only ".." and "sub"), so
+        // one Down from the initial ".." selection lands on it.
+        let mut keys = vec![
+            key(KeyCode::Down),  // -> "sub"
+            key(KeyCode::Enter), // drill in
+            key(KeyCode::Down),  // -> "icon.png"
+            key(KeyCode::Enter), // select
+        ]
+        .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(
+                root.path()
+                    .join("sub")
+                    .join("icon.png")
+                    .to_string_lossy()
+                    .into_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_esc_cancels() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let dir = tempfile::tempdir().unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        let mut keys = vec![key(KeyCode::Esc)].into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(result, None);
+        assert!(surface.file_picker.is_none());
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_resize_below_minimum_during_read_cancels() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.png"), b"").unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        let handle = surface.area_override_handle();
+        // On the key read that would submit, first shrink the terminal below
+        // MIN_MODAL_WIDTH/MIN_MODAL_HEIGHT, then return Enter. Mirrors
+        // `test_modal_resize_below_minimum_during_read_cancels` for the enum
+        // picker — the post-read viewport guard must cancel before Enter is
+        // acted on, not just the pre-render one at loop entry.
+        let mut keys = vec![key(KeyCode::Down), key(KeyCode::Enter)].into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            let k = keys.next().unwrap();
+            if k.code == KeyCode::Enter {
+                handle.set(ratatui::layout::Rect::new(0, 0, 4, 4));
+            }
+            Ok(k)
+        })
+        .unwrap();
+        assert_eq!(result, None, "no commit from a shrunk modal");
+        assert!(surface.file_picker.is_none(), "overlay cleared on cancel");
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_backspace_goes_up_when_filter_empty() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let root = tempfile::tempdir().unwrap();
+        let sub = root.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        let modal = FilePickerModal::new("icon-file".to_string(), sub.clone(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // Backspace with an empty filter navigates up to `root`, then selecting
+        // "icon.png" (only visible from `root`) proves the navigation happened.
+        std::fs::write(root.path().join("icon.png"), b"").unwrap();
+        let mut keys = vec![
+            key(KeyCode::Backspace), // up to root (filter was empty)
+            key(KeyCode::Down),      // -> icon.png (after ".." and "sub")
+            key(KeyCode::Down),
+            key(KeyCode::Enter),
+        ]
+        .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(root.path().join("icon.png").to_string_lossy().into_owned())
+        );
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_tab_jumps_to_typed_directory() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let root = tempfile::tempdir().unwrap();
+        let sub = root.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("icon.png"), b"").unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        let typed: Vec<KeyEvent> = "sub".chars().map(|c| key(KeyCode::Char(c))).collect();
+        let mut keys = typed
+            .into_iter()
+            .chain([
+                key(KeyCode::Tab),  // jump into "sub"
+                key(KeyCode::Down), // -> icon.png
+                key(KeyCode::Enter),
+            ])
+            .collect::<Vec<_>>()
+            .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(sub.join("icon.png").to_string_lossy().into_owned())
+        );
+    }
+
+    #[test]
+    fn test_resolve_file_picker_start_dir_absolutizes_relative_start_dir() {
+        // A relative single-component `start_dir` (e.g. "src") used to be
+        // returned verbatim: `PathBuf::from("src").is_dir()` succeeds when
+        // run from the crate root, but the un-absolutized path's
+        // `.parent()` is `Some("")`, and `fs::read_dir("")` errors — so
+        // Backspace-up from it would fail instead of navigating to the
+        // crate root.
+        let picker = ags_protocol::workflow::FilePickerSpec {
+            extensions: None,
+            start_dir: Some("src".to_string()),
+        };
+        let resolved = super::resolve_file_picker_start_dir(&picker);
+        assert!(
+            resolved.is_absolute(),
+            "a relative start_dir must resolve to an absolute path, got {resolved:?}"
+        );
+        assert!(resolved.ends_with("src"));
+        let parent = resolved
+            .parent()
+            .expect("an absolutized path always has a parent");
+        assert!(
+            std::fs::read_dir(parent).is_ok(),
+            "grandparent navigation must be able to list the parent directory"
+        );
+    }
+
+    #[test]
+    fn test_resolve_file_picker_start_dir_cwd_fallback_is_absolute() {
+        let picker = ags_protocol::workflow::FilePickerSpec {
+            extensions: None,
+            start_dir: Some("this-path-should-not-exist-xyz-123".to_string()),
+        };
+        let resolved = super::resolve_file_picker_start_dir(&picker);
+        assert!(resolved.is_absolute());
+        assert_eq!(resolved, std::env::current_dir().unwrap());
+    }
+
+    #[test]
+    fn test_apply_file_picker_open_error_sets_validation_note() {
+        // Exercises the `FilePickerModal::new` I/O-error arm in
+        // `drive_inputs_panel_form_inner` (extracted into
+        // `apply_file_picker_open_error` for exactly this purpose). Driving
+        // that arm end-to-end would require winning a real TOCTOU race
+        // against `resolve_file_picker_start_dir`'s own existence check
+        // (which only hands a path to `FilePickerModal::new` after
+        // confirming it's a directory) — not reproducible deterministically.
+        // A regular file stands in for "the read failed": unlike a
+        // permission-stripped directory, it fails `fs::read_dir` on every
+        // platform and isn't bypassed by CI running as root (see
+        // `file_system.rs`'s write-restricted tests for the same
+        // root-bypasses-permissions constraint).
+        let tmp = tempfile::tempdir().unwrap();
+        let not_a_dir = tmp.path().join("not-a-directory");
+        std::fs::write(&not_a_dir, b"").unwrap();
+        let io_err = std::fs::read_dir(&not_a_dir).unwrap_err();
+        let expected = format!("Couldn't open that directory: {io_err}");
+
+        let mut form = crate::frontend::terminal::inline::form::Form::new("gather-inputs", vec![]);
+        super::apply_file_picker_open_error(&mut form, &io_err);
+
+        assert_eq!(form.validation_note.as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_tab_jumps_to_typed_file_and_preselects_it() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("icon.png"), b"").unwrap();
+        std::fs::write(root.path().join("zzz.png"), b"").unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        let typed: Vec<KeyEvent> = "icon.png".chars().map(|c| key(KeyCode::Char(c))).collect();
+        // Tab jumps to the typed file's parent (== the same dir here) and
+        // must pre-highlight "icon.png" so a single Enter commits it —
+        // without the fix, the rebuilt list resets to the initial ".."
+        // selection and this Enter would drill into ".." instead of
+        // committing, exhausting the injected key sequence.
+        let mut keys = typed
+            .into_iter()
+            .chain([key(KeyCode::Tab), key(KeyCode::Enter)])
+            .collect::<Vec<_>>()
+            .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(root.path().join("icon.png").to_string_lossy().into_owned())
+        );
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_zero_match_enter_commits_typed_text() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+        let dir = tempfile::tempdir().unwrap();
+        let modal =
+            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // Typing a string that matches zero entries (the directory is empty
+        // besides "..") and pressing Enter must fall through to the
+        // custom-value escape hatch, mirroring `EnumPickerModal`'s
+        // `test_modal_zero_match_enter_returns_custom_value`. This is
+        // intentional parity with `options_source`'s manual-entry affordance,
+        // not an oversight — see the comment at the call site. The relative
+        // text typed here must still come back absolutized against the
+        // starting dir, same as every other commit path (selection,
+        // Tab-jump) — only the extensions/existence checks are skipped.
+        let typed: Vec<KeyEvent> = "not-a-real-file.png"
+            .chars()
+            .map(|c| key(KeyCode::Char(c)))
+            .collect();
+        let mut keys = typed
+            .into_iter()
+            .chain([key(KeyCode::Enter)])
+            .collect::<Vec<_>>()
+            .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(
+                dir.path()
+                    .join("not-a-real-file.png")
+                    .to_string_lossy()
+                    .into_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn test_drive_inputs_panel_form_file_picker_end_to_end() {
+        use crate::frontend::terminal::inline::form::{
+            FieldKey, FieldSource, FieldType, FieldValue, Form, FormField,
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("icon.png"), b"").unwrap();
+
+        let field = FormField {
+            label: "icon-file".into(),
+            field_type: FieldType::FilePicker,
+            required: true,
+            value: FieldValue::Empty,
+            description: String::new(),
+            source: FieldSource::UserInput,
+            key: FieldKey::Input("iconFile".into()),
+            schema: serde_json::json!({"type": "string"}),
+            read_only: false,
+            dynamic: None,
+            file_picker: Some(ags_protocol::workflow::FilePickerSpec {
+                extensions: Some(vec!["png".to_string()]),
+                start_dir: Some(dir.path().to_string_lossy().into_owned()),
+            }),
+        };
+        // `.with_submit_focusable(true)` mirrors production's
+        // `collect_inputs_form`, which always sets it — without it there is
+        // no way to reach Submit at all (FilePicker's Enter handler, unlike
+        // Scalar's, always reopens the picker rather than auto-submitting).
+        let form = Form::new("gather-inputs", vec![field]).with_submit_focusable(true);
+        let surface = Rc::new(RefCell::new(FullscreenSurface::without_terminal_sized(
+            100, 30,
+        )));
+
+        // Enter to open the picker, Down past ".." to "icon.png", Enter to
+        // select — the field is now filled but stays focused (FilePicker's
+        // Enter handler always reopens the picker rather than auto-submitting,
+        // unlike Scalar), so Tab to the Submit button and Enter to finish.
+        let mut keys = vec![
+            key(KeyCode::Enter),
+            key(KeyCode::Down),
+            key(KeyCode::Enter),
+            key(KeyCode::Tab),
+            key(KeyCode::Enter),
+        ]
+        .into_iter();
+        let result = super::drive_inputs_panel_form_inner(
+            &surface,
+            None,
+            "gather-inputs".into(),
+            form,
+            move || Ok(keys.next().unwrap()),
+        )
+        .unwrap()
+        .unwrap();
+
+        assert!(matches!(
+            &result.fields[0].value,
+            FieldValue::Enum(Some(s)) if s == &dir.path().join("icon.png").to_string_lossy().into_owned()
+        ));
     }
 
     #[test]
@@ -1529,10 +2147,12 @@ mod tests {
                 id: "test-step".to_string(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("iam"),
                     operation: OperationId::new("testOp"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -1559,10 +2179,12 @@ mod tests {
             id: "main".to_string(),
             index,
             description: description.map(|s| s.to_string()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("iam"),
                 operation: OperationId::new("testOp"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1622,8 +2244,9 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
-        let form = build_inputs_form(&specs, &BTreeMap::new(), true);
+        let form = build_inputs_form(&specs, &BTreeMap::new(), true, true);
         assert_eq!(form.len(), 1);
         assert!(form[0].required);
     }
@@ -1791,6 +2414,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![ns]);
         let key = super::compute_dep_key(&form, &["namespace".to_string()]);
@@ -1825,6 +2449,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut form = Form::new("t", vec![ns]);
         assert!(!super::deps_satisfied(&form, &["namespace".to_string()]));
@@ -1884,6 +2509,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic,
+            file_picker: None,
         };
         let ns = field("namespace", FieldType::Scalar, scalar(namespace), None);
         let query_field = field("searchQuery", FieldType::Scalar, scalar(query), None);
@@ -2005,6 +2631,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let img = FormField {
             label: "fleet-image-id".into(),
@@ -2039,6 +2666,7 @@ mod tests {
                 optional_deps: vec![],
                 resolved: None,
             }),
+            file_picker: None,
         };
         Form::new("gather-inputs", vec![ns, img])
     }
@@ -2194,10 +2822,12 @@ mod tests {
             id: "opt-step".to_string(),
             index,
             description: Some("An optional step".to_string()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("iam"),
                 operation: OperationId::new("testOp"),
-            },
+            }),
             dependencies: vec![],
             confirm: true,
             is_optional: true,

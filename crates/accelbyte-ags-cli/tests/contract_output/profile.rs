@@ -64,7 +64,13 @@ fn test_profile_list_json_active_flag() {
 /// Profile create JSON response contains status and profile name fields
 #[test]
 fn test_profile_create_json_has_status_and_name() {
+    // Own tmpdir prevents stale state from PID reuse across runs
+    // (matches the isolation pattern used by every other profile test).
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().to_str().unwrap();
+
     let output = ags_isolated()
+        .env("AGS_HOME", home)
         .args(["profile", "create", "staging", "--format", "json"])
         .output()
         .unwrap();

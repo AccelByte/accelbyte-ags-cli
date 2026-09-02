@@ -8,3 +8,4 @@ pub const SYMBOL_WARNING: &str = "!";
 pub const SYMBOL_INFO: &str = "\u{203a}"; // ›
 pub const SYMBOL_STATUS: &str = "\u{2218}"; // ∘
 pub const SYMBOL_FIX: &str = "\u{2192}"; // →
+pub const SYMBOL_UPGRADE: &str = "\u{2191}"; // ↑

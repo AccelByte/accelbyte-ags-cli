@@ -81,6 +81,9 @@ ags iam users update --namespace my-game --user-id abc-123 --json @body.json --d
 
 # Check auth, config, and connectivity
 ags doctor
+
+# Upload a dedicated-server build to AMS
+ags ams upload --path ./build --executable server --image-name my-image
 ```
 
 ## Using AGS CLI
@@ -261,6 +264,10 @@ Most interactive users don't need these. They let you override config without to
 | `AGS_HOME` | Override config and cache directory location |
 | `AGS_AUTH_TIMEOUT` | Timeout in seconds for browser auth flow (default 120) |
 | `AGS_NO_KEYCHAIN` | Disable OS keychain, use file-based token storage |
+| `AGS_NO_UPDATE_CHECK` | Set to `1` to disable the background check for new releases |
+| `AGS_UPDATE_CHECK_URL` | Test hook: override the update-check endpoint URL (not for end-user use) |
+| `DO_NOT_TRACK` | Set to any non-empty value to disable telemetry ([consoledonottrack.com](https://consoledonottrack.com)) |
+| `AGS_TELEMETRY_NO_INPUT_VALUES` | Set to any non-empty value to suppress input field values in telemetry (field names and metadata still transmit) |
 
 ## Profiles
 
@@ -303,6 +310,10 @@ ags config set format json
 # Remove a value
 ags config unset namespace
 ```
+
+### Update check
+
+The `update-check` global key controls the passive "a newer release is available" hint. It is on by default; disable it with `ags config set update-check false` or the `AGS_NO_UPDATE_CHECK=1` environment variable (both also skip the background GitHub check entirely, as does running in CI). The hint is printed to stderr only on an interactive terminal — never under `--format json`, when output is piped, or for `doctor` / `version` / `completions`.
 
 ## Shell completions
 
@@ -385,10 +396,12 @@ to list them:
 
 `competitive-multiplayer` is the bundled example: it stands up competitive
 matchmaking with dedicated servers (skill stat → ruleset → session template
-→ match pool → AMS fleet → fleet wiring). Its required inputs are
-`--namespace`, `--fleet-image-id`, `--fleet-region`, and `--fleet-instance-id`;
-the resource names default to `ranked-*` (override with `--resource-prefix`).
-When run interactively, the AMS image, region, and instance-type fields are
+→ match pool → server-image upload → AMS fleet → fleet wiring). Its required
+inputs are `--namespace`, `--build-path`, `--build-executable`,
+`--fleet-region`, and `--fleet-instance-id`; the resource names default to
+`ranked-*` (override with `--resource-prefix`). The build directory is
+uploaded to AMS as the image the fleet runs, so there is no image id to
+supply. When run interactively, the region and instance-type fields are
 runtime-fetched pickers — type to filter, ↑/↓ to scroll, Enter to select.
 
 Single commands (`ags <service> <resource> <method>`) are internally
@@ -399,6 +412,44 @@ non-interactively: supply every input as a flag (and `--yes` for any
 confirm-gated step), and the result is emitted as a JSON envelope.
 
 List registered workflows with `ags workflow list` (human) or `ags describe workflow` (machine-readable).
+
+## Uploading a dedicated-server image
+
+`ags ams upload` archives a build directory and registers it as an AMS image, so a
+dedicated server can be shipped without the Admin Portal:
+
+    ags ams upload --path ./build --executable server --image-name my-image
+
+The entrypoint must be a 64-bit little-endian ELF binary (x86-64 or aarch64), or a shell
+script — in which case pass `--target-arch linux-x86_64` or `--target-arch linux-arm_64`,
+since a script carries no architecture to detect. Debug-symbol files (`.pdb`, `.sym`,
+`.debug`) are excluded unless you pass `--symbol-files`.
+
+Credentials and the platform host come from your login or profile, exactly as for every
+other command — there are no credential flags. `--namespace` is accepted but ignored; AMS
+derives the destination from the access token. Add `--dry-run` to validate the build
+directory and list what would be uploaded without archiving anything or calling the API.
+
+Uploading needs its own permission (`AMS:UPLOAD`, with `Create` and `Update`) on a
+**confidential** IAM client — it is not the same permission as the one behind
+`ags ams images`, so an identity that can list images may still be refused. For client
+setup, the minimum permissions, migrating a pipeline from the standalone `ams` CLI, and
+what each error means, see **[AMS image upload](docs/reference/ams-upload.md)**.
+
+## Telemetry
+
+AGS CLI collects anonymous usage telemetry to help the team understand which commands are used, where users hit errors, and how workflows perform. Telemetry is active in official release builds. It can be disabled at any time (see below).
+
+### Opting out
+
+Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://consoledonottrack.com) standard). This overrides any built-in API key. Unsetting `AGS_TELEMETRY_POSTHOG_KEY` also disables it, but `DO_NOT_TRACK` is the recommended opt-out for end users.
+
+### What is collected
+
+When enabled, the CLI sends: which command was run (`iam users list`, not positional values or bodies), which flags were present (values redacted by default — only `--namespace`, `--format`, `--ui`, `--user-id`, `--client-id` transmit values), CLI version, outcome, duration, and error classification on failure. For workflow runs, step-level timing, outcome counts, and how inputs were provided (counts, not values) are also sent. Authenticated users are identified by their AccelByte IAM user id; pre-login invocations use a random anonymous id (never derived from hostname, hardware, or OS username). Email is attached as a user property for lookup, never as a per-event property.
+
+No IP geolocation (explicitly disabled), no file paths, no raw HTTP request or response bodies, no credential values, and no hostname or hardware identifiers are ever collected. On failed workflow steps, structured input field metadata (names, sources, and non-sensitive values for bundled workflows) is sent to aid debugging — field values are redacted when the name matches a sensitive pattern (`secret`, `password`, `token`, `key`, etc.). Set `AGS_TELEMETRY_NO_INPUT_VALUES` to suppress all input values entirely. Every event is fire-and-forget and never affects command behaviour or exit codes.
+
 
 ## Contributing
 

@@ -11,4 +11,5 @@ pub mod machine_json;
 pub(crate) mod no_color_backend;
 pub(crate) mod picker_list;
 pub mod plain;
+pub(crate) mod scrollbar;
 pub(crate) mod views;

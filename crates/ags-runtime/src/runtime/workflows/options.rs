@@ -215,6 +215,7 @@ fn build_options_request(
         path_params,
         query_params,
         header_params,
+        form_params: BTreeMap::new(),
         body: None,
         output_format: OutputFormat::Json,
         pagination: PaginationHint::All,

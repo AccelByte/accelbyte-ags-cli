@@ -3,12 +3,11 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Span;
-use ratatui::widgets::{
-    Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
-};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, Wrap};
 use ratatui::Frame;
 
 use crate::frontend::terminal::inline::form::Form;
+use crate::frontend::terminal::scrollbar::scrollbar_state;
 
 /// Render the inline `Parameters` box.
 ///
@@ -101,17 +100,7 @@ pub(crate) fn render_inline(frame: &mut Frame, area: Rect, form: &Form, show_sub
         form.render_field_row(frame, row_rect, field_idx, label_width);
     }
 
-    if len > visible {
-        // ratatui's scrollbar maps `position` over `[0, content_length-1]` and
-        // extends the thumb by `viewport_content_length`. For the thumb to reach
-        // the track bottom when scrolled fully down, `content_length` must be the
-        // number of scroll POSITIONS (`max_start + 1`) — NOT the total item count.
-        // With total-item-count the thumb stops around the middle. `position` is
-        // the scroll offset `start` (0..=max_start) and the thumb size stays
-        // proportional to `visible / len`.
-        let mut sb = ScrollbarState::new(max_start + 1)
-            .position(start)
-            .viewport_content_length(visible);
+    if let Some(mut sb) = scrollbar_state(len, visible, start) {
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)
@@ -164,10 +153,42 @@ pub(crate) fn render(
         return;
     }
 
-    // Row plan: each field followed by a blank line (so fields breathe), with
-    // the hint box right under the focused field. Fields are grouped under
-    // section headers. The Submit row lives inline after the last field;
-    // scroll-to-focus brings it into view when the form is taller than the panel.
+    // Reserve a fixed hint slot at the bottom of the panel, independent of how
+    // much the scrollable row-plan above it needs — the same *technique*
+    // `render_inline` (above) and `json_edit.rs::render_tree_with_hint` use:
+    // a `Layout` split with a fixed-ish bottom constraint. This is what keeps
+    // the hint from being dropped (not shrunk) when rows overflow the panel.
+    //
+    // The leading constraint value differs from `render_inline`'s
+    // `Constraint::Min(1)` on purpose: ratatui's solver treats `Min(n)` as a
+    // harder floor than `Length`, so `Min(1)` would outrank the hint's
+    // `Length` request and squeeze it down to a text-less 2-row border-only
+    // box. `Min(0)` lets `rows_area` shrink all the way to 0 so `Length`
+    // always wins its full request when there's room.
+    //
+    // The hint text needs at least 3 rows (border, text line, border) to be
+    // legible at all. At `inner.height == 4` specifically, reserving only 3
+    // rows (instead of the usual 4) keeps one field row visible alongside a
+    // legible one-line hint, rather than spending the 4th row on blank hint
+    // padding no one can read. Below that there isn't enough room to spare a
+    // field row anyway, so the hint just takes whatever's left.
+    let hint_h = if inner.height >= 5 {
+        4
+    } else if inner.height >= 3 {
+        3
+    } else {
+        inner.height
+    };
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(hint_h)])
+        .split(inner);
+    let (rows_area, hint_area) = (chunks[0], chunks[1]);
+
+    // Row plan: each field followed by a blank line (so fields breathe).
+    // Fields are grouped under section headers. The Submit row lives inline
+    // after the last field; scroll-to-focus brings it into view when the form
+    // is taller than the panel.
     let hint = form.current_hint();
     let label_width = form.label_width();
 
@@ -178,7 +199,6 @@ pub(crate) fn render(
     enum Row {
         Header(String),
         Field(usize),
-        Hint,
         Blank,
         Submit,
     }
@@ -208,10 +228,9 @@ pub(crate) fn render(
         }
     }
 
-    // Submit lives in the row stream after the last field. The previous
-    // pin-at-bottom render is removed; scroll-to-focus brings it into view
-    // when the form is taller than the panel. Hidden while loading: there's
-    // nothing to confirm until the fetch resolves.
+    // Submit lives in the row stream after the last field. Scroll-to-focus
+    // brings it into view when the form is taller than the panel. Hidden while
+    // loading: there's nothing to confirm until the fetch resolves.
     if show_submit {
         if !rows.is_empty() {
             rows.push((Row::Blank, 1));
@@ -222,13 +241,8 @@ pub(crate) fn render(
         }
         rows.push((Row::Blank, 1));
     }
-    // Fixed hint slot BELOW the Submit row: shows the focused field's
-    // description, or the form's `submit_description` when Submit is focused.
-    // 4 rows: top + bottom border + 2 content lines for descriptions that
-    // wrap (workflow-input descriptions are often 2 sentences).
-    rows.push((Row::Hint, 4));
 
-    let avail = inner.height;
+    let avail = rows_area.height;
 
     // Cumulative top offsets, so we can scroll just enough to keep the
     // focused field in view.
@@ -246,14 +260,16 @@ pub(crate) fn render(
         (0..rows.len()).find(|&k| tops[k] >= start_top).unwrap_or(0)
     };
 
-    // Render rows sequentially from the scroll start; stop before the button.
-    let limit = inner.top() + avail;
-    let mut y = inner.top();
+    // Render rows sequentially from the scroll start; stop before overflowing
+    // the reserved scroll area (the hint box below has its own fixed chunk and
+    // is never part of this loop).
+    let limit = rows_area.top() + avail;
+    let mut y = rows_area.top();
     for (row, h) in &rows[start_row..] {
         if y + h > limit {
             break;
         }
-        let rect = Rect::new(inner.x, y, inner.width, *h);
+        let rect = Rect::new(rows_area.x, y, rows_area.width, *h);
         match row {
             Row::Header(title) => {
                 frame.render_widget(
@@ -267,12 +283,14 @@ pub(crate) fn render(
                 );
             }
             Row::Field(i) => form.render_field_row(frame, rect, *i, label_width),
-            Row::Hint => render_hint_box(frame, rect, hint.as_ref()),
             Row::Blank => {}
             Row::Submit => form.render_submit(frame, rect, form.is_submit_focused()),
         }
         y += h;
     }
+
+    // ── Hint (pinned, always drawn even when empty) ──
+    render_hint_box(frame, hint_area, hint.as_ref());
 }
 
 /// Fixed hint slot rendered below the Submit row.
@@ -331,6 +349,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("x", vec![field]).with_submit_focusable(true);
         let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
@@ -368,6 +387,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             })
             .collect()
     }
@@ -496,6 +516,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let optional = FormField {
             label: "zebra".into(),
@@ -508,6 +529,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("x", vec![required, optional])
             .with_submit_focusable(true)
@@ -547,6 +569,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut form = Form::new("x", vec![field])
             .with_submit_focusable(true)
@@ -586,6 +609,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("x", vec![field]).with_submit_focusable(true);
         let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();

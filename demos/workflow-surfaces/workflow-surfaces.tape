@@ -1,6 +1,14 @@
 # competitive-multiplayer workflow across all four input surfaces.
 # Regenerate with ./demos/record.sh workflow-surfaces (see CONTRIBUTING.md).
 #
+# STALE — do not record until re-authored. The workflow gained a native
+# upload step (CLI-02), which invalidates this tape three ways: --fleet-image-id
+# no longer exists, the gather prompt order below gained Build Path / Build
+# Executable / Target Architecture, and the upload step needs AMS routes that
+# workflow-surfaces.routes.json does not stub plus a build directory on disk.
+# Re-choreographing the keystroke sequences needs a pty verification pass, so
+# it is deliberately left for its own change rather than guessed at here.
+#
 # All four keystroke sequences are pty-verified to reach "completed" (see the
 # SKILL.md "Verifying interactive sections" note). Auth happens off-camera:
 # demos/workflow-surfaces/prelogin tells record.sh to log in before recording,

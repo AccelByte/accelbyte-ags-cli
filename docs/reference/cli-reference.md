@@ -1,7 +1,7 @@
 # AGS CLI Reference
 
-Version: 0.4 RC  
-Status: Release Candidate  
+Version: 0.4.0  
+Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
 ## 1. Normative language
@@ -25,7 +25,7 @@ The AGS CLI MUST provide:
 - secure authentication and credential handling
 - a foundation for AI-assisted operation through Skills + CLI
 
-This release-candidate version incorporates the review feedback on authentication, AI integration framing, configuration behavior, spec sourcing, update checks, destructive confirmations, and token persistence.
+This version incorporates the review feedback on authentication, AI integration framing, configuration behavior, spec sourcing, update checks, destructive confirmations, and token persistence.
 
 ## 3. Context and positioning
 
@@ -105,7 +105,7 @@ The AGS CLI MUST NOT be defined as:
 
 The AGS CLI MUST generate commands from the supported AGS OpenAPI 2.0 specifications.
 
-The CLI MUST validate requested services against an explicit allowlist (the `manifest`) before loading bundled spec artifacts. The current allowlist contains 24 services drawn from the AccelByte Go SDK.
+The CLI MUST validate requested services against an explicit allowlist (the `manifest`) before loading bundled spec artifacts. The current allowlist is defined in `manifest.rs` and is the single source of truth for which services the CLI supports.
 
 ## 6. Technology stack
 
@@ -291,7 +291,7 @@ Beyond the service hierarchy, `ags describe` also exposes registered workflows:
 5. `ags describe workflow` — JSON catalogue of registered workflows
 6. `ags describe workflow <id>` — full workflow introspection
 
-The root catalogue (`ags describe`) lists a `workflow` node (`node_type: "workflow-catalogue"`) alongside the services. `ags describe workflow <id>` returns an envelope with `kind: "workflow"` whose `data` carries `id`, `name`, `intent`, `description`, `inputs[]` (each: `name` kebab-cased, `type`, `enum_values`, `required`, `default`, `description`, `sensitive`, `dynamic`), and `steps[]` (each: `id`, `service`, `operation`, `description`, `dependencies[]`). An unknown id returns `kind: "error"` with code `unknown_workflow` (plus name suggestions, exit 1); a path segment beyond `<id>` returns code `invalid_workflow_path` (exit 1). The full set of `ags describe` envelope `kind` values is therefore `catalogue`, `command`, `error`, and `workflow`. Consumers MUST branch on `kind` rather than assume a uniform `children`-bearing shape; the envelope contract — every `kind`, its `data` payload, the recursive-walk pattern, and versioning rules — is specified in the Output Reference, §27 "Describe envelope contract".
+The root catalogue (`ags describe`) lists a `workflow` node (`node_type: "workflow-catalogue"`) alongside the services. `ags describe workflow <id>` returns an envelope with `kind: "workflow"` whose `data` carries `id`, `name`, `intent`, `description`, `inputs[]` (each: `name` kebab-cased, `type`, `enum_values`, `required`, `default`, `description`, `sensitive`, `dynamic`, `file_picker`), and `steps[]` (each: `id`, `kind`, `service`, `operation`, `action`, `description`, `dependencies[]`). The `kind` field is a step-kind discriminator: `"api"` for an API step, `"local"` for a local step that runs a closed-set action (e.g. `docker-login`) without an HTTP call. For an API step, `service` and `operation` carry the service and operation names and `action` is absent; for a local step, `service` and `operation` are `""` and `action` carries the action name. An unknown id returns `kind: "error"` with code `unknown_workflow` (plus name suggestions, exit 1); a path segment beyond `<id>` returns code `invalid_workflow_path` (exit 1). The full set of `ags describe` envelope `kind` values is therefore `catalogue`, `command`, `error`, and `workflow`. Consumers MUST branch on `kind` rather than assume a uniform `children`-bearing shape; the envelope contract — every `kind`, its `data` payload, the recursive-walk pattern, and versioning rules — is specified in the Output Reference, §27 "Describe envelope contract".
 
 Method-level `ags describe` output MUST expose the full scope/version contract matrix for the command. The shape MUST include:
 
@@ -321,11 +321,24 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags profile rename`
 - `ags describe`
 - `ags describe workflow` / `ags describe workflow <id>`
+- `ags extend clone-template`
+- `ags extend app-ui setup-env`
+- `ags extend app-ui upload`
+- `ags extend docker-login`
+- `ags extend image-upload`
+- `ags extend tunnel`
+- `ags extend update-secret`
+- `ags extend update-var`
+- `ags extend` migration shortcuts (see 10.5.10 below)
 - `ags doctor`
 - `ags refresh-specs`
 - `ags completions`
 - `ags version`
 - `ags workflow run`
+- `ags workflow add`
+- `ags workflow template`
+- `ags workflow remove`
+- `ags ams upload`
 
 ### 10.5.1 `ags workflow run`
 
@@ -339,7 +352,7 @@ ags workflow run <workflow-id> [--<input> <value>]…
 
 **Input flags**
 
-Each workflow contributes one optional `--<kebab-case-name>` flag per declared input. Flag names are the camelCase input names converted to kebab-case (e.g. `sessionDeployment` becomes `--session-deployment`, `fleetImageId` becomes `--fleet-image-id`). Inputs with defaults are optional on the command line; required inputs without defaults must be supplied via their flag, via gather prompts, or through the `--namespace` shortcut described below.
+Each workflow contributes one optional `--<kebab-case-name>` flag per declared input. Flag names are the camelCase input names converted to kebab-case (e.g. `sessionDeployment` becomes `--session-deployment`, `fleetInstanceId` becomes `--fleet-instance-id`). Inputs with defaults are optional on the command line; required inputs without defaults must be supplied via their flag, via gather prompts, or through the `--namespace` shortcut described below.
 
 **Help**
 
@@ -352,7 +365,7 @@ ags workflow run --help <workflow-id>
 
 **Global flag interactions**
 
-- `--dry-run` — builds per-step request previews (URL, headers, body) without calling the API. All six steps of `competitive-multiplayer` produce previews; the output is a `CommandOutput::WorkflowDryRun` envelope.
+- `--dry-run` — builds per-step previews without executing. API steps produce request previews (URL, headers, body). Local steps emit a `DryRunResult` with a placeholder `POST` method, a synthetic `(local) <action-name>` URL, and empty headers, query, and body fields — the struct requires those fields, so they are present but carry no real HTTP semantics. The output is a `CommandOutput::WorkflowDryRun` envelope.
 - `--no-input` — refuses to gather or prompt for missing inputs; fails with an aggregated error if any required input is absent.
 - `--skeleton` — rejected; `ags workflow run` does not support skeleton output. The rejection fires before any registry lookup.
 - `--format json` — runs the workflow non-interactively and emits a JSON envelope to stdout (see `output-reference.md` §25.3 for the canonical shapes). All inputs MUST be supplied via `--<flag>`s — JSON mode never prompts (it behaves as if `--no-input` were set), so a missing required input fails immediately rather than gathering. `--yes` is required for any confirm-gated step unless `--dry-run` is active (which is exempt from confirmation). `--format json` does NOT imply `--yes`. A single-step workflow that declares no outputs collapses to the bare API response body. Any failure (e.g. a missing required input) emits a JSON error envelope on stderr with the underlying exit code (see Exit codes below).
@@ -371,13 +384,15 @@ On the interactive fullscreen and inline surfaces, the run-start gather offers a
 
 The mode governs only the per-step *review* pause; the `confirm: true` safety gate is independent and unaffected.
 
+**Protocol-version warning (external workflows only).** If an installed external (non-bundled) workflow declares a `workflow_protocol_version` that doesn't match this CLI build's own workflow YAML protocol version — in either direction, older or newer — a stderr-only warning is printed. If the declared value is not a readable version number at all (e.g. a typo or placeholder), a separate warning quotes the declared value and suggests correcting it by hand or re-adding with `ags workflow add`. If the field is missing entirely (a legacy workflow written before the field existed), a warning notes the omission and suggests re-adding the workflow with `ags workflow add` to have it filled in. None of these warnings affects the return value or exit code, and all are suppressed under `--format json` (automation runs never see them). On the fullscreen surface the warning is held back and printed after the run completes and the alt-screen has been torn down, rather than before the run starts, so it isn't lost off-screen.
+
 **Skipping optional steps (interactive surfaces only)**
 
 A step the workflow marks as optional can be skipped at its review or confirm gate on the fullscreen and inline surfaces: press `s`, or move focus to the **Skip** button and submit. Skipping runs no request for that step and continues to the next one, so the step's required-input validation is bypassed (the step is not executed). Non-optional steps offer no skip affordance. Optional steps are always paused for review even under **Run** — they are never silently auto-run — so the skip choice is always reachable. Skipping is unavailable in `--no-input` and `--format json` runs, which never pause; those runs execute every step, optional ones included.
 
 **Handling step failures**
 
-When a step's API call fails, the behaviour depends on the surface and the error:
+When a step fails (an API call returns an error, or a local action reports a failure), the behaviour depends on the surface and the error:
 
 - **Already-exists conflicts auto-skip (all surfaces, all modes).** A step the workflow marks as `skip_if_exists` that fails with an HTTP 409 whose error identifies it as an "already exists" conflict is skipped automatically, with no prompt, and recorded in the run summary as skipped. This makes a re-run idempotent for those steps. Only the specific already-exists conflict is treated this way; any other error on the step (including a different 409) is a real failure and follows the rules below.
 
@@ -400,7 +415,7 @@ A failing step propagates the underlying error's class (codes 2–5); exit 1 is 
 
 ### 10.5.2 `competitive-multiplayer` workflow
 
-Stand up competitive matchmaking with dedicated servers: a skill stat, a match ruleset, a session template, a match pool, an AMS fleet, and the session template wired to the fleet. Matches start only when teams are exactly full (no under-filled sessions) — appropriate for ranked play.
+Stand up competitive matchmaking with dedicated servers: a skill stat, a match ruleset, a session template, a match pool, the dedicated-server image upload, an AMS fleet, and the session template wired to the fleet. Matches start only when teams are exactly full (no under-filled sessions) — appropriate for ranked play.
 
 **Input flags**
 
@@ -409,15 +424,19 @@ Stand up competitive matchmaking with dedicated servers: a skill stat, a match r
 | `--namespace` | yes | — | Game namespace all resources are created in. |
 | `--players-per-team` | | `4` | Players per team (symmetric). |
 | `--team-count` | | `2` | Number of teams (default 2 for X v X). |
-| `--fleet-image-id` | yes | — | AMS image ID to deploy (dynamic — picked from `ams images list`). |
+| `--build-path` | yes | — | Directory holding the built dedicated server; archived and uploaded as the fleet's image. |
+| `--build-executable` | yes | — | Server entrypoint, relative to `--build-path`. |
+| `--target-architecture` | | detected | `linux-x86_64` or `linux-arm_64`; required only for a shell-script entrypoint. |
 | `--fleet-region` | yes | — | Region the fleet runs in (dynamic — picked from `ams info list-regions`). |
 | `--fleet-instance-id` | yes | — | AMS instance UUID, `dsHostConfiguration.instanceId` (dynamic — picked from the AMS instances list). |
 | `--stat-code` | | `mmr` | Skill stat code. |
 | `--resource-prefix` | | `ranked` | Prefix for ruleset/session/pool/fleet names and claim key. |
 
-The three fleet inputs are **dynamic enums**: in the fullscreen surface they render as type-to-filter pickers populated from a live AMS lookup, while non-interactive and `--format json` runs treat them as plain string flags (no default — the value must be supplied).
+The two fleet inputs are **dynamic enums**: in the fullscreen surface they render as type-to-filter pickers populated from a live AMS lookup, while non-interactive and `--format json` runs treat them as plain string flags (no default — the value must be supplied).
 
-**Breaking change from earlier branches:** the previous flag set (`--deployment`, `--image-deployment-profile`, `--session-template-name`, `--ruleset-name`, `--match-pool-name`, `--fleet-name`) is removed. Existing scripts targeting the old contract require updating.
+The `upload-image` step is a **local step**: it archives `--build-path` and ships it to AMS through pre-signed URLs (the same pipeline as §10.5.20 `ags ams upload`), then feeds the resulting image id to the fleet. No OpenAPI operation describes it, so it declares `kind: local` and `action: ams/upload-image` instead of `operation:` and reports itself in `--dry-run` as a `Local action: ams/upload-image` line with a preview object rather than a method/URL. It therefore requires `AMS:UPLOAD` (`Create` and `Update`) in addition to the permissions the API steps need.
+
+**Breaking change from earlier branches:** the previous flag set (`--deployment`, `--image-deployment-profile`, `--session-template-name`, `--ruleset-name`, `--match-pool-name`, `--fleet-name`) is removed, and `--fleet-image-id` is replaced by `--build-path` / `--build-executable` — the workflow now uploads the image rather than taking an id for one already uploaded. The upload is **mandatory**, not skippable. Existing scripts targeting either contract require updating.
 
 ### 10.5.3 `season-pass` workflow
 
@@ -456,6 +475,614 @@ Build a structured in-game store in a namespace's draft store: a draft store, a 
 **Re-running is idempotent for the create steps.** The six create steps (currency, three categories, two items) are marked `skip_if_exists`: on a re-run, each auto-skips its already-exists 409 and the run continues (see §10.5.1, "Handling step failures"). The `create-store` step is **not** — a draft store is a per-namespace singleton whose id later steps depend on, so if it already exists its 409 surfaces at the interactive failure gate (Retry / Cancel; Skip is not offered) and is fatal in non-interactive runs.
 
 **The `publish` step is optional.** It is marked optional and confirm-gated, so on the interactive surfaces it can be skipped at its confirm gate (see §10.5.1, "Skipping optional steps") to leave the store built but unpublished. A publish conflict is **not** auto-skipped — it is a real failure that surfaces at the gate.
+
+### 10.5.5 `ags workflow list`
+
+Synopsis:
+
+```text
+ags workflow list
+```
+
+Lists every registered workflow — built-in (Rust struct or bundled YAML) and external YAML installed via `ags workflow add` — as an `id`/name pair. Offline: no runtime prologue, no auth required.
+
+### 10.5.6 `ags workflow add`
+
+Synopsis:
+
+```text
+ags workflow add <path> [--validate-only]
+```
+
+Validates a workflow YAML file and, unless `--validate-only` is given, installs it into the CLI's config directory as `<id>.yaml`, named after the file's own `id:` field rather than `<path>`'s filename. That installed copy — not `<path>` — is what `ags workflow run`/`ags workflow list` use afterward, so editing `<path>` again has no effect until `add` is re-run.
+
+**Validation, in order:**
+
+1. The file is readable and parses as workflow YAML.
+2. Declares a `workflow_protocol_version:` field (the workflow YAML protocol version it targets) whose value is a readable semver string — `ags workflow template` fills this in automatically; a file missing the field is rejected outright, and a file whose declared value cannot be parsed as a version (e.g. a typo or placeholder) is also rejected.
+3. `id:` matches an allowlist (non-empty, `[A-Za-z0-9._-]+`) and isn't a Windows-reserved device name (`CON`, `NUL`, `COM1-9`, `LPT1-9`, …) — the id becomes a filename, so this blocks path traversal, absolute paths, and embedded separators.
+4. The definition compiles against the live catalogue — the same check a Rust builtin's compile test runs; a binding typo, a nonexistent step reference, or a nonexistent operation id fails here.
+5. The id doesn't collide, **case-insensitively**, with any already-registered workflow (built-in or external). A collision names the existing id and hints at `ags workflow remove <id>`.
+
+`--validate-only` runs all five checks without installing anything.
+
+Offline: no runtime prologue, no auth required.
+
+**Exit codes:** 0 on success (including a passing `--validate-only`); 1 for a validation failure above (unreadable file, malformed YAML, invalid id, collision); 5 for an unexpected filesystem failure (e.g. the config directory can't be created or written).
+
+### 10.5.7 `ags workflow template`
+
+Synopsis:
+
+```text
+ags workflow template [--output <path>]
+```
+
+Prints an annotated starter workflow YAML skeleton to stdout, or writes it to `--output <path>` if given, as a starting point for `ags workflow add`. The skeleton is not itself validated — there is nothing to validate against until it is edited into a real workflow.
+
+Offline: no runtime prologue, no auth required. **Exit codes:** 0 on success; 5 if writing to `--output` fails.
+
+### 10.5.8 `ags workflow remove`
+
+Synopsis:
+
+```text
+ags workflow remove <id>
+```
+
+Deletes a previously-installed **external** workflow YAML file (one installed via `ags workflow add`) from the CLI's config directory. Built-in workflows — Rust structs or bundled YAML compiled into the `ags` binary — can never be removed this way; removing one fails with an error naming it as built-in.
+
+If the removed file's id was shadowed by a built-in of the same id (the file existed on disk but was never itself reachable via `ags workflow run`, since built-ins always win registration), the built-in remains registered and unaffected — the output's `builtin_still_registered` flag, and the human/JSON renderers, call this out explicitly rather than implying the workflow is gone entirely.
+
+Offline: no runtime prologue, no auth required.
+
+**Exit codes:** 0 on success; 1 if the id is unknown or names only a built-in workflow; 5 for an unexpected filesystem failure (e.g. the file can't be deleted).
+
+### 10.5.9 `ags extend app-ui setup-env`
+
+Synopsis:
+
+```text
+ags extend app-ui setup-env --name <app-ui-name> [--namespace <ns>] [--project-path <path>] [--force]
+```
+
+Queries the CSM `ListAppUI` endpoint for the named App UI record, extracts four VITE_AB_* environment variables from its public IAM client, and writes (or upserts) a `.env.local` file in the project directory. Existing keys are replaced in place; unmanaged keys, comments, and blank lines are preserved. The lookup pages through App UI records and matches the name exactly (case-sensitive).
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--name <name>` | *(required)* | The App UI name to look up (case-sensitive exact match). |
+| `--namespace <ns>` | *(from `--namespace` or profile)* | The namespace that owns the App UI. Required. |
+| `--project-path <path>` | `.` (current directory) | Directory containing the project; `.env.local` is written here. |
+| `--force` | `false` | Overwrite `.env.local` if it already exists. Without `--force` (and without `--yes`), the command skips and warns. |
+
+**Written keys** (in order): `VITE_AB_REDIRECT_URI`, `VITE_AB_BASE_URL`, `VITE_AB_NAMESPACE`, `VITE_AB_CLIENT_ID`.
+
+**Template behaviour:** If `.env.example` exists in the project directory, it is used as the template base. Managed keys found in the template are replaced in place; missing keys are appended. If `.env.example` does not exist, the file is built from scratch.
+
+**Write semantics:** The file is written atomically (temp file + rename). Permissions are 0644. Comments, blank lines, and unmanaged keys in an existing `.env.local` (when `--force` is used) or `.env.example` template are preserved.
+
+**Skip guard:** If `.env.local` already exists and neither `--force` nor `--yes` is set, the command prints a warning and exits with code 0 (skipped).
+
+**Global flag interactions:**
+
+- `--dry-run` — prints a preview (app UI name, namespace, env path, managed keys) without authenticating or writing.
+- `--format json` — emits a JSON envelope with `status` (`"written"` or `"skipped"`) and `env_path`.
+- `--yes` — bypasses the skip guard, same effect as `--force`.
+- `--no-input` — safe; the command never prompts for input.
+
+**Exit codes:** 0 on success or skip; 1 for invalid input (bad path, missing namespace, app UI name not found); 2 for auth failure; 3 for API error (HTTP 4xx/5xx from CSM); 4 for network failure.
+
+### 10.5.10 Extend migration shortcuts
+
+The `extend` group includes migration shortcuts that map `extend-helper-cli` command names to their canonical `ags csm` addresses. These are supported entry points and may be used in scripts and workflows interchangeably with their canonical addresses.
+
+| Go invocation (`extend-helper-cli`) | Shortcut address | Canonical address | Notes |
+|---|---|---|---|
+| `create-app` | `ags extend create-app` | `ags csm apps create` | |
+| `get-app-info` | `ags extend get-app-info` | `ags csm apps get` | |
+| `list-images` | `ags extend list-images` | `ags csm images list` | |
+| `deploy-app` | `ags extend deploy-app` | `ags csm deployments create` | |
+| `start-app` | `ags extend start-app` | `ags csm apps start` | |
+| `stop-app` | `ags extend stop-app` | `ags csm apps stop` | |
+| `delete-app` | `ags extend delete-app` | `ags csm apps delete` | |
+| `appui create` | `ags extend app-ui create` | `ags csm app-ui create` | Go spelling has no hyphen |
+
+Each shortcut forwards all user-supplied flags to the canonical service operation.
+
+These shortcuts appear as standard subcommands in the clap-generated `Commands:` section of `ags extend --help` (and, for subgroup entries, in `ags extend remote-debug --help` and `ags extend app-ui --help`). Each entry shows a hand-written summary followed by the canonical `ags csm` address (e.g. `→ ags csm apps create`). When the Go invocation spelling differs from the `ags extend` address, a `(was: ...)` suffix is appended. In `ags describe extend`, each shortcut appears as a child with `node_type: "alias"` and an `alias_of` field pointing to the canonical `[service, resource, method]` triple.
+
+### 10.5.11 `ags extend docker-login`
+
+Synopsis:
+
+```text
+ags extend docker-login --app <app> [--namespace <ns>] [--print [--print-format <json|token>]]
+```
+
+Fetches short-lived registry credentials from the Extend Helper Service and passes them to `docker login --password-stdin`. The password is transported via stdin to the Docker process and never appears in argv.
+
+With `--print`, writes the credentials to stdout instead of running Docker.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a` | *(required)* | Extend app name whose registry credentials are fetched. |
+| `--print` / `-p` | `false` | Print credentials to stdout instead of running `docker login`. |
+| `--print-format <json\|token>` | `json` | Output format for `--print`: `json` (full credential object) or `token` (raw token only). Requires `--print`; rejected without it. |
+| `--login` / `-l` | `false` | Accepted for backward compatibility, ignored. |
+| `--verbosity <level>` | `info` | Accepted for backward compatibility, ignored. |
+
+**`--print` output shapes**
+
+`--print --print-format json` writes a JSON object to stdout:
+
+```json
+{
+  "repositoryBaseUrl": "https://registry.example.com",
+  "username": "user",
+  "token": "<short-lived-token>"
+}
+```
+
+`--print --print-format token` writes only the raw token string (no JSON, no newline beyond the trailing line ending).
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global `--namespace` flag or a profile default, not from a route-local flag. The command's `--help` documents this under a "Global flags:" section.
+- `--dry-run` — builds a per-step preview without executing. No Docker binary is invoked and no network mutation occurs.
+- `--format json` (global) — on the default (workflow) path, emits a JSON workflow envelope to stdout. On the `--print` path, the `--print-format` flag governs the output shape independently.
+- `--yes` — bypasses per-step confirmation prompts on the default path.
+- `--no-input` — safe; all workflow inputs are pre-supplied from `--namespace` and `--app`, so no interactive gathering occurs.
+
+**Exit codes:** 0 on success; 1 for invalid input (missing `--namespace`, missing `--app`, `--print-format` without `--print`, unsupported `--print-format` value); 2 for auth failure; 3 for API error (EHS returned non-2xx); 4 for network failure or Docker process failure; 5 for unexpected internal error (e.g. bundled workflow missing from registry).
+
+### 10.5.12 `ags extend image-upload`
+
+Synopsis:
+
+```text
+ags extend image-upload --app <app> --image-tag <tag> [--namespace <ns>] [--dockerfile <path>] [--platform <platform>...] [--work-dir <path>] [--login] [--retry-limit <n>] [--retry-interval <sec>] [--retry-rate <multiplier>]
+```
+
+Builds a container image from a Dockerfile and pushes it to the Extend container registry for the specified app. Requires Docker (or Podman) to be installed and on PATH. With `--login`, authenticates to the registry (via EHS credential fetch and `docker login --password-stdin`) before building. Without `--login`, assumes the registry is already authenticated.
+
+The handler is an imperative eight-step sequence (not workflow-backed):
+
+1. Verify `docker` is on PATH (detect podman)
+2. `--dry-run` short-circuits here with a preview
+3. EHS credential fetch (only when `--login`)
+4. `docker login --password-stdin` (only when `--login`)
+5. CSM app read for `appRepoUrl` (always)
+6. Duplicate-tag pre-check (only when `--login`)
+7. Build the command list
+8. Execute with retry
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a` | *(required)* | Extend app name. |
+| `--image-tag <tag>` / `-t` | *(required)* | Image tag to build and push. |
+| `--dockerfile <path>` / `-f` | `Dockerfile` | Path to the Dockerfile. |
+| `--platform <platform>` / `-p` | `linux/amd64` | Target platform(s); may be specified multiple times. |
+| `--work-dir <path>` / `-w` | `.` | Build context directory. |
+| `--login` / `-l` | `false` | Authenticate to the registry before building. |
+| `--retry-limit <n>` | `0` | Number of retries on failure (0 = no retries). |
+| `--retry-interval <sec>` | `1.0` | Base interval between retries in seconds. |
+| `--retry-rate <multiplier>` | `2.0` | Exponential backoff multiplier. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global `--namespace` flag, `AGS_NAMESPACE` environment variable, or profile config — not from a route-local flag.
+- `--dry-run` — emits a preview of the Docker commands that would be executed on stderr without building or pushing. Docker must still be on PATH (the handler probes Docker availability before the dry-run short-circuit).
+- `--format json` — accepted but has no effect on the imperative handler's output. The handler writes its preview and progress to stderr; stdout is empty on success.
+- `--yes` — accepted; the handler has no confirmation prompts so the flag has no observable effect.
+- `--no-input` — safe; the handler is fully non-interactive.
+
+**Exit codes:** 0 on success; 1 for invalid input (missing `--app`, missing `--image-tag`, missing `--namespace` from all sources, Docker not on PATH, duplicate tag detected); 2 for auth failure; 4 for network failure or Docker process failure (build/push exit non-zero, timeout).
+
+### 10.5.13 `ags extend app-ui upload`
+
+Synopsis:
+
+```text
+ags extend app-ui upload --name <name> [--namespace <ns>] [--project-path <path>] [--build-path <path>] [--build-version <version>] [--no-build]
+```
+
+Builds the frontend project, archives the build output into a zip, and uploads the archive to the CSM `UploadAppUIFile` endpoint via the shared multipart dispatch path. With `--no-build`, skips the build step and archives the existing build output directly.
+
+The handler is a five-step imperative sequence:
+
+1. Validate paths (project path, build path)
+2. Run the frontend build (or skip with `--no-build`)
+3. Archive the build output into a zip in a unique temp directory
+4. Upload the archive via `Runtime::run_command` using operation `csm/admin/app-ui/v1/upload-assets`
+5. Clean up the temp zip (both success and failure paths)
+
+Package manager detection: `yarn.lock` selects Yarn, `pnpm-lock.yaml` selects pnpm, otherwise npm. A missing `package.json` is a usage error (unless `--no-build` bypasses the build entirely).
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--name <name>` | *(required)* | App UI name. |
+| `--project-path <path>` | `.` (current directory) | Project directory containing the frontend source. |
+| `--build-path <path>` | `dist` | Build output directory, relative to the project path. Absolute paths are used as-is. |
+| `--build-version <version>` | *(random 8-char hex)* | Build version identifier. When omitted, a SHA-256-derived 8-character hex string is generated from the current timestamp and process ID. |
+| `--no-build` | `false` | Skip the frontend build step; archive the existing build output directly. The build output directory must exist and be non-empty. |
+| `--verbosity <level>` | `info` | Accepted for backward compatibility, ignored. |
+
+**Build environment variables:** When the build runs (no `--no-build`), these variables are set in the subprocess environment: `AB_APPUI_NAME`, `AB_APPUI_BUILD_VERSION`, `AB_BASE_URL`, `AB_NAMESPACE`, and `BASE_URL` (the CSM asset path, e.g. `/csm/v1/admin/namespaces/{ns}/files/app-ui/{name}/{version}/`).
+
+**Upload request:** The archive is uploaded as a `multipart/form-data` POST to the CSM endpoint with path parameters `namespace` and `appUiName`, and query parameter `version`.
+
+**Cleanup:** The temp archive is removed on both success and failure paths. A cleanup failure is logged to stderr but does not change the exit code.
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace. Required; resolved from the global `--namespace` flag, `AGS_NAMESPACE` environment variable, or profile config.
+- `--dry-run` — emits a preview of the build configuration and upload target on stderr without building, archiving, or uploading. No subprocess is spawned and no HTTP request is made.
+- `--format json` — emits a JSON envelope on stdout with `name`, `version`, `archive_bytes`, and the CSM `response` body.
+- `--yes` — accepted; the handler has no confirmation prompts so the flag has no observable effect.
+- `--no-input` — safe; the handler is fully non-interactive.
+
+**Exit codes:** 0 on success; 1 for invalid input (missing `--name`, missing `--namespace`, project path not found, build path not found or empty, no `package.json` when build is needed); 2 for auth failure; 3 for API error (CSM returned non-2xx, e.g. 413 Entity Too Large); 4 for network failure or build process failure (package manager not on PATH, build timed out, build exited non-zero).
+
+### 10.5.14 `ags extend tunnel`
+
+Synopsis:
+
+```text
+ags extend tunnel --resource-name <name> --local-port <port> [--pod-name <pod>] [--namespace <ns>]
+```
+
+Opens a TCP-to-WebSocket bridge between a local port and the CSM v2 tunnel endpoint for an Extend app. Binds `127.0.0.1:<port>` (localhost only, never a wildcard address) and, for each accepted TCP connection, resolves a fresh access token, opens a WebSocket to the tunnel endpoint, and relays bytes bidirectionally until either side closes. The tunnel runs until Ctrl-C.
+
+On startup, after successfully binding the local port, the command writes a ready-signal line to stderr. In plain mode:
+
+```text
+∘ [+0s] listening on localhost:8080  resource=my-app  (Ctrl-C to stop)
+```
+
+In `--format json` mode the ready signal is a JSON object on stderr:
+
+```json
+{"event":"listening","local_port":8080,"resource_name":"my-app","elapsed_ms":0}
+```
+
+On clean shutdown (Ctrl-C), a `stopped` event is written to stderr. In `--format json` mode:
+
+```json
+{"event":"stopped","status":"stopped","local_port":8080,"resource_name":"my-app","exit_code":0,"elapsed_ms":120000}
+```
+
+Stdout remains empty throughout the tunnel's lifetime. All diagnostic output — the ready signal, per-connection events, and the exit envelope — goes to stderr, so scripts can safely consume stdout without interference.
+
+**Session events.** During the tunnel's lifetime, the session log writes lifecycle events to stderr. Each event line carries an `[+<n>s]` elapsed-time prefix in human mode and an `elapsed_ms` field in JSON mode.
+
+| Event | Trigger | JSON fields |
+|---|---|---|
+| `listening` | TCP listener binds successfully. | `event`, `local_port`, `resource_name`, `elapsed_ms` |
+| `client_connected` | A TCP client connects to the local port. | `event`, `peer_addr`, `elapsed_ms` |
+| `client_disconnected` | A client connection completes normally (relay finished). | `event`, `peer_addr`, `elapsed_ms` |
+| `connection_error` | A client connection fails (WebSocket dial error, TLS failure, relay error). | `event`, `peer_addr`, `message`, `elapsed_ms` |
+| `accept_error` | `listener.accept()` fails (non-fatal; not tied to a specific peer). | `event`, `message`, `elapsed_ms` |
+| `stopped` | Clean shutdown (Ctrl-C) or programmatic cancellation. | `event`, `status`, `local_port`, `resource_name`, `exit_code`, `elapsed_ms` |
+
+**Verbosity levels:**
+
+- **Quiet** (`--quiet`): no session events are emitted. The tunnel runs normally.
+- **Normal** (default): lifecycle events (`listening`, `client_connected`, `client_disconnected`, `connection_error`, `accept_error`, `stopped`) are emitted to stderr.
+- **Verbose** (`--verbose`): all Normal events plus protocol-level detail from the WebSocket proxy layer.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--resource-name <name>` | *(required)* | Extend resource name to tunnel to. |
+| `--local-port <port>` | *(required)* | Local TCP port to bind (localhost only). |
+| `--pod-name <pod>` | *(none)* | Target pod name. When provided, appended as `&podName=<pod>` in the WebSocket URL. |
+
+**401 retry:** When the WebSocket dial receives HTTP 401, the command force-refreshes the stored session token and retries exactly once. A second 401 is a terminal auth failure (exit 2).
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global `--namespace` flag, `AGS_NAMESPACE` environment variable, or profile config — not from a route-local flag.
+- `--format json` — switches every session event to a JSON object on stderr. Each JSON line carries an `event` field and an `elapsed_ms` field. Stdout remains empty.
+- `--quiet` — suppresses all session events on stderr; the tunnel still runs normally.
+- `--yes` — accepted; the handler has no confirmation prompts so the flag has no observable effect.
+- `--no-input` — safe; the handler is fully non-interactive.
+
+**Exit codes:** 0 on clean shutdown (Ctrl-C); 1 for invalid input (missing `--resource-name`, missing `--local-port`, missing `--namespace` from all sources, invalid base URL, port already in use); 2 for authentication failure (token expired and could not be refreshed, repeated 401); 3 for permission error (HTTP 403 from the tunnel endpoint — re-authentication cannot fix a permission gap).
+
+### 10.5.15 `ags extend remote-debug connect`
+
+Synopsis:
+
+```text
+ags extend remote-debug connect --app <app> [--namespace <ns>] [--local-grpc-port <addr>] [--local-http-port <addr>]
+```
+
+Connects to an Extend app's remote debug session and forwards its debug services to the workstation. Before opening the session, the command retrieves debug information from CSM and requires the app to be running, debug mode to be enabled, no other debug session to be connected, and at least one debug pod to be available. Run `ags extend remote-debug enable` first when debug mode is disabled.
+
+After the embedded tunnel, proxy agent, and service forwarder are ready, the command writes a ready line to stderr. In plain mode:
+
+```text
+∘ [+5s] debug session ready  gRPC=localhost:6565, HTTP=localhost:8000  (Ctrl-C to disconnect)
+```
+
+A server-ended session reconnects automatically; Ctrl-C cancels the active attempt, shuts down its components, and exits. Stdout remains empty.
+
+**Session events.** During the session lifecycle, the session log writes events to stderr. Each event line carries an `[+<n>s]` elapsed-time prefix in human mode and an `elapsed_ms` field in JSON mode.
+
+| Event | Trigger | JSON fields |
+|---|---|---|
+| `resolving_target` | Before the debug-info dispatch, showing the namespace/app pair being resolved. | `event`, `namespace`, `app`, `elapsed_ms` |
+| `connecting` | After the pod resolves, before the bridge starts. | `event`, `pod_name`, `pod_port`, `elapsed_ms` |
+| `connected` | Session is ready: tunnel, agent, and forwarders are up. | `event`, `grpc_addr`, `http_addr`, `elapsed_ms` |
+| `service_listening` | A forwarder service listener binds. | `event`, `service`, `local_addr`, `elapsed_ms` |
+| `session_ended` | Session terminates (server disconnect, error, etc.). | `event`, `reason`, `elapsed_ms` |
+
+**Verbosity levels:**
+
+- **Quiet** (`--quiet`): no session events are emitted. The session runs normally.
+- **Normal** (default): lifecycle events (`resolving_target`, `connecting`, `connected`, `service_listening`, `session_ended`) are emitted to stderr.
+- **Verbose** (`--verbose`): all Normal events plus protocol-level detail from the debug proxy (extend-proxy-client tracing output).
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a <app>` | *(required)* | Extend app name. |
+| `--local-grpc-port <addr>` | `localhost:6565` | Local address for the forwarded gRPC debug service. Accepts `<host>:<port>` or a bare port, normalized to `localhost:<port>`. |
+| `--local-http-port <addr>` | `localhost:8000` | Local address for the forwarded HTTP debug service. Accepts `<host>:<port>` or a bare port, normalized to `localhost:<port>`. |
+
+**Retry behaviour:** Before the first session is established, a transient debug-info failure or unavailable debug pod returns immediately without retrying. After a session has been established, a clean server disconnect resets the reconnect counter to one, and subsequent transient debug-info, tunnel, or agent failures are retried up to five reconnect attempts. Delays use a 5, 10, 20, 20 second exponential sequence capped at 20 seconds with ±20% jitter. Permanent precondition failures and HTTP 403 permission failures always return immediately.
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--format json` — switches every session event to a JSON object on stderr. Each JSON line carries an `event` field and an `elapsed_ms` field. Stdout remains empty.
+- `--quiet` — suppresses all session events on stderr; the session still runs normally.
+- `--no-input` — safe; the command does not prompt.
+
+**Exit codes:** 0 on Ctrl-C after coordinated shutdown; 1 for invalid or missing input; 2 for authentication failure while resolving or opening the session; 3 for a permanent precondition or permission failure, including HTTP 403 from the debug-info endpoint; 4 for a first transient connection failure, retry exhaustion, or a tunnel, agent, forwarder, or other network failure.
+
+### 10.5.16 `ags extend remote-debug enable`
+
+Synopsis:
+
+```text
+ags extend remote-debug enable --app <app> [--namespace <ns>] [--yes] [--dry-run]
+```
+
+Enables remote debugging for an Extend app by updating CSM with `{"enableDebugMode":true}`. The command always writes a warning that remote debugging increases resource usage and may degrade application performance. It first reads the app's current status; when `appStatus` is `deployment-running`, it warns that enabling debug mode will restart the app and asks for confirmation.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a <app>` | *(required)* | Extend app name. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--yes` / `-y` — skips the running-app confirmation prompt and proceeds with the update.
+- `--no-input` — when the app is running, requires `--yes`; otherwise the command exits without updating the app.
+- `--dry-run` — prints a preview (namespace, app, and the action that would be taken) without authenticating, reading debug info, or updating debug mode.
+
+Apps that are not in `deployment-running` status are updated without a confirmation prompt. Declining the prompt leaves debug mode unchanged.
+
+On success, writes `debug mode enabled for app "<app>" in namespace "<namespace>"` to stderr.
+
+**Exit codes:** 0 when debug mode is enabled; 1 for invalid input, declined confirmation, or `--no-input` without `--yes` on a running app; 2 for authentication failure; 3 for rejected, permission, not-found, or upstream API failures from either request; 4 for network failures from either request.
+
+### 10.5.17 `ags extend remote-debug disable`
+
+Synopsis:
+
+```text
+ags extend remote-debug disable --app <app> [--namespace <ns>] [--yes] [--dry-run]
+```
+
+Disables remote debugging for an Extend app by updating CSM with `{"enableDebugMode":false}`. It first reads the app's current status; when `appStatus` is `deployment-running`, it warns that disabling debug mode will restart the app and asks for confirmation. Unlike `enable`, the command does not emit a performance warning because disabling debug mode removes the overhead rather than adding it.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a <app>` | *(required)* | Extend app name. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--yes` / `-y` — skips the running-app confirmation prompt and proceeds with the update.
+- `--no-input` — when the app is running, requires `--yes`; otherwise the command exits without updating the app.
+- `--dry-run` — prints a preview (namespace, app, and the action that would be taken) without authenticating, reading debug info, or updating debug mode.
+
+Apps that are not in `deployment-running` status are updated without a confirmation prompt. Declining the prompt leaves debug mode unchanged.
+
+On success, writes `debug mode disabled for app "<app>" in namespace "<namespace>"` to stderr.
+
+**Exit codes:** 0 when debug mode is disabled; 1 for invalid input, declined confirmation, or `--no-input` without `--yes` on a running app; 2 for authentication failure; 3 for rejected, permission, not-found, or upstream API failures from either request; 4 for network failures from either request.
+
+### 10.5.18 `ags extend update-secret`
+
+Synopsis:
+
+```text
+ags extend update-secret --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
+```
+
+Upserts a CSM app secret. The command lists the app's existing secrets (paging through `GetListOfSecretsV2` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that secret's value via `UpdateSecretV2`; if not found, it requires `--force` and creates the secret via `SaveSecretV2` (sending `source: "plaintext"`). The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+
+Prefer `--value-stdin` over `--value` to avoid exposing the secret in shell history.
+
+**Merge behaviour:** `--sensitive` and `--description` are optional on every call. On **update**, an unsupplied `--sensitive` preserves the existing record's `applyMask`, and an unsupplied `--description` preserves the existing record's description — only an explicitly-passed flag overrides either. On **create**, there is no existing record to fall back to: an unsupplied `--sensitive` defaults `applyMask` to `true` (secrets are masked by default), and an unsupplied `--description` defaults the description to none. Note: `update-secret` defaults `--sensitive` to `true` on create, whereas `update-var` defaults it to `false` — secrets are assumed sensitive unless told otherwise, while variables are assumed non-sensitive.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` | *(required)* | Extend app name that owns the secret. |
+| `--key <key>` | *(required)* | The secret's `configName`. |
+| `--value <value>` | *(exactly one of `--value` / `--value-stdin` required)* | The value to set (insecure — visible in shell history). Mutually exclusive with `--value-stdin`. |
+| `--value-stdin` | *(exactly one of `--value` / `--value-stdin` required)* | Read the secret value from stdin (one line, trimmed). Mutually exclusive with `--value`. |
+| `--description <text>` | *(preserved / none)* | Secret description. Unset preserves the existing value on update, or none on create. |
+| `--sensitive [true\|false]` | *(preserved / `true`)* | Whether the secret is masked (`applyMask`) in the admin console. Bare `--sensitive` means `true`. Unset preserves the existing value on update, or `true` on create. |
+| `--force` | `false` | Create the secret if `--key` does not already exist. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--dry-run` — prints a preview (namespace, app, key, and whether the run would update or create) without authenticating or writing.
+
+**Error when the key does not exist and `--force` is not set:**
+
+```text
+secret '<key>' does not exist, use flag '--force' to create it automatically
+```
+
+**Exit codes:** 0 on success; 1 for invalid input (missing namespace); 2 for authentication failure; 3 for rejected, permission, or not-found API failures, including the key-not-found-without-`--force` case above; 4 for network failure.
+
+### 10.5.19 `ags extend update-var`
+
+Synopsis:
+
+```text
+ags extend update-var --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
+```
+
+Upserts a CSM app configuration variable. The command lists the app's existing variables (paging through `GetListOfVariablesV2` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that variable's value via `UpdateVariableV2`; if not found, it requires `--force` and creates the variable via `SaveVariableV2`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+
+Prefer `--value-stdin` over `--value` to avoid exposing the value in shell history.
+
+**Merge behaviour:** `--sensitive` and `--description` are optional on every call. On **update**, an unsupplied `--sensitive` preserves the existing record's `applyMask`, and an unsupplied `--description` preserves the existing record's description — only an explicitly-passed flag overrides either. Pass `--sensitive false` explicitly to remove masking from an already-masked variable; bare `--sensitive` (with no value) means `true`. On **create**, there is no existing record to fall back to: an unsupplied `--sensitive` defaults `applyMask` to `false`, and an unsupplied `--description` defaults the description to none. Note: `update-var` defaults `--sensitive` to `false` on create, whereas `update-secret` defaults it to `true` — variables are assumed non-sensitive unless told otherwise, while secrets are assumed sensitive.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` | *(required)* | Extend app name that owns the variable. |
+| `--key <key>` | *(required)* | The variable's `configName`. |
+| `--value <value>` | *(exactly one of `--value` / `--value-stdin` required)* | The value to set (visible in shell history). Mutually exclusive with `--value-stdin`. |
+| `--value-stdin` | *(exactly one of `--value` / `--value-stdin` required)* | Read the variable value from stdin (one line, trimmed). Mutually exclusive with `--value`. |
+| `--description <text>` | *(preserved / none)* | Variable description. Unset preserves the existing value on update, or none on create. |
+| `--sensitive [true\|false]` | *(preserved / `false`)* | Marks the variable as masked (`applyMask: true`) in the admin console. Unset preserves the existing value on update, or `false` on create. Bare `--sensitive` means `true`; pass `--sensitive false` explicitly to unmask. |
+| `--force` | `false` | Create the variable if `--key` does not already exist. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--dry-run` — prints a preview (namespace, app, key, and whether the run would update or create) without authenticating or writing.
+
+**Error when the key does not exist and `--force` is not set:**
+
+```text
+variable '<key>' does not exist, use flag '--force' to create it automatically
+```
+
+**Exit codes:** 0 on success; 1 for invalid input (missing namespace); 2 for authentication failure; 3 for rejected, permission, or not-found API failures, including the key-not-found-without-`--force` case above; 4 for network failure.
+
+### 10.5.20 `ags ams upload`
+
+Synopsis:
+
+```text
+ags ams upload --executable <path> --image-name <name> [--path <dir>] [OPTIONS]
+```
+
+Uploads a dedicated-server build as an AMS image. `upload` is a **hand-written resource** injected under the generated `ams` service: no OpenAPI operation describes it, because the CLI archives a directory locally and ships it through pre-signed URLs. It therefore does not run through the workflow engine — it is a bespoke route in the style of `ags auth`, and it reports progress through the same `ProgressSink` and returns a `CommandOutput` the standard renderers handle.
+
+**Input flags**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--executable` | yes | — | Entrypoint to run, relative to `--path`. |
+| `--image-name` | yes | — | Name of the image to create; AMS enforces 3–128 characters. |
+| `--path` | | `.` | Directory whose contents become the image. |
+| `--target-arch` | | detected | `linux-x86_64` or `linux-arm_64`. Required for a shell-script entrypoint; cross-checked against the detected architecture for an ELF one. |
+| `--symbol-files` | | off | Include `.PDB` / `.SYM` / `.debug` / `.pdb` / `.sym` files, which are excluded by default. |
+| `--skip-script-validation` | | off | Upload a `.sh` entrypoint without validating it. |
+| `--upload-url` | | discovered | AMS upload host to use instead of discovering one. |
+| `--part-concurrency` | | `4` | Parts uploaded at once for archives over 500 MiB. |
+
+**Credentials and the platform host come from the CLI's own auth**, as with every other command: `ags auth login`, `AGS_CLIENT_ID` / `AGS_CLIENT_SECRET`, or the active profile. The CLI MUST NOT accept credentials as command-line flags here.
+
+**Permissions.** Uploading requires `AMS:UPLOAD` with both `Create` and `Update`, entered **un-namespaced**. This is a different permission from the `AMS:IMAGE` that governs the catalogued `ags ams images` commands, and the two are enforced by different systems: `ams images` is proxied through the AGS gateway (which checks the **namespaced** `ADMIN:NAMESPACE:{namespace}:AMS:IMAGE`), whereas `ams upload` goes directly to the AMS host carrying the caller's own token (which AMS checks against the **bare** `AMS:UPLOAD`). The prefix therefore differs between the two, and using the wrong one surfaces as a permission error rather than a validation error.
+
+Consequently a caller able to list images MAY still be refused an upload, and a caller able to upload MAY be refused the listing used to verify it. The CLI's 403 message MUST name `AMS:UPLOAD` and draw this distinction rather than reporting a bare "forbidden".
+
+Both actions are required: `Create` covers image creation and URL signing, `Update` covers multipart finalize and completion — so a `Create`-only identity fails only after transferring every byte.
+
+The identity carrying the permission depends on the grant: a client-credentials run needs it on the **IAM client**, which MUST be **confidential** (client credentials require a secret; a public client cannot authenticate this way). This is the model `armada-cli` used and the one AccelByte's CI/CD upload guide documents. An authorization-code run needs it on the **user's roles** instead; note that the stock `AMS Access` role grants `AMS:IMAGE` but not `AMS:UPLOAD`.
+
+**Destination namespace.** AMS derives the destination from the token's namespace claim, so the client MUST be created in the namespace the images should land in, and that namespace MUST have an AMS account (otherwise the upload fails with `no account associated with namespace <ns>`). This is why `--namespace` is a no-op: there is no way to redirect an upload to another namespace.
+
+Operator-facing setup — creating the client, the exact permission strings, troubleshooting each error, and migrating a pipeline from the standalone `ams` CLI — is in [`ams-upload.md`](ams-upload.md).
+
+**`--namespace` is accepted and ignored.** AMS derives the namespace from the access token. Erroring would break anyone with a global `AGS_NAMESPACE` or profile default set, so the flag is a documented no-op.
+
+**Pre-flight validation** runs before anything is archived or sent. The CLI MUST reject: an image name outside AMS's length bounds; a missing, non-directory, or empty `--path`; an entrypoint whose on-disk filename case differs from `--executable` (case-insensitive host filesystems otherwise ship a name the Linux host cannot execute); an entrypoint that is neither an accepted ELF binary (`ELFCLASS64`, little-endian, `EM_X86_64` or `EM_AARCH64`) nor a `.sh` script; a `.sh` entrypoint with no `--target-arch`; and, unless `--skip-script-validation` is passed, a `.sh` entrypoint with CR/CRLF line endings or no `#!` line.
+
+**Upload-host discovery is fatal on failure.** The host comes from `GET /ams/v1/upload-url` on the configured platform (catalogued as `ams info get-upload-url`), or from `--upload-url`. If discovery fails the CLI MUST stop rather than fall back to a default host — a typo in the base URL must never ship a build to production.
+
+**`--dry-run` is entirely local.** It validates, enumerates what would be archived, and reports the plan. It builds no archive and sends no request, so it works before a first login. The reported upload host is the `--upload-url` override when given, and `null` otherwise.
+
+**No confirmation prompt.** Upload is explicit and user-initiated; `--yes` is a no-op for this command.
+
+Archives at or below 500 MiB are uploaded with a single pre-signed `PUT`; larger ones use a multipart upload whose parts are streamed from disk concurrently. Part ETags MUST be assembled by part number rather than completion order.
+
+### 10.5.21 Workflow input field types
+
+Workflow inputs can declare special field types that affect how the user provides values across different interactive surfaces (fullscreen, inline, plain, or non-interactive).
+
+#### 10.5.21.1 `options_source` (dynamic enums)
+
+A `options_source` input fetches its choices at runtime instead of requiring the user to type a raw value. The runtime executes a specified operation (typically a list or lookup) and projects the response into a list of selectable values via JSONPath.
+
+**Fields:**
+
+- `operation` — required. The service operation to execute: `{service: <service-id>, operation: <operation-id>}`.
+- `parameters` — required. A map of parameter names to bindings (e.g. `{key: value}` where value is `!from_input <input-name>`, `!from_input_optional <input-name>`, or `!literal <value>`). These parameters populate the operation's request.
+- `items_path` — required. JSONPath to the array in the response body (e.g. `$.regions`, `$.items[]`).
+- `value` — required. JSONPath (per item) to extract the bound value. Usually `$` (the item itself).
+- `label` — optional. JSONPath (per item) to extract a display label. Defaults to the stringified value.
+- `label_detail` — optional. JSONPath (per item) to extract secondary detail shown in brackets.
+- `fallback_description` — optional. Message shown on surfaces that have no picker affordance (e.g. plain terminal). Omit to use the field's schema description.
+- `filter` — optional. Restrict results with `{path: <jsonpath>, equals: <value>}`.
+
+**Rendering:**
+
+- **Fullscreen surface:** renders as a type-to-filter picker populated from the operation's live result.
+- **Inline surface:** renders as a type-to-filter picker or plain text field, depending on form layout.
+- **Plain surface:** renders as a plain text field. `fallback_description` is shown as a hint if provided.
+- **Non-interactive mode:** the value must be supplied via its `--<flag>` on the command line; no fetch is performed.
+
+**Mutual exclusivity:** A single input MUST NOT declare both `options_source` and `file_picker`.
+
+#### 10.5.21.2 `file_picker` (local file selection)
+
+A `file_picker` input opens a directory-browsing picker in the fullscreen surface instead of the user typing a path.
+
+**Fields:**
+
+- `extensions` — optional. A list of allowed file extensions (e.g. `[png, jpg, jpeg]`). Omit to allow any file.
+- `start_dir` — optional. The initial directory when the picker opens (e.g. `/path/to/assets`). Defaults to the current working directory if unset or if the path doesn't exist at gather time.
+
+**Rendering:**
+
+- **Fullscreen surface:** renders as a directory-browsing modal picker.
+- **Inline surface:** renders as a plain text field (no picker widget).
+- **Plain surface:** renders as a plain text field.
+- **Non-interactive mode:** the value must be supplied via its `--<flag>` on the command line; no picker is shown.
+
+**Resolved value:** always the file's absolute path as a string, suitable for passing to subsequent workflow steps or API requests. If the typed filter matches no entries, pressing Enter commits the typed text instead — the same manual-entry escape hatch `options_source` offers — resolved to an absolute path against the picker's current directory, but *not* checked against `extensions` or filesystem existence.
+
+**Mutual exclusivity:** A single input MUST NOT declare both `options_source` and `file_picker`.
 
 ### 10.6 Error handling
 
@@ -640,6 +1267,36 @@ The CLI MUST store state in platform-appropriate directories using platform-idio
 
 When `AGS_HOME` is set, all three concerns collapse under that single directory. This is the primary mechanism for test isolation and CI environments.
 
+### 11.3.1 Running in parallel or CI
+
+`ags` stores its OAuth token per **profile** (default: `default`). Multiple `ags`
+processes on the same host that use the *same* profile therefore share one token
+store, and a login for one IAM client overwrites the cached token of another.
+Concurrent jobs that each authenticate a different client (e.g. one client per
+namespace) can then pick up the wrong client's token and get intermittent
+`error 20013` ("You do not have permission for this operation").
+
+Give each concurrent job its own state:
+
+- **Per-job profile (lightest):** set `AGS_PROFILE` to a value unique per job
+  (for example `AGS_PROFILE="$CI_JOB_ID"`). Each profile has its own token store
+  and keychain entry, so jobs never collide.
+- **Fully isolated state:** set `AGS_HOME` to a unique directory per job
+  (for example `AGS_HOME="$CI_PROJECT_DIR/.ags-$CI_JOB_ID"`). This isolates the
+  token store, config, and cache together.
+
+Do **not** rely on `ags config set active-profile` to switch clients between
+concurrent jobs: `active_profile` lives in shared global config, so concurrent
+writes race exactly like the token store does. Select the profile per invocation
+with `AGS_PROFILE` or `--profile` instead.
+
+A cached token is bound to the client that minted it: if the
+configured client no longer matches the cached token, `ags` re-authenticates the
+current client automatically when it can (a client secret is available), or stops
+with a clear error when it cannot. Per-job isolation is still recommended — it
+avoids redundant re-authentication when jobs would otherwise overwrite each
+other's tokens.
+
 ### 11.4 Primary config file
 
 The primary global config file MUST be `config.json`.
@@ -655,6 +1312,8 @@ Recommended global config keys include:
 - `no_color` — default for `--no-color`
 - `timeout` — default for `--timeout`, in seconds
 - `page_limit` — default for `--page-limit`
+- `first_run_hint_seen` — whether the one-time first-run onboarding hint has been shown
+- `update_check` — whether the passive "a newer release is available" hint is enabled (default on; also disabled by the `AGS_NO_UPDATE_CHECK` environment variable or when running in CI). The `AGS_UPDATE_CHECK_URL` environment variable is a test hook that overrides the endpoint URL; it is not intended for end-user use
 
 Global config MUST NOT be used to store environment-specific auth state.
 
@@ -1172,11 +1831,64 @@ The repository SHOULD include CI workflows for:
 
 The release workflow SHOULD manage versioning, generated artifacts, and changelog publication consistently.
 
-## 21. Current scope
+## 21. Telemetry
+
+### 21.1 Activation
+
+The CLI MUST collect anonymous usage telemetry in official release builds. Telemetry is active when the telemetry API key environment variable is set to a non-empty value; official builds inject this key at build time.
+
+### 21.2 Opt-out
+
+The CLI MUST respect the `DO_NOT_TRACK` environment variable ([consoledonottrack.com](https://consoledonottrack.com)). Any non-empty value MUST disable telemetry regardless of the API key.
+
+The `AGS_TELEMETRY_NO_INPUT_VALUES` environment variable, when set to any non-empty value, MUST suppress input field values in workflow step telemetry while still transmitting field names, locations, sources, and required-ness.
+
+### 21.3 Events
+
+When enabled, the CLI sends:
+
+| Event | When | Frequency |
+|-------|------|-----------|
+| `cli.command.invoked` | Every command completes, fails, or is cancelled | Once per invocation |
+| `cli.workflow.run_started` | A registered workflow run begins | Once per workflow run |
+| `cli.workflow.run_completed` | A registered workflow run ends | Once per workflow run |
+| `cli.workflow.step_started` | A workflow step begins | Once per step |
+| `cli.workflow.step_completed` | A workflow step ends | Once per step |
+| identity merge | First login per install | Once per user per install |
+
+### 21.4 Identity
+
+Authenticated users are identified by their AccelByte IAM user id (`sub` from the access token). Pre-login invocations are identified by a random anonymous install id (`anon-<random hex>`) that MUST NOT be derived from hostname, OS username, MAC address, or any hardware identifier. On first login the anonymous identity MUST be merged into the authenticated identity via an identity-merge event.
+
+Email MUST be attached only as a **user** property (never a top-level event property).
+
+### 21.5 Redaction
+
+Flag values MUST be redacted by default. Only the following flags MAY transmit their values: `--namespace`, `-n`, `--format`, `--ui`, `--user-id`, `--client-id`.
+
+Input field values in failed workflow step events MUST be redacted when the field name contains (case-insensitive) any of: `secret`, `password`, `token`, `key`, `credential`, `auth`, `passwd`, `pwd`, `bearer`, `signature`, `session`, `cookie`, `salt`, `private`. When a sensitive name belongs to a container (object or array), every nested leaf beneath it MUST also be redacted.
+
+External (user-installed) workflow fields MUST NOT transmit values regardless of field name.
+
+### 21.6 Privacy constraints
+
+The telemetry pipeline MUST NOT collect:
+
+- IP-based geolocation (GeoIP MUST be disabled in the telemetry client)
+- hostname, OS username, or hardware identifiers
+- file paths (the `--output` flag value MUST be excluded from the value allowlist)
+- raw HTTP request or response bodies (failed workflow steps MAY transmit structured input field metadata per §21.5)
+- credential values
+
+### 21.7 Non-interference
+
+Telemetry MUST be fire-and-forget. It MUST NOT affect command behaviour, exit codes, or output. The flush at process exit MUST be bounded (currently 2 seconds).
+
+## 22. Current scope
 
 The CLI ships with:
 
-- spec loading and command generation for all 24 services (bundled)
+- spec loading and command generation for every bundled service
 - human-readable help (4-level hierarchy)
 - JSON output format
 - `ags auth login` with `authorization-code` and `client-credentials`
@@ -1193,9 +1905,18 @@ The CLI ships with:
 - keyword-based confirmation for destructive operations (DELETE + risky POST/PUT/PATCH)
 - `--dry-run`, `--verbose`, `--quiet`, `--no-input`, `--yes`, `--no-color`
 - `ags auth login/logout/status/refresh`
+- `ags extend clone-template` (clone Extend starter templates)
+- `ags extend app-ui setup-env` (write `.env.local` from a CSM App UI record)
+- `ags extend app-ui upload` (build, archive, and upload App UI static-asset bundles to CSM)
+- `ags extend docker-login` (authenticate the local Docker CLI against the Extend container registry)
+- `ags extend image-upload` (build and push a container image to the Extend registry)
+- `ags extend tunnel` (open a TCP-to-WebSocket bridge to an Extend app pod)
+- `ags extend update-secret` (upsert a CSM app secret)
+- `ags extend update-var` (upsert a CSM app configuration variable)
+- `ags extend` migration shortcuts (supported entry points forwarding `extend-helper-cli` command names to `ags csm` operations)
 - `ags doctor`, `ags refresh-specs`, `ags completions`, `ags version`
 
-## 22. Open implementation notes
+## 23. Open implementation notes
 
 The following remain implementation choices, but they do not change the direction of the reference:
 
@@ -1203,7 +1924,7 @@ The following remain implementation choices, but they do not change the directio
 2. whether config fallback uses the main config JSON or a sibling credentials file
 3. the exact risky-mutation classification rules
 
-## 23. Decisions captured in this revision
+## 24. Decisions captured in this revision
 
 This revision captures these decisions:
 

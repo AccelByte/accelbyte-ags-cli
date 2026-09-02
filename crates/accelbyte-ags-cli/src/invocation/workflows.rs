@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use ags_protocol::request::CommandRequest;
+use ags_protocol::request::{CommandRequest, RequestBody};
 use ags_protocol::workflow::CompiledWorkflow;
 use ags_runtime::support::strings::to_kebab_case;
 use serde_json::Value;
@@ -50,12 +50,13 @@ pub fn cli_flags_matching_workflow_inputs(
         .collect();
     let mut supplied: BTreeMap<String, Value> = BTreeMap::new();
 
-    // String-valued flags: path/query/header parameters plus namespace.
+    // String-valued flags: path/query/header/formData parameters plus namespace.
     let string_params = request
         .path_params
         .iter()
         .chain(request.query_params.iter())
-        .chain(request.header_params.iter());
+        .chain(request.header_params.iter())
+        .chain(request.form_params.iter());
     for (name, raw) in string_params {
         if let Some(schema) = schemas.get(name.as_str()) {
             supplied.insert(name.clone(), coerce_cli_value(raw, *schema));
@@ -71,7 +72,7 @@ pub fn cli_flags_matching_workflow_inputs(
     }
 
     // Body properties are already typed JSON — pass through verbatim.
-    if let Some(Value::Object(body)) = &request.body {
+    if let Some(RequestBody::Json(Value::Object(body))) = &request.body {
         for (name, value) in body {
             if schemas.contains_key(name.as_str()) {
                 supplied.insert(name.clone(), value.clone());
@@ -156,6 +157,74 @@ mod tests {
         assert_eq!(
             coerce_cli_value("[1,2]", Some(&schema)),
             serde_json::json!([1, 2])
+        );
+    }
+
+    /// Build a minimal `CompiledWorkflow` with a single declared input named
+    /// `name`, using `schema` verbatim.
+    fn compiled_workflow_with_input(
+        name: &str,
+        schema: Option<serde_json::Value>,
+    ) -> CompiledWorkflow {
+        use ags_protocol::workflow::WorkflowInputSpec;
+
+        CompiledWorkflow {
+            id: ags_protocol::workflow::WorkflowId::new("test-workflow"),
+            name: "Test workflow".to_string(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![WorkflowInputSpec {
+                name: name.to_string(),
+                description: None,
+                schema,
+                required: false,
+                default: None,
+                sensitive: false,
+                options_source: None,
+                file_picker: None,
+                location: Default::default(),
+            }],
+            is_reviewed_by_default: true,
+            steps: vec![],
+            outputs: vec![],
+            completion: None,
+        }
+    }
+
+    /// Build a minimal `CommandRequest` with every field defaulted/empty.
+    fn command_request_fixture() -> CommandRequest {
+        CommandRequest {
+            service: ags_protocol::catalogue::ServiceId::new("iam"),
+            operation_id: ags_protocol::catalogue::OperationId::new("test-op"),
+            namespace: None,
+            path_params: BTreeMap::new(),
+            query_params: BTreeMap::new(),
+            header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
+            body: None,
+            output_format: ags_protocol::request::OutputFormat::Human,
+            pagination: ags_protocol::request::PaginationHint::Auto,
+            verbosity: ags_protocol::request::Verbosity::Normal,
+            output: None,
+        }
+    }
+
+    /// A `CommandRequest.form_params` entry that matches a declared workflow
+    /// input name is copied into the returned `pre_supplied` map.
+    #[test]
+    fn test_cli_flags_matching_workflow_inputs_includes_form_params() {
+        let compiled = compiled_workflow_with_input("file", None);
+        let mut request = command_request_fixture();
+        request
+            .form_params
+            .insert("file".to_string(), "/tmp/asset.png".to_string());
+
+        let supplied = cli_flags_matching_workflow_inputs(&compiled, &request);
+
+        assert_eq!(
+            supplied.get("file"),
+            Some(&Value::String("/tmp/asset.png".to_string()))
         );
     }
 }

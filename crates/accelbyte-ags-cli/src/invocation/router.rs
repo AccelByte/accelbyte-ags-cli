@@ -40,6 +40,16 @@ pub(crate) enum RootDispatch {
     /// `auth login --badflag`, so the parse/help/run decision is deferred. It
     /// is never dispatched by the builtin route.
     Auth,
+    /// `ags extend docker-login` — self-owning arm that handles `--print`
+    /// imperatively and falls through to the workflow executor for the
+    /// default (Docker login) path. Classified by the two-token prefix
+    /// `["extend", "docker-login"]` so that bare `ags extend` still
+    /// classifies as `Builtin`.
+    ExtendDockerLogin,
+    /// `ags extend image-upload` — self-owning imperative handler that
+    /// builds and pushes a container image to the Extend registry.
+    /// Classified by the two-token prefix `["extend", "image-upload"]`.
+    ExtendImageUpload,
 }
 
 /// Classify a root invocation from its post-prescan args.
@@ -52,6 +62,17 @@ pub(crate) enum RootDispatch {
 pub(crate) fn classify_root(remaining: &[String]) -> RootDispatch {
     if routes::workflow::is_workflow_run(remaining) {
         return RootDispatch::WorkflowRun;
+    }
+    // `extend docker-login` and `extend image-upload` are intercepted
+    // before `is_builtin_command` so their self-owning arms run instead
+    // of the builtin extend handler. Bare `extend` (without a known
+    // subcommand) still falls through to `Builtin`.
+    if remaining.first().map(String::as_str) == Some("extend") {
+        match remaining.get(1).map(String::as_str) {
+            Some("docker-login") => return RootDispatch::ExtendDockerLogin,
+            Some("image-upload") => return RootDispatch::ExtendImageUpload,
+            _ => {}
+        }
     }
     let Some(first) = remaining.first() else {
         return RootDispatch::Builtin;
@@ -78,6 +99,7 @@ mod classify_root_tests {
     fn test_classify_root_builtin_command_is_builtin() {
         for name in [
             "config",
+            "extend",
             "profile",
             "describe",
             "doctor",
@@ -180,6 +202,95 @@ mod classify_root_tests {
         assert!(matches!(
             classify_root(&remaining(&["version"])),
             RootDispatch::Builtin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_docker_login_is_extend_docker_login() {
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "docker-login"])),
+            RootDispatch::ExtendDockerLogin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_docker_login_with_flags_is_extend_docker_login() {
+        assert!(matches!(
+            classify_root(&remaining(&[
+                "extend",
+                "docker-login",
+                "--namespace",
+                "test"
+            ])),
+            RootDispatch::ExtendDockerLogin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_docker_login_help_is_extend_docker_login() {
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "docker-login", "--help"])),
+            RootDispatch::ExtendDockerLogin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_bare_extend_is_still_builtin() {
+        // Bare `extend` without `docker-login` must remain Builtin.
+        assert!(matches!(
+            classify_root(&remaining(&["extend"])),
+            RootDispatch::Builtin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_other_subcommand_is_builtin() {
+        // `extend clone-template` stays Builtin, not ExtendDockerLogin.
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "clone-template"])),
+            RootDispatch::Builtin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_tunnel_is_builtin() {
+        // `extend tunnel` dispatches via the Builtin arm. Pins the
+        // routing so a future self-owning route cannot silently shadow
+        // it without updating dispatch.
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "tunnel"])),
+            RootDispatch::Builtin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_image_upload_is_extend_image_upload() {
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "image-upload"])),
+            RootDispatch::ExtendImageUpload
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_image_upload_with_flags_is_extend_image_upload() {
+        assert!(matches!(
+            classify_root(&remaining(&[
+                "extend",
+                "image-upload",
+                "--app",
+                "myapp",
+                "--image-tag",
+                "v1.0"
+            ])),
+            RootDispatch::ExtendImageUpload
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_image_upload_help_is_extend_image_upload() {
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "image-upload", "--help"])),
+            RootDispatch::ExtendImageUpload
         ));
     }
 }

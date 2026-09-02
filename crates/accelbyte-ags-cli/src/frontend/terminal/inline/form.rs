@@ -39,6 +39,9 @@ pub struct FormField {
     /// Dynamic-enum state when `field_type == FieldType::DynamicEnum`; `None`
     /// for every other field type.
     pub dynamic: Option<DynamicEnumState>,
+    /// File-picker spec when `field_type == FieldType::FilePicker`; `None`
+    /// for every other field type.
+    pub file_picker: Option<ags_protocol::workflow::FilePickerSpec>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +61,11 @@ pub enum FieldType {
     /// the segmented `date_field` widget; the carrier is `FieldValue::Scalar`
     /// holding the ISO string. Activated only in `build_inputs_form`.
     DateTime,
+    /// A declared workflow input with a `file_picker` spec (fullscreen Phase-1
+    /// only). The selected absolute path is held in `FieldValue::Enum(Some(..))`
+    /// — the same carrier shape as `DynamicEnum` — with the extension filter +
+    /// starting directory living in `FormField.file_picker`.
+    FilePicker,
 }
 
 #[derive(Debug, Clone)]
@@ -557,6 +565,7 @@ impl Form {
                     schema: f.schema.clone(),
                     read_only,
                     dynamic: None,
+                    file_picker: None,
                 }
             })
             .collect();
@@ -624,7 +633,9 @@ impl Form {
                         // write the raw buffer straight through, never via to_iso.
                         FieldType::Scalar | FieldType::DateTime => FieldValue::Scalar(buffer),
                         FieldType::Enum { .. } => FieldValue::Enum(Some(buffer)),
-                        FieldType::DynamicEnum => FieldValue::Enum(Some(buffer)),
+                        FieldType::DynamicEnum | FieldType::FilePicker => {
+                            FieldValue::Enum(Some(buffer))
+                        }
                         FieldType::Bool => FieldValue::Bool(buffer.parse().ok()),
                         FieldType::JsonBody => FieldValue::JsonBody(buffer),
                     },
@@ -1046,6 +1057,8 @@ impl Form {
         } else {
             let value_text = if field.field_type == FieldType::DynamicEnum {
                 dynamic_enum_display(field)
+            } else if field.field_type == FieldType::FilePicker {
+                file_picker_display(field)
             } else if field.field_type == FieldType::DateTime {
                 match &field.value {
                     FieldValue::Scalar(s) => {
@@ -1061,6 +1074,8 @@ impl Form {
             // truncated to fit the row.
             let dyn_suffix = if field.field_type == FieldType::DynamicEnum {
                 dynamic_enum_affordance(field)
+            } else if field.field_type == FieldType::FilePicker {
+                file_picker_affordance(field)
             } else {
                 None
             };
@@ -1091,6 +1106,7 @@ impl Form {
                         | FieldType::Bool
                         | FieldType::DynamicEnum
                         | FieldType::DateTime
+                        | FieldType::FilePicker
                 );
             if editable_scalar_like {
                 // Frame is `[` + value + `]` (2 cells).
@@ -1654,6 +1670,25 @@ pub(crate) fn dynamic_enum_affordance(field: &FormField) -> Option<String> {
     })
 }
 
+/// Display text for a `FilePicker` field: the chosen absolute path, or an
+/// empty string when nothing has been picked yet (the affordance hints how
+/// to open the browser).
+pub(crate) fn file_picker_display(field: &FormField) -> String {
+    match &field.value {
+        FieldValue::Enum(Some(s)) => s.clone(),
+        _ => String::new(),
+    }
+}
+
+/// Dim suffix on a `FilePicker` row hinting that Enter opens the directory
+/// browser. Unlike `dynamic_enum_affordance`, there is no unresolved/resolved
+/// state to distinguish — a local directory read never needs a network fetch
+/// — so this is always the same hint.
+pub(crate) fn file_picker_affordance(field: &FormField) -> Option<String> {
+    let _ = field; // kept for signature parity with dynamic_enum_affordance
+    Some(" \u{2039}Enter to browse\u{203a}".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1671,7 +1706,63 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         }
+    }
+
+    /// Build a sample `FilePicker` `FormField` fixture.
+    fn sample_file_picker_field(value: FieldValue) -> FormField {
+        FormField {
+            label: "icon-file".into(),
+            field_type: FieldType::FilePicker,
+            required: true,
+            value,
+            description: "pick a file".into(),
+            source: FieldSource::UserInput,
+            key: FieldKey::Input("iconFile".into()),
+            schema: serde_json::json!({"type": "string"}),
+            read_only: false,
+            dynamic: None,
+            file_picker: Some(ags_protocol::workflow::FilePickerSpec {
+                extensions: Some(vec!["png".to_string()]),
+                start_dir: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_file_picker_display_shows_chosen_path() {
+        let field = sample_file_picker_field(FieldValue::Enum(Some("/tmp/icon.png".to_string())));
+        assert_eq!(file_picker_display(&field), "/tmp/icon.png");
+    }
+
+    #[test]
+    fn test_file_picker_display_empty_when_unset() {
+        let field = sample_file_picker_field(FieldValue::Enum(None));
+        assert_eq!(file_picker_display(&field), "");
+    }
+
+    #[test]
+    fn test_file_picker_affordance_hints_enter_to_browse() {
+        let field = sample_file_picker_field(FieldValue::Enum(None));
+        assert_eq!(
+            file_picker_affordance(&field).as_deref(),
+            Some(" \u{2039}Enter to browse\u{203a}")
+        );
+    }
+
+    #[test]
+    fn test_commit_edit_file_picker_writes_enum_value() {
+        let mut form = Form::new("f", vec![sample_file_picker_field(FieldValue::Empty)]);
+        form.begin_edit();
+        if let Some(buf) = form.editing.as_mut().and_then(|s| s.text_buffer_mut()) {
+            buf.push_str("/tmp/manual.png");
+        }
+        form.commit_edit();
+        assert!(matches!(
+            &form.fields[0].value,
+            FieldValue::Enum(Some(s)) if s == "/tmp/manual.png"
+        ));
     }
 
     #[test]
@@ -1767,6 +1858,7 @@ mod tests {
             schema: serde_json::json!({"type":"array","items":{"type":"string"}}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         let mut term = Terminal::new(TestBackend::new(60, 3)).unwrap();
@@ -1805,6 +1897,7 @@ mod tests {
             schema: serde_json::json!({"type":"object"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         let mut term = Terminal::new(TestBackend::new(60, 3)).unwrap();
@@ -1844,6 +1937,7 @@ mod tests {
             schema: serde_json::json!({"type":"object"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         // Narrow area: the value cannot fit, so it must trail off.
@@ -1876,6 +1970,7 @@ mod tests {
             schema: serde_json::json!({"type":"object"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         let mut term = Terminal::new(TestBackend::new(60, 3)).unwrap();
@@ -1907,6 +2002,7 @@ mod tests {
             schema: serde_json::json!({"type":"array","items":{"type":"object"}}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         let mut term = Terminal::new(TestBackend::new(60, 3)).unwrap();
@@ -1947,6 +2043,7 @@ mod tests {
             schema: serde_json::json!({"type":"object"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         // No `.with_mark_required(true)` — mirrors the fullscreen form.
         let form = Form::new("t", vec![field]);
@@ -1983,6 +2080,7 @@ mod tests {
             schema: serde_json::json!({"type":"array"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]).with_mark_required(true);
         let mut term = Terminal::new(TestBackend::new(60, 3)).unwrap();
@@ -2352,6 +2450,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.begin_edit();
@@ -2375,6 +2474,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.begin_edit();
@@ -2405,6 +2505,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.begin_edit();
@@ -2426,6 +2527,7 @@ mod tests {
             schema: serde_json::json!({"type": "string", "format": "date-time"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         }
     }
 
@@ -2478,6 +2580,7 @@ mod tests {
                     schema: serde_json::json!({"type": "string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
                 FormField {
                     label: "nickname".into(),
@@ -2490,6 +2593,7 @@ mod tests {
                     schema: serde_json::json!({"type": "string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         );
@@ -2511,6 +2615,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         assert!(!form.all_required_filled());
@@ -2533,6 +2638,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -2562,6 +2668,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -2586,6 +2693,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -2608,6 +2716,7 @@ mod tests {
                 schema: serde_json::json!({"type":"boolean"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -2639,6 +2748,7 @@ mod tests {
                     schema: serde_json::json!({}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
                 FormField {
                     label: "active".into(),
@@ -2651,6 +2761,7 @@ mod tests {
                     schema: serde_json::json!({}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         );
@@ -2953,6 +3064,7 @@ mod tests {
                     schema: serde_json::json!({"type":"string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
                 FormField {
                     label: "fleetName".into(),
@@ -2965,6 +3077,7 @@ mod tests {
                     schema: serde_json::json!({"type":"string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         );
@@ -3010,6 +3123,7 @@ mod tests {
                     schema: serde_json::json!({"type":"string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         );
@@ -3188,6 +3302,7 @@ mod tests {
                     schema: serde_json::json!({"type": "string"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
                 FormField {
                     label: "count".into(),
@@ -3200,6 +3315,7 @@ mod tests {
                     schema: serde_json::json!({"type": "integer"}),
                     read_only: false,
                     dynamic: None,
+                    file_picker: None,
                 },
             ],
         );
@@ -3227,6 +3343,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(40, 3)).unwrap();
@@ -3261,6 +3378,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(40, 3)).unwrap();
@@ -3294,6 +3412,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(40, 3)).unwrap();
@@ -3335,6 +3454,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(40, 3)).unwrap();
@@ -3466,6 +3586,7 @@ mod tests {
             schema,
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         assert!(
             !is_field_filled(&field),
@@ -3493,6 +3614,7 @@ mod tests {
             schema,
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         assert!(is_field_filled(&field));
     }
@@ -3521,6 +3643,7 @@ mod tests {
             schema: schema.clone(),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let missing = FieldValue::JsonBody(
             serde_json::to_string(&serde_json::json!({"timeout": {}})).unwrap(),
@@ -3565,6 +3688,7 @@ mod tests {
             schema: schema.clone(),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         assert!(
             !is_field_filled(&mk(serde_json::json!({"regions": [{}]}))),
@@ -3661,6 +3785,7 @@ mod tests {
                 schema: schema.clone(),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         assert!(!form.all_required_filled(), "missing required key blocks");
@@ -3687,6 +3812,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(40, 3)).unwrap();
@@ -3720,6 +3846,7 @@ mod tests {
             schema: serde_json::json!({"type":"string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let mut form = Form::new("t", vec![field]);
         form.focus = 0;
@@ -3778,6 +3905,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let form = Form::new("t", vec![field]);
         let mut term = Terminal::new(TestBackend::new(80, 24)).unwrap();
@@ -3843,6 +3971,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: true,
             dynamic: None,
+            file_picker: None,
         };
         let editable = sample_field("stat-code", false, FieldSource::Literal);
         let fields = vec![derived, editable];
@@ -3913,6 +4042,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: true,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -3957,6 +4087,7 @@ mod tests {
                 schema: serde_json::json!({"type": "string"}),
                 read_only: true,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         form.focus = 0;
@@ -4006,6 +4137,7 @@ mod tests {
                 optional_deps: vec![],
                 resolved: None,
             }),
+            file_picker: None,
         };
         assert!(field.dynamic.is_some());
         assert_eq!(
@@ -4046,6 +4178,7 @@ mod tests {
                     truncated: false,
                 }),
             }),
+            file_picker: None,
         }
     }
 

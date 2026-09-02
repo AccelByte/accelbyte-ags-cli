@@ -37,6 +37,20 @@ pub(crate) async fn route_service(
     render_options: crate::frontend::RenderOptions,
     frontend_context: &crate::invocation::context::FrontendContext,
 ) -> Result<InvocationOutcome, CliError> {
+    // `ams upload` is a hand-written resource, not a catalogued operation, so
+    // it branches off before spec loading and workflow synthesis. Everything
+    // downstream of here assumes an `OperationSchema` exists.
+    if is_ams_service(service_arg) && super::ams_upload::is_ams_upload(service_args) {
+        return super::ams_upload::route_ams_upload(
+            service_args,
+            flags,
+            frontend_context.surface_backend(),
+            render_options,
+            frontend_context,
+        )
+        .await;
+    }
+
     let (selectors, stripped_args) = flags::pre_scan_leaf_selectors(service_args)?;
     // Parse/help/skeleton run with NO phase surfaces; `parse_service_args`
     // builds its own fresh pre-surface frontend where it needs to render.
@@ -52,18 +66,6 @@ pub(crate) async fn route_service(
         parser::ParseServiceOutcome::Exit(code) => return Ok(InvocationOutcome::Exit(code)),
         parser::ParseServiceOutcome::Complete => return Ok(InvocationOutcome::Complete),
     };
-
-    // Stop-gap guard: file-upload (multipart/form-data) commands have no request
-    // construction in the CLI. Reject before the prologue and before any input
-    // gathering — for every mode, including `--dry-run` — so the user gets a
-    // clear message instead of a panic in request assembly (`resolve.rs`).
-    if let Some(operation) =
-        find_operation(&parsed.service_schema, &parsed.command_request.operation_id)
-    {
-        if operation.has_file_upload {
-            return Err(ags_runtime::runtime::dispatch::file_upload_not_supported_error().into());
-        }
-    }
 
     // Runtime prologue (shared with `route_workflow_run`): resolves auth/base
     // URL and renders any access-token warnings on a fresh pre-surface frontend,
@@ -94,7 +96,10 @@ pub(crate) async fn route_service(
     // `--json` object omits — the body is sent as-is and the server validates.
     // Path/query/header inputs are untouched, so a genuinely missing path
     // param still gathers/errors.
-    let explicit_body = parsed.command_request.body.clone();
+    let explicit_body = match &parsed.command_request.body {
+        Some(ags_protocol::request::RequestBody::Json(v)) => Some(v.clone()),
+        Some(ags_protocol::request::RequestBody::Multipart(_)) | None => None,
+    };
     if explicit_body.is_some() {
         if let Some(operation) =
             find_operation(&parsed.service_schema, &parsed.command_request.operation_id)
@@ -146,6 +151,10 @@ pub(crate) async fn route_service(
         verbosity: flags.verbosity,
         pagination,
         explicit_body,
+        // A single-command run is a synthesised, never-registered workflow —
+        // never bundled, so its failed step's `input_fields` withhold every
+        // value, matching an external workflow's telemetry treatment.
+        is_bundled_workflow: false,
     };
 
     // `--dry-run --verbose` renders a resolution trace before teardown. The
@@ -187,6 +196,10 @@ pub(crate) async fn route_service(
     );
     let frontend_context = frontend_context.finalize_surface(RouteKind::Service, shape);
     crate::invocation::register_reporter_if_plain(&frontend_context);
+    // Help exits before finalization, so a service command here is never meta.
+    // The hint only fires here because prologue/synth/compile succeeded; see
+    // the first_run module doc for the deferral trade-off on early errors.
+    crate::invocation::try_emit_first_run_hint(&frontend_context, false);
 
     // The prologue/synth/compile all succeeded — construct the phase surfaces
     // now. For `--ui=inline`/`--ui=fullscreen` this is the single terminal
@@ -236,7 +249,10 @@ pub(crate) async fn route_service(
     // The shared post-prologue helper owns `RunStarted` onward. A service
     // failure preserves `CliError::exit_code()` — the helper returns
     // `Exit(error.exit_code())`, never a hardcoded `Exit(1)`.
-    run_phase_owned_execution(
+    //
+    // `SuppressedLifecycle` never carries step telemetry, so the reclaimed
+    // `TelemetryClient` here is always `None` — nothing to flush.
+    let (outcome, _telemetry_client) = run_phase_owned_execution(
         surfaces,
         &compiled,
         pre_supplied,
@@ -245,7 +261,8 @@ pub(crate) async fn route_service(
         AdapterMode::SuppressedLifecycle,
         resolution_trace,
     )
-    .await
+    .await?;
+    Ok(outcome)
 }
 
 /// Reject a service command up front when the run cannot gather missing required
@@ -332,6 +349,13 @@ fn reject_if_inputs_unavailable(
             ..Default::default()
         })),
     })
+}
+
+/// Whether the user-typed service token selects the AMS service, accounting
+/// for the manifest's display-name aliasing.
+fn is_ams_service(service_arg: &str) -> bool {
+    ags_runtime::catalogue::Catalogue::find_id(service_arg)
+        .is_some_and(|id| id.as_str() == clap_tree::AMS_SERVICE_NAME)
 }
 
 /// Whether a synthesised service input is a *structured* body field (object or
@@ -423,6 +447,7 @@ mod is_body_field_input_tests {
             sensitive: false,
             options_source: None,
             location: Default::default(),
+            file_picker: None,
         }
     }
 

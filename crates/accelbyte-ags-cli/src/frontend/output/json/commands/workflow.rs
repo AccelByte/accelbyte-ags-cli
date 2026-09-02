@@ -1,7 +1,7 @@
 //! Machine-readable rendering for workflow meta-commands.
 
 use ags_protocol::output_views::WorkflowCompletionView;
-use ags_protocol::workflow::{StepDryRunPreview, WorkflowId, WorkflowListEntry};
+use ags_protocol::workflow::{StepDryRunAction, StepDryRunPreview, WorkflowId, WorkflowListEntry};
 use std::collections::BTreeMap;
 
 use crate::errors::CliError;
@@ -88,32 +88,76 @@ pub(crate) fn render_workflow_dry_run(
 ) -> Result<RenderedOutput, CliError> {
     let steps: Vec<serde_json::Value> = step_previews
         .iter()
-        .map(|preview| {
-            let view = crate::frontend::presenters::service::present_dry_run(&preview.command);
-            let headers: serde_json::Map<String, serde_json::Value> = view
-                .headers
-                .iter()
-                .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
-                .collect();
-            let query: serde_json::Map<String, serde_json::Value> = view
-                .query
-                .iter()
-                .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
-                .collect();
-            serde_json::json!({
-                "id": preview.step_id,
-                "method": view.http_method,
-                "url": view.url,
-                "headers": headers,
-                "query": query,
-                "body": view.body,
-            })
+        .map(|step| match &step.action {
+            StepDryRunAction::Request(command) => {
+                let view = crate::frontend::presenters::service::present_dry_run(command);
+                let headers: serde_json::Map<String, serde_json::Value> = view
+                    .headers
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                    .collect();
+                let query: serde_json::Map<String, serde_json::Value> = view
+                    .query
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                    .collect();
+                serde_json::json!({
+                    "id": step.step_id,
+                    "method": view.http_method,
+                    "url": view.url,
+                    "headers": headers,
+                    "query": query,
+                    "body": view.body,
+                })
+            }
+            // A local-action step carries no HTTP request, so `method`/`url`
+            // are absent — a consumer distinguishes the two shapes by the
+            // presence of `action`.
+            StepDryRunAction::Local { action, preview } => serde_json::json!({
+                "id": step.step_id,
+                "action": action,
+                "preview": preview,
+            }),
         })
         .collect();
     let value = serde_json::json!({
         "workflow": workflow_id.as_str(),
         "dry_run": true,
         "steps": steps,
+    });
+    Ok(RenderedOutput {
+        stdout: Some(crate::frontend::output::json::format_json(&value)?),
+        stderr: None,
+        is_stdout_first: true,
+    })
+}
+
+/// Render the outcome of `ags workflow add <path>` as a JSON envelope.
+pub(crate) fn render_workflow_add(
+    output: &ags_protocol::output_views::WorkflowAddOutput,
+    _options: &crate::frontend::RenderOptions,
+) -> Result<RenderedOutput, CliError> {
+    let value = serde_json::json!({
+        "id": output.id.as_str(),
+        "validated_only": output.validated_only,
+        "path": output.path.as_ref().map(|p| p.display().to_string()),
+    });
+    Ok(RenderedOutput {
+        stdout: Some(crate::frontend::output::json::format_json(&value)?),
+        stderr: None,
+        is_stdout_first: true,
+    })
+}
+
+/// Render the outcome of `ags workflow remove <id>` as a JSON envelope.
+pub(crate) fn render_workflow_remove(
+    output: &ags_protocol::output_views::WorkflowRemoveOutput,
+    _options: &crate::frontend::RenderOptions,
+) -> Result<RenderedOutput, CliError> {
+    let value = serde_json::json!({
+        "id": output.id.as_str(),
+        "path": output.path.display().to_string(),
+        "builtin_still_registered": output.builtin_still_registered,
     });
     Ok(RenderedOutput {
         stdout: Some(crate::frontend::output::json::format_json(&value)?),
@@ -209,13 +253,15 @@ mod tests {
         let preview = StepDryRunPreview {
             step_id: "create-stat".to_string(),
             step_index: 0,
-            command: DryRunResult {
+            action: StepDryRunAction::Request(DryRunResult {
                 http_method: HttpMethod::Post,
                 url: "https://example.test/social/v1/admin/namespaces/dev/stats".to_string(),
                 headers: vec![("Authorization".to_string(), "Bearer <token>".to_string())],
                 query: vec![],
-                body: Some(serde_json::json!({ "statCode": "mmr" })),
-            },
+                body: Some(ags_protocol::request::RequestBody::Json(
+                    serde_json::json!({ "statCode": "mmr" }),
+                )),
+            }),
             synthesised_outputs: BTreeMap::new(),
         };
         let rendered = render_workflow_dry_run(&id, &[preview]).unwrap();
@@ -226,5 +272,43 @@ mod tests {
         assert_eq!(json["steps"][0]["id"], "create-stat");
         assert_eq!(json["steps"][0]["method"], "POST");
         assert_eq!(json["steps"][0]["body"]["statCode"], "mmr");
+    }
+
+    #[test]
+    fn test_render_workflow_remove_envelope() {
+        let output = ags_protocol::output_views::WorkflowRemoveOutput {
+            id: WorkflowId::new("my-workflow"),
+            path: std::path::PathBuf::from("/tmp/workflows/my-workflow.yaml"),
+            builtin_still_registered: true,
+        };
+        let rendered =
+            render_workflow_remove(&output, &crate::frontend::RenderOptions::default()).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(rendered.stdout.as_deref().unwrap()).unwrap();
+        assert_eq!(json["id"], "my-workflow");
+        assert_eq!(json["path"], "/tmp/workflows/my-workflow.yaml");
+        assert_eq!(json["builtin_still_registered"], true);
+    }
+
+    #[test]
+    fn test_render_workflow_dry_run_local_step_has_no_request_fields() {
+        let preview = StepDryRunPreview {
+            step_id: "upload-image".to_string(),
+            step_index: 0,
+            action: StepDryRunAction::Local {
+                action: "ams/upload-image".to_string(),
+                preview: serde_json::json!({ "image_name": "demo-image" }),
+            },
+            synthesised_outputs: BTreeMap::new(),
+        };
+        let rendered = render_workflow_dry_run(&WorkflowId::new("wf"), &[preview]).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(rendered.stdout.as_deref().unwrap()).unwrap();
+        let step = &json["steps"][0];
+        assert_eq!(step["id"], "upload-image");
+        assert_eq!(step["action"], "ams/upload-image");
+        assert_eq!(step["preview"]["image_name"], "demo-image");
+        assert!(step.get("method").is_none(), "local step has no method");
+        assert!(step.get("url").is_none(), "local step has no url");
     }
 }

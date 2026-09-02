@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use ags_protocol::catalogue::{OperationSchema, ParameterLocation, ServiceSchema};
 use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
-use ags_protocol::request::CommandRequest;
+use ags_protocol::request::{CommandRequest, RequestBody};
 use ags_protocol::workflow::{
     ArithmeticOp, ArithmeticOperand, AutoDeriveScope, BindingSource, CompiledStep, GatherSlotId,
     ReferenceTarget, StepField, StepFieldId, StepFieldLocation, StepFieldPlan, TransformKind,
@@ -132,11 +132,14 @@ pub fn assemble_command_request(
     namespace: Option<String>,
     run_options: &super::RunOptions,
 ) -> Result<CommandRequest, RuntimeError> {
-    let operation = find_operation_or_error(
-        service_schema,
-        &step.operation,
-        &format!("step '{}'", step.id),
-    )?;
+    let op_ref = step.operation.as_ref().ok_or_else(|| {
+        RuntimeError::internal(format!(
+            "step '{}': API step reached assemble_command_request without an operation",
+            step.id
+        ))
+    })?;
+    let operation =
+        find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
 
     // Lookup maps derived once from the step's bindings and the workflow inputs,
     // shared by both assembly passes. `nested_binding_roots` holds the roots a
@@ -170,23 +173,36 @@ pub fn assemble_command_request(
         step_local,
     )?;
 
-    let body = assemble_body(
+    let form_parts = resolve_form_data_params(
         operation,
         step,
         ctx,
         workflow_supplied,
         step_local,
         &build_ctx,
-        run_options,
     )?;
+    let body = match form_parts {
+        Some(parts) => Some(RequestBody::Multipart(parts)),
+        None => assemble_body(
+            operation,
+            step,
+            ctx,
+            workflow_supplied,
+            step_local,
+            &build_ctx,
+            run_options,
+        )?
+        .map(RequestBody::Json),
+    };
 
     Ok(CommandRequest {
-        service: step.operation.service.clone(),
-        operation_id: step.operation.operation.clone(),
+        service: op_ref.service.clone(),
+        operation_id: op_ref.operation.clone(),
         namespace,
         path_params,
         query_params,
         header_params,
+        form_params: BTreeMap::new(),
         body,
         output_format: run_options.output_format,
         pagination: run_options.pagination,
@@ -215,8 +231,12 @@ type NonBodyParams = (
 );
 
 /// Resolve the step's path, query, and header parameters from its bindings,
-/// returning the three populated maps. Errors on a missing required parameter
-/// or an unsupported `formData` parameter.
+/// returning the three populated maps. Errors on a missing required
+/// parameter. `formData` parameters are skipped entirely here — they never
+/// populate these maps, and `resolve_form_data_params` (called separately by
+/// `assemble_command_request`) owns both their value resolution and their
+/// required-ness validation, so this function doesn't resolve or
+/// double-check them.
 fn resolve_non_body_params(
     operation: &OperationSchema,
     step: &CompiledStep,
@@ -230,8 +250,13 @@ fn resolve_non_body_params(
     let mut header_params: BTreeMap<String, String> = BTreeMap::new();
 
     for param in &operation.parameters {
-        if param.location == ParameterLocation::Body {
-            continue; // Body handled separately.
+        if matches!(
+            param.location,
+            ParameterLocation::Body | ParameterLocation::FormData
+        ) {
+            // Body is assembled separately by `assemble_body`; formData is
+            // resolved and validated separately by `resolve_form_data_params`.
+            continue;
         }
         let resolved = resolve_field_value(
             &param.name,
@@ -254,27 +279,10 @@ fn resolve_non_body_params(
                     ParameterLocation::Header => {
                         header_params.insert(param.name.clone(), as_string);
                     }
-                    // Body params are skipped above and never reach here.
-                    ParameterLocation::Body => unreachable!("body params are skipped above"),
-                    // `formData` (incl. multipart file uploads) has no request
-                    // construction in the CLI. Reject cleanly rather than panic;
-                    // file uploads are caught earlier by the service-route guard,
-                    // so this defends the url-encoded formData class and any
-                    // future path that reaches assembly.
-                    ParameterLocation::FormData => {
-                        return Err(RuntimeError {
-                            kind: RuntimeErrorKind::Validation,
-                            message: format!(
-                                "parameter '{}' is sent as form-data, which the CLI does not support",
-                                param.name
-                            ),
-                            details: None,
-                            hint: Some(
-                                "Use the AccelByte Admin Portal or call the API directly."
-                                    .to_string(),
-                            ),
-                            trace: None,
-                        });
+                    // Body and FormData params are skipped above and never
+                    // reach here.
+                    ParameterLocation::Body | ParameterLocation::FormData => {
+                        unreachable!("body/formData params are skipped above")
                     }
                 }
             }
@@ -408,6 +416,116 @@ fn assemble_body(
     }
 }
 
+/// Resolve every `formData` parameter of the step into `FormPart`s, in the
+/// operation's declared parameter order. A file-typed parameter's resolved
+/// value is a local filesystem path; it is validated (exists, is a regular
+/// file) here so a bad path surfaces as a clean `Validation` error before
+/// any network call, in both normal and `--dry-run` runs. Returns `None`
+/// when the operation has no `formData` parameters (the common case — most
+/// operations use a JSON body instead).
+fn resolve_form_data_params(
+    operation: &OperationSchema,
+    step: &CompiledStep,
+    ctx: &WorkflowContext,
+    workflow_supplied: &BTreeMap<String, serde_json::Value>,
+    step_local: &BTreeMap<String, serde_json::Value>,
+    build_ctx: &RequestBuildCtx,
+) -> Result<Option<Vec<ags_protocol::request::FormPart>>, RuntimeError> {
+    use ags_protocol::request::FormPart;
+
+    let mut parts = Vec::new();
+    for param in &operation.parameters {
+        if param.location != ParameterLocation::FormData {
+            continue;
+        }
+        let resolved = resolve_field_value(
+            &param.name,
+            &build_ctx.bindings_by_field,
+            ctx,
+            workflow_supplied,
+            step_local,
+            &build_ctx.workflow_input_names,
+        )?;
+        let Some(value) = resolved else {
+            if param.required {
+                return Err(RuntimeError {
+                    kind: RuntimeErrorKind::Validation,
+                    message: format!(
+                        "step '{}' is missing required form field '{}'",
+                        step.id, param.name
+                    ),
+                    details: None,
+                    hint: None,
+                    trace: None,
+                });
+            }
+            continue;
+        };
+        let as_string = json_to_param_string(&value);
+        if param.is_file {
+            parts.push(validate_and_build_file_part(&param.name, &as_string)?);
+        } else {
+            parts.push(FormPart::Text {
+                name: param.name.clone(),
+                value: as_string,
+            });
+        }
+    }
+    Ok((!parts.is_empty()).then_some(parts))
+}
+
+/// Validate a formData file parameter's local path (exists, is a regular
+/// file) and build its `FormPart::File`. `field_name` names the parameter in
+/// error messages so the user knows which flag to fix.
+///
+/// This check reflects the file's state at resolve time only — it is not
+/// re-verified when the file is later streamed for dispatch, so a file
+/// changed after a confirm-gated pause is not caught here. Symlinks are
+/// followed deliberately, matching typical CLI upload semantics (e.g.
+/// `curl -F`). There is no upload size cap: the file is streamed from disk
+/// at send time (`dispatch::http::ReqwestHttpClient::send`) rather than
+/// read into memory, so an arbitrarily large file never spikes RAM.
+fn validate_and_build_file_part(
+    field_name: &str,
+    raw_path: &str,
+) -> Result<ags_protocol::request::FormPart, RuntimeError> {
+    use ags_protocol::request::FormPart;
+
+    let path = std::path::PathBuf::from(raw_path);
+    let metadata = std::fs::metadata(&path).map_err(|_| RuntimeError {
+        kind: RuntimeErrorKind::Validation,
+        message: format!(
+            "form field '{field_name}': file '{}' does not exist or is not readable",
+            path.display()
+        ),
+        details: None,
+        hint: None,
+        trace: None,
+    })?;
+    if !metadata.is_file() {
+        return Err(RuntimeError {
+            kind: RuntimeErrorKind::Validation,
+            message: format!(
+                "form field '{field_name}': '{}' is not a regular file",
+                path.display()
+            ),
+            details: None,
+            hint: None,
+            trace: None,
+        });
+    }
+    let filename = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("upload")
+        .to_string();
+    Ok(FormPart::File {
+        name: field_name.to_string(),
+        path,
+        filename,
+    })
+}
+
 /// Append the workflow-input source names a binding references to `sources`
 /// (deduped) — covering reference targets, arithmetic operands, and format
 /// placeholders. Returns whether the binding is a pure literal (contributing no
@@ -509,6 +627,12 @@ fn resolve_field_value(
     step_local: &BTreeMap<String, serde_json::Value>,
     workflow_input_names: &std::collections::BTreeSet<&str>,
 ) -> Result<Option<serde_json::Value>, RuntimeError> {
+    // Step-local overrides (from a per-step review form's per-leaf edit) take
+    // precedence over the field's declared binding — same convention pass 2 of
+    // `assemble_body` already applies to nested (dotted/indexed) bindings.
+    if let Some(v) = step_local.get(field_name) {
+        return Ok(Some(v.clone()));
+    }
     if let Some(source) = bindings.get(field_name) {
         return resolve_binding(source, ctx, workflow_supplied, bindings, step_local);
     }
@@ -516,9 +640,6 @@ fn resolve_field_value(
         if let Some(v) = workflow_supplied.get(field_name) {
             return Ok(Some(v.clone()));
         }
-    }
-    if let Some(v) = step_local.get(field_name) {
-        return Ok(Some(v.clone()));
     }
     Ok(None)
 }
@@ -567,6 +688,14 @@ pub(crate) fn resolve_field_with_source(
         }
     };
 
+    // Step-local overrides (from a per-step review form's per-leaf edit) take
+    // precedence over the field's declared binding — same convention as
+    // `resolve_field_value` and pass 2 of `assemble_body`. An edited field is
+    // reported as a literal, same as `push_nested_literal_review_fields` does
+    // for edited nested-path literals.
+    if let Some(v) = step_local.get(field_name) {
+        return Ok((Some(v.clone()), StepFieldSource::Literal, None));
+    }
     if let Some(source) = bindings.get(field_name) {
         let value = resolve_binding(source, ctx, workflow_supplied, bindings, step_local)?;
         return Ok(match source {
@@ -622,9 +751,6 @@ pub(crate) fn resolve_field_with_source(
         }
         // Named workflow input but not yet supplied → unset, still propagates.
         return Ok((None, StepFieldSource::Unset, Some(field_name.to_string())));
-    }
-    if let Some(v) = step_local.get(field_name) {
-        return Ok((Some(v.clone()), StepFieldSource::Literal, None));
     }
 
     // Nested-binding synthesis: no top-level binding for `field_name`, but the
@@ -736,11 +862,14 @@ pub(crate) fn resolve_step_fields(
     service_schema: &ServiceSchema,
     default_names: &std::collections::BTreeSet<String>,
 ) -> Result<StepFieldPlan, RuntimeError> {
-    let operation = find_operation_or_error(
-        service_schema,
-        &step.operation,
-        &format!("step '{}'", step.id),
-    )?;
+    let op_ref = step.operation.as_ref().ok_or_else(|| {
+        RuntimeError::internal(format!(
+            "step '{}': API step reached resolve_step_fields without an operation",
+            step.id
+        ))
+    })?;
+    let operation =
+        find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
 
     let workflow_input_names: std::collections::BTreeSet<&str> = workflow_input_specs
         .iter()
@@ -819,21 +948,26 @@ pub(crate) fn resolve_step_fields(
         Ok(())
     };
 
-    // Path / query / header parameters.
+    // Path / query / header / formData parameters.
     for param in &operation.parameters {
         let location = match param.location {
             ParameterLocation::Path => StepFieldLocation::Path,
             ParameterLocation::Query => StepFieldLocation::Query,
             ParameterLocation::Header => StepFieldLocation::Header,
-            // Body / FormData are handled via the body schema below.
-            _ => continue,
+            ParameterLocation::FormData => StepFieldLocation::FormData,
+            // Body is handled via the body schema below.
+            ParameterLocation::Body => continue,
         };
-        let param_description = find_workflow_input_description(
-            &param.name,
-            &full_bindings_by_field,
-            workflow_input_specs,
-        )
-        .or_else(|| param.description.clone());
+        let param_description = if param.is_file {
+            Some("Path to local file to upload".to_string())
+        } else {
+            find_workflow_input_description(
+                &param.name,
+                &full_bindings_by_field,
+                workflow_input_specs,
+            )
+            .or_else(|| param.description.clone())
+        };
         let param_show_in_review = show_in_review_by_root
             .get(param.name.as_str())
             .copied()
@@ -1186,6 +1320,50 @@ fn resolve_binding(
     }
 }
 
+/// Resolve every declared `inputs:` binding of a `kind: local` step into a
+/// flat `field → value` map. Reuses the shared [`resolve_binding`] path so
+/// the resolution rules (step references, workflow inputs, literals, format
+/// templates, mirrors) are identical to the API-step path and cannot drift.
+///
+/// The returned map is intended to be *merged on top of* `workflow_supplied`
+/// before invoking the handler, so a binding's resolved value takes
+/// precedence over a same-named workflow flag or default. This matches the
+/// API-step convention where explicit bindings override auto-bound workflow
+/// inputs.
+///
+/// Errors propagate as `RuntimeError` — a step-reference pointing at a
+/// capture that was never produced (and has no default) fails the step.
+pub(crate) fn resolve_local_step_bindings(
+    step: &CompiledStep,
+    ctx: &WorkflowContext,
+    workflow_supplied: &BTreeMap<String, serde_json::Value>,
+) -> Result<BTreeMap<String, serde_json::Value>, RuntimeError> {
+    if step.inputs.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let bindings_by_field: BTreeMap<&str, &BindingSource> = step
+        .inputs
+        .iter()
+        .map(|b| (b.field.as_str(), &b.source))
+        .collect();
+    // Local steps have no per-step review form, so `step_local` is always empty.
+    let step_local: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+    let mut resolved = BTreeMap::new();
+    for binding in &step.inputs {
+        let value = resolve_binding(
+            &binding.source,
+            ctx,
+            workflow_supplied,
+            &bindings_by_field,
+            &step_local,
+        )?;
+        if let Some(v) = value {
+            resolved.insert(binding.field.clone(), v);
+        }
+    }
+    Ok(resolved)
+}
+
 /// Apply an optional transform to a resolved value. Exhaustive over
 /// `TransformKind`; unknown variants would be a compile error (we add
 /// new variants in dedicated tasks).
@@ -1361,6 +1539,7 @@ mod tests {
         OperationId, OperationSchema, ParameterLocation, ParameterSchema, ResourceSchema,
         ScopeEntry, ServiceId, ValueType,
     };
+    use ags_protocol::request::FormPart;
     use ags_protocol::workflow::{
         AutoDeriveScope, AutoDerivedField, BindingSource, CompiledStep, LiteralBinding,
         OperationReference, ReferenceBinding, ReferenceTarget, StepInputBinding, TransformKind,
@@ -1481,6 +1660,7 @@ mod tests {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -1503,7 +1683,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -1535,10 +1714,12 @@ mod tests {
             id: "s1".into(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("svc"),
                 operation: OperationId::new("CreateStat"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1577,6 +1758,7 @@ mod tests {
             location: ParameterLocation::Path,
             required: true,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }];
@@ -1607,6 +1789,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }]
     }
 
@@ -1968,6 +2151,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
         let req = assemble_command_request(
             &step,
@@ -1982,7 +2166,10 @@ mod tests {
         .unwrap();
         assert_eq!(req.path_params.get("namespace"), Some(&"dev".to_string()));
         assert_eq!(
-            req.body.as_ref().and_then(|b| b.get("statCode")),
+            match &req.body {
+                Some(RequestBody::Json(v)) => v.get("statCode"),
+                _ => None,
+            },
             Some(&serde_json::json!("mmr"))
         );
     }
@@ -2010,14 +2197,23 @@ mod tests {
             &RunOptions::default(),
         )
         .unwrap();
-        let body = req.body.expect("array body must not be dropped");
+        let body = match req.body.expect("array body must not be dropped") {
+            RequestBody::Json(v) => v,
+            RequestBody::Multipart(_) => panic!("expected a JSON body"),
+        };
         let array = body.as_array().expect("body must be a JSON array");
         assert_eq!(array.len(), 1);
         assert_eq!(array[0].get("statCode"), Some(&serde_json::json!("mmr")));
     }
 
+    /// A step-local edit (from a per-step review form's per-leaf edit) must win
+    /// over a top-level `const:` binding, same as `resolve_field_value`'s
+    /// precedence and pass 2 of `assemble_body`'s nested-path precedence
+    /// (`test_assemble_mirror_binding_prefers_step_local_edit_of_target`).
+    /// `step_local` is only ever populated for fields the review form actually
+    /// showed (i.e. `show_in_review: true`), so that's what's asserted here.
     #[test]
-    fn test_assemble_command_request_const_binding_wins() {
+    fn test_assemble_command_request_step_local_edit_overrides_const_binding() {
         let schema = service_with(op_with_namespace_path());
         let mut step = compiled_step_with_auto(vec![]);
         step.inputs.push(StepInputBinding {
@@ -2026,11 +2222,11 @@ mod tests {
                 value: serde_json::json!("override"),
                 sensitive: false,
             }),
-            show_in_review: false,
+            show_in_review: true,
             description: None,
         });
         let mut local = BTreeMap::new();
-        local.insert("namespace".into(), serde_json::json!("ignored"));
+        local.insert("namespace".into(), serde_json::json!("edited"));
         local.insert("statCode".into(), serde_json::json!("mmr"));
         let req = assemble_command_request(
             &step,
@@ -2043,7 +2239,49 @@ mod tests {
             &RunOptions::default(),
         )
         .unwrap();
-        assert_eq!(req.path_params.get("namespace"), Some(&"override".into()));
+        assert_eq!(req.path_params.get("namespace"), Some(&"edited".into()));
+    }
+
+    /// A top-level (single-segment) *body* field bound via `const:` and marked
+    /// `show_in_review: true` must let a step-review edit win, exactly like
+    /// nested-path bindings already do (see
+    /// `test_assemble_mirror_binding_prefers_step_local_edit_of_target` below).
+    /// Regression test for a reported bug where `resolve_field_value` resolved
+    /// straight from the binding whenever one existed and never consulted
+    /// `step_local`.
+    #[test]
+    fn test_assemble_command_request_step_local_edit_overrides_top_level_const_binding() {
+        let schema = service_with(op_with_namespace_path());
+        let mut step = compiled_step_with_auto(vec![]);
+        step.inputs.push(StepInputBinding {
+            field: "statCode".into(),
+            source: BindingSource::Literal(LiteralBinding {
+                value: serde_json::json!("mmr"),
+                sensitive: false,
+            }),
+            show_in_review: true,
+            description: None,
+        });
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        // The user edited the reviewed `statCode` field at the step review.
+        local.insert("statCode".into(), serde_json::json!("edited-code"));
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            None,
+            &RunOptions::default(),
+        )
+        .unwrap();
+        let body = match req.body.expect("body assembled") {
+            RequestBody::Json(v) => v,
+            RequestBody::Multipart(_) => panic!("expected a JSON body"),
+        };
+        assert_eq!(body["statCode"], serde_json::json!("edited-code"));
     }
 
     /// Operation shaped like the platform item-create: a `name` body field
@@ -2126,7 +2364,10 @@ mod tests {
             &RunOptions::default(),
         )
         .unwrap();
-        let body = req.body.expect("body assembled");
+        let body = match req.body.expect("body assembled") {
+            RequestBody::Json(v) => v,
+            RequestBody::Multipart(_) => panic!("expected a JSON body"),
+        };
         assert_eq!(body["name"], serde_json::json!("Starter Skin"));
         assert_eq!(
             body["localizations"]["en-US"]["title"],
@@ -2157,7 +2398,10 @@ mod tests {
             &RunOptions::default(),
         )
         .unwrap();
-        let body = req.body.expect("body assembled");
+        let body = match req.body.expect("body assembled") {
+            RequestBody::Json(v) => v,
+            RequestBody::Multipart(_) => panic!("expected a JSON body"),
+        };
         assert_eq!(body["name"], serde_json::json!("Cool Sword"));
         assert_eq!(
             body["localizations"]["en-US"]["title"],
@@ -2276,17 +2520,18 @@ mod tests {
         assert_eq!(err.kind, RuntimeErrorKind::Validation);
     }
 
-    /// A `formData` parameter that resolves to a value must produce a clean
-    /// Validation error, not panic (`resolve.rs` used to `unreachable!()` on
-    /// `ParameterLocation::FormData`).
+    /// A `formData` text parameter that resolves to a value assembles into a
+    /// `RequestBody::Multipart` with one `FormPart::Text` (`resolve.rs` used
+    /// to `unreachable!()`/reject on `ParameterLocation::FormData`).
     #[test]
-    fn test_assemble_command_request_formdata_param_is_validation_not_panic() {
+    fn test_assemble_command_request_formdata_text_param_becomes_multipart_text() {
         let mut op = op_with_namespace_path();
         op.parameters.push(ParameterSchema {
             name: "certificate".into(),
             location: ParameterLocation::FormData,
             required: true,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         });
@@ -2296,6 +2541,236 @@ mod tests {
         local.insert("namespace".into(), serde_json::json!("dev"));
         local.insert("statCode".into(), serde_json::json!("mmr"));
         local.insert("certificate".into(), serde_json::json!("cert-bytes"));
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            Some("dev".into()),
+            &RunOptions::default(),
+        )
+        .unwrap();
+
+        match req.body {
+            Some(RequestBody::Multipart(parts)) => {
+                assert_eq!(parts.len(), 1);
+                assert!(matches!(
+                    &parts[0],
+                    FormPart::Text { name, value }
+                        if name == "certificate" && value == "cert-bytes"
+                ));
+            }
+            other => panic!("expected Multipart body, got {other:?}"),
+        }
+    }
+
+    /// Build an `OperationSchema` with one required file-typed `formData`
+    /// parameter named `file`, no body — mirrors a real single-file upload
+    /// operation like `csm app-ui upload-assets`. Uses the `CreateStat`
+    /// operation id (not the semantically-fitting `UploadAssets`) so it
+    /// matches the id `compiled_step_with_auto`'s fixture step hardcodes;
+    /// `find_operation_or_error` matches by id, not by name/path.
+    fn op_with_file_formdata_param() -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new("CreateStat"),
+            name: "upload-assets".into(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::Mutating,
+            http_method: HttpMethod::Post,
+            path_template: "/svc/v1/admin/namespaces/{namespace}/upload".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "namespace".into(),
+                    location: ParameterLocation::Path,
+                    required: true,
+                    value_type: ValueType::String,
+                    description: None,
+                    default: None,
+                    is_file: false,
+                },
+                ParameterSchema {
+                    name: "file".into(),
+                    location: ParameterLocation::FormData,
+                    required: true,
+                    value_type: ValueType::String,
+                    description: None,
+                    default: None,
+                    is_file: true,
+                },
+            ],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// A single required file-typed formData parameter with a valid,
+    /// readable local path assembles into a `RequestBody::Multipart`
+    /// containing one `FormPart::File`.
+    #[test]
+    fn test_assemble_command_request_single_file_formdata_becomes_multipart() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("asset.png");
+        std::fs::write(&file_path, b"fake-bytes").unwrap();
+
+        let schema = service_with(op_with_file_formdata_param());
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        local.insert(
+            "file".into(),
+            serde_json::json!(file_path.to_string_lossy().into_owned()),
+        );
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            Some("dev".into()),
+            &RunOptions::default(),
+        )
+        .unwrap();
+
+        match req.body {
+            Some(RequestBody::Multipart(parts)) => {
+                assert_eq!(parts.len(), 1);
+                match &parts[0] {
+                    FormPart::File {
+                        name,
+                        path,
+                        filename,
+                    } => {
+                        assert_eq!(name, "file");
+                        assert_eq!(path, &file_path);
+                        assert_eq!(filename, "asset.png");
+                    }
+                    other => panic!("expected File part, got {other:?}"),
+                }
+            }
+            other => panic!("expected Multipart body, got {other:?}"),
+        }
+    }
+
+    /// A file param plus a non-file (text) formData sidecar field both land
+    /// in the same `Multipart` body, in the operation's declared order.
+    #[test]
+    fn test_assemble_command_request_mixed_file_and_text_formdata() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("cert.pem");
+        std::fs::write(&file_path, b"cert-bytes").unwrap();
+
+        let mut op = op_with_file_formdata_param();
+        op.parameters.push(ParameterSchema {
+            name: "password".into(),
+            location: ParameterLocation::FormData,
+            required: false,
+            value_type: ValueType::String,
+            description: None,
+            default: None,
+            is_file: false,
+        });
+        let schema = service_with(op);
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        local.insert(
+            "file".into(),
+            serde_json::json!(file_path.to_string_lossy().into_owned()),
+        );
+        local.insert("password".into(), serde_json::json!("secret123"));
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            Some("dev".into()),
+            &RunOptions::default(),
+        )
+        .unwrap();
+
+        match req.body {
+            Some(RequestBody::Multipart(parts)) => {
+                assert_eq!(parts.len(), 2);
+                assert!(matches!(&parts[0], FormPart::File { name, .. } if name == "file"));
+                assert!(
+                    matches!(&parts[1], FormPart::Text { name, value } if name == "password" && value == "secret123")
+                );
+            }
+            other => panic!("expected Multipart body, got {other:?}"),
+        }
+    }
+
+    /// An optional formData text field with no supplied value is simply
+    /// omitted from the assembled parts — not an error.
+    #[test]
+    fn test_assemble_command_request_optional_formdata_field_omitted_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("cert.pem");
+        std::fs::write(&file_path, b"cert-bytes").unwrap();
+
+        let mut op = op_with_file_formdata_param();
+        op.parameters.push(ParameterSchema {
+            name: "password".into(),
+            location: ParameterLocation::FormData,
+            required: false,
+            value_type: ValueType::String,
+            description: None,
+            default: None,
+            is_file: false,
+        });
+        let schema = service_with(op);
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        local.insert(
+            "file".into(),
+            serde_json::json!(file_path.to_string_lossy().into_owned()),
+        );
+        // `password` deliberately not supplied.
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            Some("dev".into()),
+            &RunOptions::default(),
+        )
+        .unwrap();
+
+        match req.body {
+            Some(RequestBody::Multipart(parts)) => {
+                assert_eq!(parts.len(), 1);
+            }
+            other => panic!("expected Multipart body with only the file part, got {other:?}"),
+        }
+    }
+
+    /// A required file formData param with no supplied value is a clean
+    /// `Validation` "missing required parameter" error, not a panic.
+    #[test]
+    fn test_assemble_command_request_missing_required_file_formdata_errors() {
+        let schema = service_with(op_with_file_formdata_param());
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        // `file` deliberately not supplied.
+
         let err = assemble_command_request(
             &step,
             &WorkflowContext::new(),
@@ -2306,12 +2781,70 @@ mod tests {
             Some("dev".into()),
             &RunOptions::default(),
         )
-        .expect_err("form-data param must produce a Validation error, not panic");
+        .unwrap_err();
         assert_eq!(err.kind, RuntimeErrorKind::Validation);
+        // Asserts the specific message `resolve_form_data_params` produces
+        // ("missing required form field '...'"), not the generic
+        // "missing required parameter" message `resolve_non_body_params`
+        // would raise for a non-formData param — this genuinely exercises
+        // (and would fail if we regressed away from) the formData-specific
+        // required check, since `resolve_non_body_params` now skips
+        // `formData` params entirely rather than double-checking them.
         assert!(
-            err.hint.is_some(),
-            "form-data error should carry a fix hint"
+            err.message.contains("form field") && err.message.contains("file"),
+            "expected a formData-specific 'missing required form field' message, got: {}",
+            err.message
         );
+    }
+
+    /// A supplied file path that does not exist on disk is a clean
+    /// `Validation` error naming the path, not an I/O panic.
+    #[test]
+    fn test_assemble_command_request_nonexistent_file_path_errors_cleanly() {
+        let schema = service_with(op_with_file_formdata_param());
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+        local.insert(
+            "file".into(),
+            serde_json::json!("/definitely/does/not/exist.png"),
+        );
+
+        let err = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            Some("dev".into()),
+            &RunOptions::default(),
+        )
+        .unwrap_err();
+        assert_eq!(err.kind, RuntimeErrorKind::Validation);
+        assert!(err.message.contains("/definitely/does/not/exist.png"));
+    }
+
+    /// `resolve_step_fields` emits a `StepField` for a `formData` parameter
+    /// (previously silently skipped), located as `FormData`.
+    #[test]
+    fn test_resolve_step_fields_includes_formdata_param() {
+        let schema = service_with(op_with_file_formdata_param());
+        let step = compiled_step_with_auto(vec![]);
+
+        let plan = resolve_step_fields(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+            &schema,
+            &std::collections::BTreeSet::new(),
+        )
+        .unwrap();
+
+        let file_field = plan.fields.iter().find(|f| f.field == "file").unwrap();
+        assert_eq!(file_field.location, StepFieldLocation::FormData);
     }
 
     #[test]
@@ -2337,7 +2870,10 @@ mod tests {
             &options,
         )
         .unwrap();
-        assert_eq!(req.body, Some(serde_json::json!({"other": "value"})));
+        assert_eq!(
+            req.body,
+            Some(RequestBody::Json(serde_json::json!({"other": "value"})))
+        );
     }
 
     #[test]
@@ -2506,6 +3042,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             })
             .collect();
         // Supply a namespace value so the path param is satisfied.
@@ -2667,6 +3204,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
 
         // Supply the default value in workflow_supplied (as the executor does
@@ -2900,8 +3438,10 @@ mod tests {
         )
         .unwrap();
 
-        req.body
-            .unwrap_or(serde_json::Value::Object(Default::default()))
+        match req.body {
+            Some(RequestBody::Json(v)) => v,
+            Some(RequestBody::Multipart(_)) | None => serde_json::Value::Object(Default::default()),
+        }
     }
 
     #[test]
@@ -3103,6 +3643,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
 
         let ctx = WorkflowContext::default();
@@ -3254,6 +3795,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
 
         let mut supplied = BTreeMap::new();
@@ -3388,6 +3930,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
 
         let mut supplied = BTreeMap::new();
@@ -3464,6 +4007,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             })
             .collect();
 
@@ -3796,5 +4340,75 @@ mod tests {
                 "nested Literal binding with show_in_review=true must produce a per-leaf row",
             );
         assert!(leaf.show_in_review);
+    }
+
+    // -----------------------------------------------------------------
+    // Malformed-step defensive error tests: verify that an API step with
+    // `operation: None` returns `RuntimeErrorKind::Internal` rather than
+    // panicking.
+    // -----------------------------------------------------------------
+    fn malformed_api_step_without_operation() -> CompiledStep {
+        CompiledStep {
+            id: "bad".into(),
+            index: 0,
+            description: None,
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: None,
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+            auto_derived: vec![],
+        }
+    }
+
+    #[test]
+    fn test_assemble_command_request_api_step_without_operation_returns_internal_error() {
+        let schema = service_with(op_with_namespace_path());
+        let step = malformed_api_step_without_operation();
+        let ctx = WorkflowContext::new();
+        let err = assemble_command_request(
+            &step,
+            &ctx,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+            &schema,
+            None,
+            &RunOptions::default(),
+        )
+        .unwrap_err();
+        assert_eq!(err.kind, ags_protocol::error::RuntimeErrorKind::Internal);
+        assert!(
+            err.message.contains("without an operation"),
+            "error must explain the missing operation: {err}"
+        );
+    }
+
+    #[test]
+    fn test_resolve_step_fields_api_step_without_operation_returns_internal_error() {
+        let schema = service_with(op_with_namespace_path());
+        let step = malformed_api_step_without_operation();
+        let ctx = WorkflowContext::new();
+        let err = resolve_step_fields(
+            &step,
+            &ctx,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+            &schema,
+            &std::collections::BTreeSet::new(),
+        )
+        .unwrap_err();
+        assert_eq!(err.kind, ags_protocol::error::RuntimeErrorKind::Internal);
+        assert!(
+            err.message.contains("without an operation"),
+            "error must explain the missing operation: {err}"
+        );
     }
 }

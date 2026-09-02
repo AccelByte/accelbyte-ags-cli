@@ -255,6 +255,7 @@ impl ConfirmCardPhase {
                 schema: serde_json::json!({ "type": "string" }),
                 read_only: true,
                 dynamic: None,
+                file_picker: None,
             })
             .collect();
         let mut form = Form::new("", fields);

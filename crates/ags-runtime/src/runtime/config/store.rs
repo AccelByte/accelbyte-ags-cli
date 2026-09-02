@@ -145,6 +145,13 @@ pub struct GlobalConfig {
     /// Default max pages for --page-all
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_limit: Option<u64>,
+    /// Whether to run the background update check (default true when unset)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub update_check: Option<bool>,
+    /// Whether the one-time first-run onboarding hint has been shown.
+    /// Set to `true` after the hint is displayed so it never appears again.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_run_hint_seen: Option<bool>,
 }
 
 impl GlobalConfig {
@@ -834,5 +841,47 @@ mod tests {
             Some(ags_protocol::request::OutputFormat::Json)
         );
         assert_eq!(loaded.active_profile.as_deref(), Some("default"));
+    }
+
+    /// `first_run_hint_seen` round-trips through disk and the predicate reads
+    /// it correctly for subsequent silent runs.
+    #[test]
+    #[serial_test::serial]
+    fn test_first_run_hint_seen_persists_and_round_trips() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        // Before the hint is shown, the flag defaults to None.
+        let before = GlobalConfig::load().unwrap();
+        assert!(
+            before.first_run_hint_seen.is_none(),
+            "flag should be absent on fresh config"
+        );
+
+        // Simulate the hint being shown by setting the flag via update.
+        GlobalConfig::update(|cfg| {
+            cfg.first_run_hint_seen = Some(true);
+            Ok(())
+        })
+        .unwrap();
+
+        // After persistence, the flag must be true.
+        let after = GlobalConfig::load().unwrap();
+        assert_eq!(
+            after.first_run_hint_seen,
+            Some(true),
+            "flag should be true after update"
+        );
+
+        // Verify the JSON on disk contains the field.
+        let config_path = tmp.path().join("config.json");
+        let raw = std::fs::read_to_string(&config_path).unwrap();
+        assert!(
+            raw.contains("first_run_hint_seen"),
+            "JSON on disk must contain the field, got: {raw}"
+        );
     }
 }

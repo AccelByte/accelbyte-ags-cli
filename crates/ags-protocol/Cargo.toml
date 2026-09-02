@@ -11,3 +11,6 @@ description = "Internal protocol types for the AGS CLI workspace."
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_yaml_ng = { workspace = true }

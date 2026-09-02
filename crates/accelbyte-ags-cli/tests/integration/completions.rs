@@ -1,12 +1,11 @@
 //! End-to-end tests for `ags completions`.
 
-use assert_cmd::Command;
+use crate::common::cli_helpers;
 use predicates::str::contains;
 
 #[test]
 fn test_explicit_zsh_prints_script_with_no_stderr_hint() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions", "zsh"])
         .assert()
         .success()
@@ -16,8 +15,7 @@ fn test_explicit_zsh_prints_script_with_no_stderr_hint() {
 
 #[test]
 fn test_explicit_bash_prints_script() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions", "bash"])
         .assert()
         .success()
@@ -26,8 +24,7 @@ fn test_explicit_bash_prints_script() {
 
 #[test]
 fn test_explicit_fish_prints_script() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions", "fish"])
         .assert()
         .success()
@@ -36,8 +33,7 @@ fn test_explicit_fish_prints_script() {
 
 #[test]
 fn test_explicit_powershell_prints_script() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions", "powershell"])
         .assert()
         .success()
@@ -46,8 +42,7 @@ fn test_explicit_powershell_prints_script() {
 
 #[test]
 fn test_auto_detected_zsh_prints_hint_to_stderr() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions"])
         .env("SHELL", "/bin/zsh")
         .assert()
@@ -61,8 +56,7 @@ fn test_auto_detect_fails_when_shell_unset_on_non_windows() {
     if cfg!(windows) {
         return;
     }
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions"])
         .env_remove("SHELL")
         .assert()
@@ -72,8 +66,7 @@ fn test_auto_detect_fails_when_shell_unset_on_non_windows() {
 
 #[test]
 fn test_explicit_bogus_shell_is_usage_error() {
-    Command::cargo_bin("ags")
-        .unwrap()
+    cli_helpers::ags()
         .args(["completions", "tcsh"])
         .assert()
         .failure()

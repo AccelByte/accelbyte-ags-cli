@@ -110,7 +110,11 @@ fn test_profile_list_json() {
 /// Create a new profile succeeds with a confirmation message
 #[test]
 fn test_profile_create_success() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().to_str().unwrap();
+
     ags_isolated()
+        .env("AGS_HOME", home)
         .args(["profile", "create", "staging"])
         .assert()
         .success()

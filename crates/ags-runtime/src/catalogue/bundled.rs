@@ -21,6 +21,7 @@ pub(crate) static BUNDLED_SPECS: &[(&str, &[u8])] = &[
     ("chat", include_bytes!("../../specs/chat.json.gz")),
     ("cloudsave", include_bytes!("../../specs/cloudsave.json.gz")),
     ("csm", include_bytes!("../../specs/csm.json.gz")),
+    ("ehs", include_bytes!("../../specs/ehs.json.gz")),
     (
         "gametelemetry",
         include_bytes!("../../specs/gametelemetry.json.gz"),
@@ -105,14 +106,14 @@ mod tests {
         }
     }
 
-    /// Bundled table contains every active service (24 total) and stays in lockstep with the manifest.
+    /// Bundled table contains every active service and stays in lockstep with the manifest.
     ///
     /// Both the spec table and the manifest must be updated when a service is
     /// added or removed; asserting they share the same length catches partial
     /// registrations that would otherwise pass the per-table count checks.
     #[test]
     fn test_bundled_specs_count() {
-        assert_eq!(BUNDLED_SPECS.len(), 24);
+        assert_eq!(BUNDLED_SPECS.len(), 25);
         assert_eq!(
             BUNDLED_SPECS.len(),
             super::super::manifest::SERVICES.len(),

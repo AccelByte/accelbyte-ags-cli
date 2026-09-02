@@ -282,23 +282,32 @@ mod tests {
 
     #[cfg(unix)]
     /// Failed restricted writes do not leave temp files behind.
+    ///
+    /// A directory at the destination fails the final rename with `EISDIR`,
+    /// which is what makes this test meaningful: the temp file already exists
+    /// by then, so the cleanup path is genuinely exercised. Forcing the failure
+    /// with a read-only parent instead would abort before the temp file is
+    /// created, and root ignores the permission bits anyway when tests run in a
+    /// container.
     #[test]
     fn test_write_file_restricted_leaves_no_temp_files_on_failure() {
-        use std::os::unix::fs::PermissionsExt;
         let tmp = tempfile::tempdir().unwrap();
-        fs::set_permissions(tmp.path(), fs::Permissions::from_mode(0o500)).unwrap();
-
         let path = tmp.path().join("config.json");
+        fs::create_dir(&path).unwrap();
+
         let result = write_file_restricted(&path, "data");
 
-        fs::set_permissions(tmp.path(), fs::Permissions::from_mode(0o700)).unwrap();
-
         assert!(result.is_err());
-        let entries: Vec<_> = fs::read_dir(tmp.path())
+        let leftover_temp_files: Vec<_> = fs::read_dir(tmp.path())
             .unwrap()
             .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with(TEMP_FILE_PREFIX)
+            })
             .collect();
-        assert!(entries.is_empty());
+        assert!(leftover_temp_files.is_empty());
     }
 
     /// Restricted directory creation creates the full directory tree.

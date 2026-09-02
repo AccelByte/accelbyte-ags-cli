@@ -569,28 +569,47 @@ mod surface_tests {
     };
     use crate::frontend::terminal::inline::session::InlineSession;
     use crate::invocation::context::{
-        ConsumerKind, FrontendContext, InteractionPolicy, PhaseBackend, TerminalCapabilities,
+        ConsumerKind, FrontendContext, PhaseBackend, TerminalCapabilities,
     };
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    /// Build a `FrontendContext` with the given consumer/rich-ui combination.
+    /// Build a `FrontendContext` through the real resolver so it cannot
+    /// fabricate a context the resolver never produces. Automation implies
+    /// no input; rich UI implies an explicit `--ui=inline` intent.
     fn ctx(consumer: ConsumerKind, prefer_rich_ui: bool) -> FrontendContext {
-        FrontendContext {
-            consumer,
-            interaction: InteractionPolicy {
-                allow_input: true,
-                prefer_rich_ui,
-                prefer_fullscreen: false,
-            },
-            terminal: TerminalCapabilities {
-                stdin_is_tty: true,
-                stdout_is_tty: true,
-                stderr_is_tty: true,
-                color_force_off: true,
-            },
-            ui_intent: crate::invocation::flags::UiFlag::Auto,
-        }
+        use crate::invocation::context::resolve_with_terminal;
+        use crate::invocation::flags::{GlobalFlags, UiFlag};
+
+        let caps = TerminalCapabilities {
+            stdin_is_tty: true,
+            stdout_is_tty: true,
+            stderr_is_tty: true,
+            color_force_off: true,
+        };
+
+        let flags = match consumer {
+            ConsumerKind::Human => {
+                let ui = if prefer_rich_ui {
+                    Some(UiFlag::Inline)
+                } else {
+                    None
+                };
+                GlobalFlags {
+                    ui,
+                    ..GlobalFlags::default()
+                }
+            }
+            ConsumerKind::Automation => {
+                assert!(!prefer_rich_ui, "automation consumer cannot prefer rich UI");
+                GlobalFlags {
+                    format: Some(ags_protocol::request::OutputFormat::Json),
+                    ..GlobalFlags::default()
+                }
+            }
+        };
+
+        resolve_with_terminal(&flags, caps).expect("test context must resolve")
     }
 
     /// Plain-terminal surfaces construct without acquiring an inline session.
@@ -636,6 +655,19 @@ mod surface_tests {
         assert_eq!(Rc::strong_count(&session), 3);
         drop(surfaces);
         assert_eq!(Rc::strong_count(&session), 1);
+    }
+
+    /// An automation consumer must never allow input — the resolver enforces
+    /// this invariant, and the test helper must not fabricate a context that
+    /// violates it. Before the fix, `ctx(Automation, false)` hard-coded
+    /// `allow_input: true`, which `resolve_frontend_context` never produces.
+    #[test]
+    fn test_automation_ctx_disallows_input() {
+        let automation = ctx(ConsumerKind::Automation, false);
+        assert!(
+            !automation.interaction.allow_input,
+            "automation consumer must not allow input; ctx() must not fabricate an impossible context"
+        );
     }
 
     /// `factory_renders_plain` is the single source of truth for the lock-

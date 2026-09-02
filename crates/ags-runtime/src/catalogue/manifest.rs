@@ -49,6 +49,11 @@ pub(crate) const SERVICES: &[ServiceManifest] = &[
         description: "Custom service management, deployments, and container images",
     },
     ServiceManifest {
+        internal: "ehs",
+        display: "ehs",
+        description: "Extend helper container image registry credentials and gRPC reflection",
+    },
+    ServiceManifest {
         internal: "gametelemetry",
         display: "game-telemetry",
         description: "Game telemetry event ingestion and querying",
@@ -338,6 +343,11 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "config",
         "Service configuration variables and secrets",
     ),
+    (
+        "csm",
+        "debug",
+        "Remote debug mode and session info for extend apps",
+    ),
     ("csm", "deployments", "Service deployment management"),
     ("csm", "files", "Hosted static file access"),
     ("csm", "images", "Container image registry and management"),
@@ -367,6 +377,17 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "csm",
         "topics",
         "Async messaging topics and subscriber management",
+    ),
+    // ehs
+    (
+        "ehs",
+        "repository-credentials",
+        "Container image registry credentials for image upload",
+    ),
+    (
+        "ehs",
+        "grpc-reflection",
+        "gRPC server reflection for Extend apps",
     ),
     // gametelemetry
     (

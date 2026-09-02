@@ -149,7 +149,6 @@ mod tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -172,7 +171,6 @@ mod tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         assert_eq!(build_body_skeleton(&operation), Value::Object(Map::new()));
     }
@@ -295,7 +293,6 @@ mod tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let value = build_body_skeleton(&operation);
         let array_value = value
@@ -330,7 +327,6 @@ mod tests {
             api_version: ApiVersion(0),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let value = build_body_skeleton(&operation);
         let array_value = value

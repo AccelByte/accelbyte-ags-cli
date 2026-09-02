@@ -20,6 +20,40 @@ use serde_json::Value;
 
 use crate::common::fixture_helpers::fixture_path;
 
+/// `registry()` (`ags_runtime::runtime::workflows::registry`) is a
+/// process-wide `OnceLock`: whichever thread first calls it in this test
+/// binary's process locks in whatever `workflows_dir()` sees *forever*,
+/// regardless of later `AGS_HOME` changes. Left untouched, that first call
+/// resolves `workflows_dir()` against this developer's real, un-isolated
+/// `AGS_HOME` — so any workflow YAML they've installed for real (e.g. from
+/// manually testing `ags workflow add`) gets folded into the registry and
+/// silently breaks the baseline-comparison tests below, and a malformed
+/// stray file can even panic `contract_inputs_for`.
+///
+/// Fix: before any test in this module calls `registry()` (via
+/// `registry_ids()` or `contract_inputs_for()`), point `AGS_HOME` at a fresh,
+/// empty, process-lifetime tempdir exactly once. `Once::call_once` blocks
+/// concurrent callers until the closure finishes, so no test can observe
+/// `registry()` initializing against the real `AGS_HOME`, no matter which
+/// test thread gets there first. The tempdir is intentionally leaked (never
+/// deleted) — it must outlive the `OnceLock` it seeds, which is the whole
+/// process. It starts with nothing but an empty `workflows` directory, but
+/// compiling workflows against it also writes a parsed-spec cache file under
+/// a sibling `cache/` directory (`Catalogue`'s on-disk cache, keyed off the
+/// same `AGS_HOME`) — harmless, since it's process-scoped and discarded with
+/// the tempdir, but the directory doesn't stay empty for the run's duration.
+fn ensure_isolated_registry_home() {
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| {
+        let dir = tempfile::tempdir()
+            .expect("create isolated AGS_HOME for workflow contract_input tests");
+        std::env::set_var("AGS_HOME", dir.path());
+        // Never deleted: must live as long as the process-wide `registry()`
+        // OnceLock, which this call is seeding.
+        std::mem::forget(dir);
+    });
+}
+
 /// One input's contract surface. Field order matches the committed baseline
 /// JSON. `description`, `sensitive`, and `dynamic` are intentionally absent —
 /// they are not part of what the user types.
@@ -54,6 +88,7 @@ fn is_recognised_schema_type(t: &str) -> bool {
 /// surface. Panics (failing the test) if the id is unregistered or the workflow
 /// does not compile — every shipped builtin must compile.
 fn contract_inputs_for(id: &str) -> Vec<ContractInput> {
+    ensure_isolated_registry_home();
     let workflow = registry()
         .resolve(&WorkflowId::new(id))
         .unwrap_or_else(|| panic!("workflow '{id}' not registered"));
@@ -120,6 +155,7 @@ fn test_contract_inputs_competitive_multiplayer_projection() {
 
 /// Ids of every registered workflow.
 fn registry_ids() -> BTreeSet<String> {
+    ensure_isolated_registry_home();
     registry().ids().map(|id| id.as_str().to_string()).collect()
 }
 

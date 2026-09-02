@@ -102,6 +102,9 @@ impl Executor {
         use crate::runtime::workflows::WorkflowContext;
         use std::collections::{BTreeMap, BTreeSet};
 
+        let run_started_at = std::time::Instant::now();
+        let mut run_facts = ags_protocol::workflow::RunFacts::default();
+
         // Phase 0: seed workflow_supplied from the caller's pre-supplied
         // map (CLI flags resolved by the invocation layer), then layer
         // declared defaults on top of any name not already present.
@@ -120,6 +123,13 @@ impl Executor {
                 }
             }
         }
+        // Snapshot values before Phase 1 so an input the user edited in the
+        // run-start form can be distinguished from one that arrived by flag or
+        // default and was left alone. This is also why provenance is
+        // recomputed after Phase 1 rather than read from the pre-Phase-1 name
+        // sets: a value supplied by flag and then edited in the form must not
+        // be double-counted as untouched.
+        let pre_gather_values = workflow_supplied.clone();
 
         if run_context.options.no_input {
             let violations = no_input_precheck(
@@ -153,6 +163,11 @@ impl Executor {
                 match frontend.present_briefing(briefing, compiled.name.as_str()) {
                     Ok(true) => {}
                     Ok(false) => {
+                        // No step ever starts, so no `StepFinished` can carry
+                        // this stage — the run aggregate is the only place a
+                        // declined briefing can be reported from.
+                        run_facts.reason =
+                            Some(ags_protocol::workflow::StepOutcomeReason::AtBriefing);
                         run_outcome = RunOutcome::Cancelled;
                     }
                     Err(error) => {
@@ -203,8 +218,14 @@ impl Executor {
                         workflow_supplied.insert(name, value);
                     }
                     run_mode = chosen;
+                    run_facts.run_mode = Some(chosen);
                 }
                 Ok(None) => {
+                    // Same reasoning as the declined briefing above: the
+                    // cancellation happens before the first step, so only the
+                    // run aggregate can name the stage.
+                    run_facts.reason =
+                        Some(ags_protocol::workflow::StepOutcomeReason::AtInputGather);
                     run_outcome = RunOutcome::Cancelled;
                 }
                 Err(error) => {
@@ -214,30 +235,370 @@ impl Executor {
             }
         }
 
+        // Compute declared-input provenance unconditionally: even a run that
+        // cancelled at the briefing or the run-start gather should report how
+        // its inputs arrived. Iterate the declared inputs (not
+        // `workflow_supplied`) so step-local values gathered later never leak
+        // into these counts. When Phase 1 never ran (`review_steps == false`),
+        // `workflow_supplied` still equals `pre_gather_values`, so
+        // `inputs_from_prompt` and `inputs_edited_in_form` legitimately stay 0.
+        for spec in &compiled.inputs {
+            let Some(current) = workflow_supplied.get(&spec.name) else {
+                continue;
+            };
+            if flag_names.contains(&spec.name) {
+                run_facts.inputs_from_flag += 1;
+            } else if default_added.contains(&spec.name) {
+                run_facts.inputs_from_default += 1;
+            } else {
+                run_facts.inputs_from_prompt += 1;
+            }
+            if pre_gather_values.get(&spec.name) != Some(current) {
+                run_facts.inputs_edited_in_form += 1;
+            }
+        }
+
         if run_outcome == RunOutcome::Success {
             'step_loop: for step in &compiled.steps {
                 let mut step_local: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+                let step_started_at = std::time::Instant::now();
+                let mut attempts: u32 = 0;
                 frontend.on_event(&WorkflowEvent::StepStarted {
                     index: step.index,
                     id: step.id.clone(),
                 });
+                run_facts.steps_started += 1;
+                run_facts.last_step_index = Some(step.index);
+
+                // Local steps do not support the flow-control flags that
+                // the API path uses (confirm, is_optional, continue_on_failure,
+                // skip_if_exists). validate_step_kinds rejects all four at
+                // compile time, so none of the corresponding executor gates
+                // can fire for a local step. The only shared machinery that
+                // applies is the interactive failure gate (Retry/Cancel).
+                if step.kind == ags_protocol::workflow::StepKind::Local {
+                    let action_name = step.action.as_deref().ok_or_else(|| {
+                        RuntimeError::internal(format!(
+                            "step '{}': local step reached executor without an action",
+                            step.id
+                        ))
+                    })?;
+                    let action = crate::runtime::workflows::local_actions::lookup(action_name)
+                        .ok_or_else(|| {
+                            RuntimeError::internal(format!(
+                                "step '{}': unknown local action '{}'",
+                                step.id, action_name
+                            ))
+                        })?;
+
+                    // Dry-run: delegate to the action's own dry-run, then
+                    // bind outputs from what it returns. This mirrors the
+                    // run pattern for local actions and produces a
+                    // representative preview value per action.
+                    if run_context.options.dry_run {
+                        // Resolve input bindings so the action sees values.
+                        // Resolution is deterministic — a broken binding
+                        // (bad JSONPath, missing upstream capture) will fail
+                        // identically on a real run. Propagate the error so
+                        // --dry-run catches it instead of previewing success.
+                        let dry_run_inputs =
+                            match crate::runtime::workflows::resolve::resolve_local_step_bindings(
+                                step,
+                                &ctx,
+                                &workflow_supplied,
+                            ) {
+                                Ok(resolved) => {
+                                    let mut merged = workflow_supplied.clone();
+                                    merged.extend(resolved);
+                                    merged
+                                }
+                                Err(resolution_error) => {
+                                    // Mirror the run path: treat as fatal.
+                                    finish_step_terminal(
+                                        frontend,
+                                        &mut step_summaries,
+                                        step,
+                                        format!("{} failed", step.id),
+                                        StepOutcome::Failed,
+                                        Some(ags_protocol::workflow::StepOutcomeReason::Assembly),
+                                        0,
+                                        step_started_at,
+                                        None,
+                                        &mut run_facts,
+                                    );
+                                    pending_error = Some(resolution_error);
+                                    run_outcome = RunOutcome::Failed;
+                                    break;
+                                }
+                            };
+
+                        // Build the Map<String, Value> the action trait expects.
+                        let inputs_map: serde_json::Map<String, serde_json::Value> =
+                            dry_run_inputs.into_iter().collect();
+
+                        let action_result = {
+                            let mut sink = progress_adapter(step.index, frontend);
+                            action
+                                .run(
+                                    run_context.runtime,
+                                    &inputs_map,
+                                    &mut sink,
+                                    true, // dry_run
+                                )
+                                .await
+                        };
+                        let produced = match action_result {
+                            Ok(value) => value,
+                            Err(action_error) => {
+                                // Mirror the binding-resolution arm above:
+                                // record the failure in step bookkeeping so
+                                // steps_failed, last_step_index, and
+                                // StepErrorFacts are properly attached.
+                                finish_step_terminal(
+                                    frontend,
+                                    &mut step_summaries,
+                                    step,
+                                    format!("{} failed", step.id),
+                                    StepOutcome::Failed,
+                                    Some(ags_protocol::workflow::StepOutcomeReason::Dispatch),
+                                    0,
+                                    step_started_at,
+                                    Some(ags_protocol::workflow::StepErrorFacts::from_error(
+                                        &action_error,
+                                    )),
+                                    &mut run_facts,
+                                );
+                                pending_error = Some(action_error);
+                                run_outcome = RunOutcome::Failed;
+                                break;
+                            }
+                        };
+
+                        // Bind outputs from the action's dry-run value.
+                        ctx.store_local_step_body(&step.id, produced.clone());
+                        let body_json = ctx.step_body_json(&step.id);
+                        let _ = ctx.bind_step_outputs(&step.id, &step.outputs, body_json.as_ref());
+
+                        let bound: std::collections::BTreeMap<String, serde_json::Value> = step
+                            .outputs
+                            .iter()
+                            .filter_map(|capture| {
+                                let value = ctx.resolve_step_reference(&step.id, &capture.name)?;
+                                Some((capture.name.clone(), value.clone()))
+                            })
+                            .collect();
+
+                        let preview =
+                            crate::runtime::workflows::dry_run::build_local_dry_run_preview(
+                                step,
+                                action_name,
+                                produced,
+                                bound,
+                            );
+                        dry_run_previews.push(preview);
+                        ctx.inject_step_captures_for_dry_run(
+                            &step.id,
+                            &step
+                                .outputs
+                                .iter()
+                                .map(|o| (o.name.clone(), serde_json::Value::Null))
+                                .collect(),
+                        );
+                        finish_step_terminal(
+                            frontend,
+                            &mut step_summaries,
+                            step,
+                            format!("{} dry-run", step.id),
+                            StepOutcome::Success,
+                            None,
+                            1,
+                            step_started_at,
+                            None,
+                            &mut run_facts,
+                        );
+                        continue 'step_loop;
+                    }
+
+                    // No confirm gate for local steps: validate_step_kinds
+                    // rejects confirm: true at compile time, so step.confirm
+                    // is always false here.
+
+                    // Resolve declared input bindings (step output
+                    // references, literals, workflow inputs, format
+                    // templates, mirrors) before invoking the handler.
+                    // Binding values take precedence over same-named
+                    // workflow_supplied entries: the author's explicit
+                    // `from: step/X` wiring is more specific than a
+                    // same-named workflow flag or default. Resolution is
+                    // deterministic so it sits outside the retry loop.
+                    let action_inputs =
+                        match crate::runtime::workflows::resolve::resolve_local_step_bindings(
+                            step,
+                            &ctx,
+                            &workflow_supplied,
+                        ) {
+                            Ok(resolved) => {
+                                let mut merged = workflow_supplied.clone();
+                                merged.extend(resolved);
+                                merged
+                            }
+                            Err(resolution_error) => {
+                                // Resolution is deterministic — retrying would
+                                // produce the same failure. Treat as fatal.
+                                finish_step_terminal(
+                                    frontend,
+                                    &mut step_summaries,
+                                    step,
+                                    format!("{} failed", step.id),
+                                    StepOutcome::Failed,
+                                    Some(ags_protocol::workflow::StepOutcomeReason::Assembly),
+                                    0,
+                                    step_started_at,
+                                    None,
+                                    &mut run_facts,
+                                );
+                                pending_error = Some(resolution_error);
+                                run_outcome = RunOutcome::Failed;
+                                break;
+                            }
+                        };
+
+                    // Build the Map<String, Value> the widened trait expects.
+                    let run_inputs_map: serde_json::Map<String, serde_json::Value> =
+                        action_inputs.into_iter().collect();
+
+                    // Execute with retry loop: decide_step_failure may
+                    // return Retry (re-invoke the handler), Skip
+                    // (continue_on_failure / user skip), or Fatal.
+                    let (outcome, summary, reason, error_facts) = loop {
+                        attempts = attempts.saturating_add(1);
+                        let run_result = {
+                            let mut sink = progress_adapter(step.index, frontend);
+                            action
+                                .run(
+                                    run_context.runtime,
+                                    &run_inputs_map,
+                                    &mut sink,
+                                    false, // not dry_run
+                                )
+                                .await
+                        };
+                        let (attempt_error, attempt_stage) = match run_result {
+                            Ok(body) => {
+                                ctx.store_local_step_body(&step.id, body);
+                                let body_json = ctx.step_body_json(&step.id);
+                                match ctx.bind_step_outputs(
+                                    &step.id,
+                                    &step.outputs,
+                                    body_json.as_ref(),
+                                ) {
+                                    Ok(()) => {
+                                        break (
+                                            StepOutcome::Success,
+                                            format!("{} ok", step.id),
+                                            None,
+                                            None,
+                                        );
+                                    }
+                                    Err(error) => {
+                                        (error, ags_protocol::workflow::StepOutcomeReason::Capture)
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                (error, ags_protocol::workflow::StepOutcomeReason::Dispatch)
+                            }
+                        };
+
+                        match decide_step_failure(
+                            step,
+                            &attempt_error,
+                            run_context.options.no_input,
+                            frontend,
+                            attempt_stage,
+                        )? {
+                            FailureDisposition::Skip {
+                                reason,
+                                summary_tail,
+                            } => {
+                                let skip_facts = ags_protocol::workflow::StepErrorFacts::from_error(
+                                    &attempt_error,
+                                );
+                                skip_step(
+                                    &mut ctx,
+                                    frontend,
+                                    &mut step_summaries,
+                                    step,
+                                    reason,
+                                    summary_tail.as_deref(),
+                                    attempts,
+                                    step_started_at,
+                                    Some(skip_facts),
+                                    &mut run_facts,
+                                )?;
+                                continue 'step_loop;
+                            }
+                            FailureDisposition::Retry => continue,
+                            FailureDisposition::Fatal { reason } => {
+                                let s = format!("{} failed", step.id);
+                                let facts = ags_protocol::workflow::StepErrorFacts::from_error(
+                                    &attempt_error,
+                                );
+                                pending_error = Some(attempt_error);
+                                break (StepOutcome::Failed, s, Some(reason), Some(facts));
+                            }
+                        }
+                    };
+
+                    step_summaries.push(summary.clone());
+                    tally_step_outcome(&mut run_facts, outcome);
+                    frontend.on_event(&WorkflowEvent::StepFinished {
+                        index: step.index,
+                        id: step.id.clone(),
+                        summary,
+                        captures: Vec::new(),
+                        outcome,
+                        reason,
+                        attempts,
+                        duration_ms: step_duration_ms(step_started_at),
+                        error: error_facts,
+                    });
+
+                    if outcome == StepOutcome::Failed {
+                        run_outcome = RunOutcome::Failed;
+                        break;
+                    }
+                    continue 'step_loop;
+                }
 
                 // 1. Load the service schema once. Both the per-step review plan
                 // (when active) and request assembly below need it, so it is
                 // hoisted above the input-collection branch.
+                let op_ref = step.operation.as_ref().ok_or_else(|| {
+                    RuntimeError::internal(format!(
+                        "step '{}': API step reached executor without an operation",
+                        step.id
+                    ))
+                })?;
                 let service_schema = match run_context
                     .runtime
                     .catalogue_mut()
-                    .get_or_load(step.operation.service.as_str())
+                    .get_or_load(op_ref.service.as_str())
                 {
                     Ok(schema) => schema.clone(),
                     Err(error) => {
+                        let facts = ags_protocol::workflow::StepErrorFacts::from_error(&error);
                         finish_step_terminal(
                             frontend,
                             &mut step_summaries,
                             step,
                             format!("{} failed", step.id),
                             StepOutcome::Failed,
+                            Some(ags_protocol::workflow::StepOutcomeReason::SchemaLoad),
+                            0,
+                            step_started_at,
+                            Some(facts),
+                            &mut run_facts,
                         );
                         pending_error = Some(error);
                         run_outcome = RunOutcome::Failed;
@@ -285,24 +646,57 @@ impl Executor {
                             Ok(ags_protocol::workflow::StepReviewOutcome::Skip)
                                 if step.is_optional =>
                             {
-                                skip_step(&mut ctx, frontend, &mut step_summaries, step, None)?;
+                                skip_step(
+                                    &mut ctx,
+                                    frontend,
+                                    &mut step_summaries,
+                                    step,
+                                    ags_protocol::workflow::StepOutcomeReason::DeclinedAtReview,
+                                    None,
+                                    0,
+                                    step_started_at,
+                                    // A user-initiated skip at the review gate:
+                                    // nothing failed, so there is no error triple.
+                                    None,
+                                    &mut run_facts,
+                                )?;
                                 continue;
                             }
                             Ok(ags_protocol::workflow::StepReviewOutcome::Skip) => {
                                 // Defensive: same guard as the confirm gate — a
                                 // Skip for a non-optional step is a frontend bug.
+                                let error = ags_protocol::error::RuntimeError::internal(format!(
+                                    "frontend returned Skip for non-optional step '{}'",
+                                    step.id
+                                ));
+                                let mut facts =
+                                    ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                                facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 finish_step_terminal(
                                     frontend,
                                     &mut step_summaries,
                                     step,
                                     format!("{} failed", step.id),
                                     StepOutcome::Failed,
+                                    Some(
+                                        ags_protocol::workflow::StepOutcomeReason::FrontendContract,
+                                    ),
+                                    0,
+                                    step_started_at,
+                                    Some(facts),
+                                    &mut run_facts,
                                 );
-                                pending_error =
-                                    Some(ags_protocol::error::RuntimeError::internal(format!(
-                                        "frontend returned Skip for non-optional step '{}'",
-                                        step.id
-                                    )));
+                                pending_error = Some(error);
                                 run_outcome = RunOutcome::Failed;
                                 break;
                             }
@@ -313,17 +707,40 @@ impl Executor {
                                     step,
                                     format!("{} cancelled", step.id),
                                     StepOutcome::Cancelled,
+                                    Some(ags_protocol::workflow::StepOutcomeReason::AtReview),
+                                    0,
+                                    step_started_at,
+                                    None,
+                                    &mut run_facts,
                                 );
                                 run_outcome = RunOutcome::Cancelled;
                                 break;
                             }
                             Err(error) => {
+                                let mut facts =
+                                    ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                                facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 finish_step_terminal(
                                     frontend,
                                     &mut step_summaries,
                                     step,
                                     format!("{} failed", step.id),
                                     StepOutcome::Failed,
+                                    Some(ags_protocol::workflow::StepOutcomeReason::Gather),
+                                    0,
+                                    step_started_at,
+                                    Some(facts),
+                                    &mut run_facts,
                                 );
                                 pending_error = Some(error);
                                 run_outcome = RunOutcome::Failed;
@@ -369,12 +786,30 @@ impl Executor {
                                 }
                             }
                             Err(error) => {
+                                let mut facts =
+                                    ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                                facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 finish_step_terminal(
                                     frontend,
                                     &mut step_summaries,
                                     step,
                                     format!("{} failed", step.id),
                                     StepOutcome::Failed,
+                                    Some(ags_protocol::workflow::StepOutcomeReason::Gather),
+                                    0,
+                                    step_started_at,
+                                    Some(facts),
+                                    &mut run_facts,
                                 );
                                 pending_error = Some(error);
                                 run_outcome = RunOutcome::Failed;
@@ -398,12 +833,29 @@ impl Executor {
                 ) {
                     Ok(req) => req,
                     Err(error) => {
+                        let mut facts = ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                        facts.input_fields = step_input_fields_on_failure(
+                            step,
+                            &ctx,
+                            &workflow_supplied,
+                            &step_local,
+                            &compiled.inputs,
+                            &service_schema,
+                            &default_added,
+                            &flag_names,
+                            run_context.options.is_bundled_workflow,
+                        );
                         finish_step_terminal(
                             frontend,
                             &mut step_summaries,
                             step,
                             format!("{} failed", step.id),
                             StepOutcome::Failed,
+                            Some(ags_protocol::workflow::StepOutcomeReason::Assembly),
+                            0,
+                            step_started_at,
+                            Some(facts),
+                            &mut run_facts,
                         );
                         pending_error = Some(error);
                         run_outcome = RunOutcome::Failed;
@@ -419,12 +871,33 @@ impl Executor {
                         match build_step_preview(compiled, step, &request, run_context.runtime) {
                             Ok(p) => p,
                             Err(error) => {
+                                let mut facts =
+                                    ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                                facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 finish_step_terminal(
                                     frontend,
                                     &mut step_summaries,
                                     step,
                                     format!("{} failed", step.id),
                                     StepOutcome::Failed,
+                                    // Building the confirm gate's preview
+                                    // failed: a preview-stage breakage, not the
+                                    // user abandoning at the gate.
+                                    Some(ags_protocol::workflow::StepOutcomeReason::Preview),
+                                    0,
+                                    step_started_at,
+                                    Some(facts),
+                                    &mut run_facts,
                                 );
                                 pending_error = Some(error);
                                 run_outcome = RunOutcome::Failed;
@@ -436,7 +909,19 @@ impl Executor {
                         Ok(ags_protocol::workflow::StepConfirmOutcome::Skip)
                             if step.is_optional =>
                         {
-                            skip_step(&mut ctx, frontend, &mut step_summaries, step, None)?;
+                            skip_step(
+                                &mut ctx,
+                                frontend,
+                                &mut step_summaries,
+                                step,
+                                ags_protocol::workflow::StepOutcomeReason::DeclinedAtConfirm,
+                                None,
+                                0,
+                                step_started_at,
+                                // As at the review gate: a user skip, no error.
+                                None,
+                                &mut run_facts,
+                            )?;
                             continue;
                         }
                         Ok(ags_protocol::workflow::StepConfirmOutcome::Skip) => {
@@ -445,18 +930,36 @@ impl Executor {
                             // strand a downstream reference (the compile rule only
                             // guarantees defaults for skippable steps). Treat as an
                             // internal-invariant failure, not a silent skip.
+                            let error = ags_protocol::error::RuntimeError::internal(format!(
+                                "frontend returned Skip for non-optional step '{}'",
+                                step.id
+                            ));
+                            let mut facts =
+                                ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                            facts.input_fields = step_input_fields_on_failure(
+                                step,
+                                &ctx,
+                                &workflow_supplied,
+                                &step_local,
+                                &compiled.inputs,
+                                &service_schema,
+                                &default_added,
+                                &flag_names,
+                                run_context.options.is_bundled_workflow,
+                            );
                             finish_step_terminal(
                                 frontend,
                                 &mut step_summaries,
                                 step,
                                 format!("{} failed", step.id),
                                 StepOutcome::Failed,
+                                Some(ags_protocol::workflow::StepOutcomeReason::FrontendContract),
+                                0,
+                                step_started_at,
+                                Some(facts),
+                                &mut run_facts,
                             );
-                            pending_error =
-                                Some(ags_protocol::error::RuntimeError::internal(format!(
-                                    "frontend returned Skip for non-optional step '{}'",
-                                    step.id
-                                )));
+                            pending_error = Some(error);
                             run_outcome = RunOutcome::Failed;
                             break;
                         }
@@ -467,17 +970,44 @@ impl Executor {
                                 step,
                                 format!("{} cancelled", step.id),
                                 StepOutcome::Cancelled,
+                                Some(ags_protocol::workflow::StepOutcomeReason::AtConfirm),
+                                0,
+                                step_started_at,
+                                None,
+                                &mut run_facts,
                             );
                             run_outcome = RunOutcome::Cancelled;
                             break;
                         }
                         Err(error) => {
+                            let mut facts =
+                                ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                            facts.input_fields = step_input_fields_on_failure(
+                                step,
+                                &ctx,
+                                &workflow_supplied,
+                                &step_local,
+                                &compiled.inputs,
+                                &service_schema,
+                                &default_added,
+                                &flag_names,
+                                run_context.options.is_bundled_workflow,
+                            );
                             finish_step_terminal(
                                 frontend,
                                 &mut step_summaries,
                                 step,
                                 format!("{} failed", step.id),
                                 StepOutcome::Failed,
+                                // The gate broke as I/O — the user never got to
+                                // answer. `AtConfirm` is reserved for the
+                                // cancellation arm above so one label never
+                                // mixes abandonment with breakage.
+                                Some(ags_protocol::workflow::StepOutcomeReason::Confirm),
+                                0,
+                                step_started_at,
+                                Some(facts),
+                                &mut run_facts,
                             );
                             pending_error = Some(error);
                             run_outcome = RunOutcome::Failed;
@@ -489,7 +1019,11 @@ impl Executor {
                 // 4b. Dispatch: dry-run branch synthesises placeholder outputs
                 // and builds a `StepDryRunPreview`; the live branch dispatches
                 // via `Runtime::run_command` and stores the real `ApiOutput`.
-                let (outcome, summary) = if run_context.options.dry_run {
+                let (outcome, summary, reason, error_facts) = if run_context.options.dry_run {
+                    // A dry run never dispatches, but `attempts: 0` would wrongly
+                    // read as "never called the API" for a step that did run its
+                    // dry-run synthesis; 1 keeps the field meaningful.
+                    attempts = 1;
                     match crate::runtime::workflows::dry_run::synthesise_dry_run_outputs(
                         step,
                         run_context.runtime.catalogue_mut(),
@@ -504,19 +1038,60 @@ impl Executor {
                             ) {
                                 Ok(preview) => {
                                     dry_run_previews.push(preview);
-                                    (StepOutcome::Success, format!("{} dry-run", step.id))
+                                    (
+                                        StepOutcome::Success,
+                                        format!("{} dry-run", step.id),
+                                        None,
+                                        None,
+                                    )
                                 }
                                 Err(error) => {
                                     let s = format!("{} failed", step.id);
+                                    let mut facts =
+                                        ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                                    facts.input_fields = step_input_fields_on_failure(
+                                        step,
+                                        &ctx,
+                                        &workflow_supplied,
+                                        &step_local,
+                                        &compiled.inputs,
+                                        &service_schema,
+                                        &default_added,
+                                        &flag_names,
+                                        run_context.options.is_bundled_workflow,
+                                    );
                                     pending_error = Some(error);
-                                    (StepOutcome::Failed, s)
+                                    (
+                                        StepOutcome::Failed,
+                                        s,
+                                        Some(ags_protocol::workflow::StepOutcomeReason::Preview),
+                                        Some(facts),
+                                    )
                                 }
                             }
                         }
                         Err(error) => {
                             let s = format!("{} failed", step.id);
+                            let mut facts =
+                                ags_protocol::workflow::StepErrorFacts::from_error(&error);
+                            facts.input_fields = step_input_fields_on_failure(
+                                step,
+                                &ctx,
+                                &workflow_supplied,
+                                &step_local,
+                                &compiled.inputs,
+                                &service_schema,
+                                &default_added,
+                                &flag_names,
+                                run_context.options.is_bundled_workflow,
+                            );
                             pending_error = Some(error);
-                            (StepOutcome::Failed, s)
+                            (
+                                StepOutcome::Failed,
+                                s,
+                                Some(ags_protocol::workflow::StepOutcomeReason::Preview),
+                                Some(facts),
+                            )
                         }
                     }
                 } else {
@@ -524,6 +1099,7 @@ impl Executor {
                     // `continue 'step_loop` (skip_step emits its own StepFinished);
                     // success / cancel `break` with the (outcome, summary).
                     loop {
+                        attempts = attempts.saturating_add(1);
                         // Progress events from dispatch are sunk into a tiny adapter
                         // that forwards them as WorkflowEvent::Progress with the step
                         // index attached. The block scope releases the &mut frontend
@@ -535,12 +1111,13 @@ impl Executor {
                             run_context.runtime.run_command(&request, &mut sink).await
                         };
 
-                        // A success path breaks out with its (outcome, summary).
-                        // Dispatch, output-binding, and unexpected-envelope
-                        // failures all funnel into `attempt_error` so every
-                        // failure pauses at the same gate — not just the ones
-                        // that fail at the HTTP layer.
-                        let attempt_error = match dispatch_result {
+                        // A success path breaks out with its (outcome, summary,
+                        // reason, error_facts). Dispatch, output-binding, and
+                        // unexpected-envelope failures all funnel into
+                        // `attempt_error` (paired with the stage it failed at)
+                        // so every failure pauses at the same gate — not just
+                        // the ones that fail at the HTTP layer.
+                        let (attempt_error, attempt_stage) = match dispatch_result {
                             Ok(CommandOutput::Service(api_output)) => {
                                 ctx.store_step_output(&step.id, *api_output);
                                 let body_json = ctx.step_body_json(&step.id);
@@ -553,24 +1130,38 @@ impl Executor {
                                         break (
                                             StepOutcome::Success,
                                             format_step_summary(step, body_json.as_ref()),
+                                            None,
+                                            None,
                                         );
                                     }
-                                    Err(error) => error,
+                                    Err(error) => {
+                                        (error, ags_protocol::workflow::StepOutcomeReason::Capture)
+                                    }
                                 }
                             }
                             Ok(CommandOutput::BinaryWritten(binary)) => {
                                 // A binary response body, or `--output` to a file/
                                 // stdout, was written by `run_command`.
                                 ctx.store_binary_output(&step.id, binary);
-                                break (StepOutcome::Success, format!("{} ok", step.id));
+                                break (
+                                    StepOutcome::Success,
+                                    format!("{} ok", step.id),
+                                    None,
+                                    None,
+                                );
                             }
                             // Dispatch returned a non-Service envelope.
-                            Ok(other) => RuntimeError::internal(format!(
-                                "step '{}' dispatch returned unexpected envelope {:?}",
-                                step.id,
-                                std::mem::discriminant(&other)
-                            )),
-                            Err(error) => error,
+                            Ok(other) => (
+                                RuntimeError::internal(format!(
+                                    "step '{}' dispatch returned unexpected envelope {:?}",
+                                    step.id,
+                                    std::mem::discriminant(&other)
+                                )),
+                                ags_protocol::workflow::StepOutcomeReason::FrontendContract,
+                            ),
+                            Err(error) => {
+                                (error, ags_protocol::workflow::StepOutcomeReason::Dispatch)
+                            }
                         };
 
                         match decide_step_failure(
@@ -578,22 +1169,67 @@ impl Executor {
                             &attempt_error,
                             run_context.options.no_input,
                             frontend,
+                            attempt_stage,
                         )? {
-                            FailureDisposition::Skip { reason } => {
+                            FailureDisposition::Skip {
+                                reason,
+                                summary_tail,
+                            } => {
+                                // Every skip decided here answers a real
+                                // failure (`already_exists`,
+                                // `tolerated_failure`, or the user
+                                // declining at the failure gate), so the
+                                // skip carries the same error triple (and
+                                // resolved input fields) a fatal outcome
+                                // would have.
+                                let mut skip_facts =
+                                    ags_protocol::workflow::StepErrorFacts::from_error(
+                                        &attempt_error,
+                                    );
+                                skip_facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 skip_step(
                                     &mut ctx,
                                     frontend,
                                     &mut step_summaries,
                                     step,
-                                    reason.as_deref(),
+                                    reason,
+                                    summary_tail.as_deref(),
+                                    attempts,
+                                    step_started_at,
+                                    Some(skip_facts),
+                                    &mut run_facts,
                                 )?;
                                 continue 'step_loop;
                             }
                             FailureDisposition::Retry => continue,
-                            FailureDisposition::Fatal => {
+                            FailureDisposition::Fatal { reason } => {
                                 let s = format!("{} failed", step.id);
+                                let mut facts = ags_protocol::workflow::StepErrorFacts::from_error(
+                                    &attempt_error,
+                                );
+                                facts.input_fields = step_input_fields_on_failure(
+                                    step,
+                                    &ctx,
+                                    &workflow_supplied,
+                                    &step_local,
+                                    &compiled.inputs,
+                                    &service_schema,
+                                    &default_added,
+                                    &flag_names,
+                                    run_context.options.is_bundled_workflow,
+                                );
                                 pending_error = Some(attempt_error);
-                                break (StepOutcome::Failed, s);
+                                break (StepOutcome::Failed, s, Some(reason), Some(facts));
                             }
                         }
                     }
@@ -613,12 +1249,17 @@ impl Executor {
                 } else {
                     Vec::new()
                 };
+                tally_step_outcome(&mut run_facts, outcome);
                 frontend.on_event(&WorkflowEvent::StepFinished {
                     index: step.index,
                     id: step.id.clone(),
                     summary,
                     captures,
                     outcome,
+                    reason,
+                    attempts,
+                    duration_ms: step_duration_ms(step_started_at),
+                    error: error_facts,
                 });
 
                 if outcome == StepOutcome::Failed {
@@ -642,48 +1283,127 @@ impl Executor {
             None
         };
 
+        run_facts.duration_ms = step_duration_ms(run_started_at);
         frontend.on_event(&WorkflowEvent::WorkflowFinished {
             outcome: run_outcome,
+            facts: run_facts,
         });
         Ok((run_outcome, final_output, pending_error))
     }
 }
 
-/// Emit a terminal `StepFinished` event (no captures) and record its summary.
-/// Shared by every per-step early exit — schema load, review, gather, assembly,
-/// confirm, and preview failures or cancellations — so the bookkeeping stays in
-/// one place. The success path emits its own `StepFinished` with real captures.
+/// Elapsed milliseconds since `started_at`, saturating rather than wrapping on
+/// an implausibly long run.
+fn step_duration_ms(started_at: std::time::Instant) -> u64 {
+    u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+/// Build a failed step's `input_fields` telemetry facts by resolving its
+/// field plan lazily — called only once a step has already failed and a
+/// `StepErrorFacts` is being built for it, so the success path never pays
+/// this cost. Degrades to an empty vector if `resolve_step_fields` itself
+/// errors: this is telemetry and must never affect the run outcome.
+#[allow(clippy::too_many_arguments)]
+fn step_input_fields_on_failure(
+    step: &ags_protocol::workflow::CompiledStep,
+    ctx: &crate::runtime::workflows::WorkflowContext,
+    workflow_supplied: &std::collections::BTreeMap<String, serde_json::Value>,
+    step_local: &std::collections::BTreeMap<String, serde_json::Value>,
+    workflow_input_specs: &[ags_protocol::workflow::WorkflowInputSpec],
+    service_schema: &ags_protocol::catalogue::ServiceSchema,
+    default_names: &std::collections::BTreeSet<String>,
+    flag_names: &std::collections::BTreeSet<String>,
+    bundled: bool,
+) -> Vec<ags_protocol::workflow::StepInputField> {
+    let plan = match crate::runtime::workflows::resolve::resolve_step_fields(
+        step,
+        ctx,
+        workflow_supplied,
+        step_local,
+        workflow_input_specs,
+        service_schema,
+        default_names,
+    ) {
+        Ok(plan) => plan,
+        Err(_) => return Vec::new(),
+    };
+    crate::runtime::workflows::telemetry_fields::build_step_input_fields(
+        &plan.fields,
+        flag_names,
+        bundled,
+    )
+}
+
+/// Tally one terminal step outcome into the run aggregate.
+fn tally_step_outcome(facts: &mut ags_protocol::workflow::RunFacts, outcome: StepOutcome) {
+    match outcome {
+        StepOutcome::Success => facts.steps_succeeded += 1,
+        StepOutcome::Failed => facts.steps_failed += 1,
+        StepOutcome::Skipped => facts.steps_skipped += 1,
+        StepOutcome::Cancelled => facts.steps_cancelled += 1,
+    }
+}
+
+/// Emit a terminal `StepFinished` event (no captures), record its summary, and
+/// tally its outcome into the run aggregate. Shared by every per-step early
+/// exit — schema load, review, gather, assembly, confirm, and preview failures
+/// or cancellations — so the bookkeeping stays in one place. The success path
+/// emits its own `StepFinished` with real captures and tallies separately.
+#[allow(clippy::too_many_arguments)]
 fn finish_step_terminal(
     frontend: &mut dyn WorkflowFrontend,
     step_summaries: &mut Vec<String>,
     step: &ags_protocol::workflow::CompiledStep,
     summary: String,
     outcome: StepOutcome,
+    reason: Option<ags_protocol::workflow::StepOutcomeReason>,
+    attempts: u32,
+    started_at: std::time::Instant,
+    error: Option<ags_protocol::workflow::StepErrorFacts>,
+    facts: &mut ags_protocol::workflow::RunFacts,
 ) {
     step_summaries.push(summary.clone());
+    tally_step_outcome(facts, outcome);
     frontend.on_event(&WorkflowEvent::StepFinished {
         index: step.index,
         id: step.id.clone(),
         summary,
         captures: Vec::new(),
         outcome,
+        reason,
+        attempts,
+        duration_ms: step_duration_ms(started_at),
+        error,
     });
 }
 
 /// Bind a skipped step's outputs to their defaults and emit its terminal
 /// `StepFinished(Skipped)`. Callers `continue` the step loop afterwards.
-/// `reason` is `Some(text)` for a failure-triggered skip (`continue_on_failure`)
-/// and `None` for a user-chosen skip.
+/// `reason` is the typed telemetry label for why the step was skipped;
+/// `summary_tail` is the prose the human summary appends (kept separate
+/// because it can embed raw API error text and must never be transmitted).
+/// `error` carries the transmittable facts of the failure the skip was a
+/// response to — `Some` for the three failure-driven skips (`already_exists`,
+/// `tolerated_failure`, `declined_after_failure`), `None` for the two
+/// user-initiated ones (review/confirm), which have no error in hand.
+/// Tallying happens inside `finish_step_terminal`, not here — this delegates
+/// to it and must not tally on its own, or every skip would be double-counted.
+#[allow(clippy::too_many_arguments)]
 fn skip_step(
     ctx: &mut crate::runtime::workflows::WorkflowContext,
     frontend: &mut dyn WorkflowFrontend,
     step_summaries: &mut Vec<String>,
     step: &ags_protocol::workflow::CompiledStep,
-    reason: Option<&str>,
+    reason: ags_protocol::workflow::StepOutcomeReason,
+    summary_tail: Option<&str>,
+    attempts: u32,
+    started_at: std::time::Instant,
+    error: Option<ags_protocol::workflow::StepErrorFacts>,
+    facts: &mut ags_protocol::workflow::RunFacts,
 ) -> Result<(), ags_protocol::error::RuntimeError> {
     ctx.bind_skipped_outputs(&step.id, &step.outputs)?;
-    let summary = match reason {
-        Some(r) => format!("{} skipped — {}", step.id, r),
+    let summary = match summary_tail {
+        Some(tail) => format!("{} skipped — {}", step.id, tail),
         None => format!("{} skipped", step.id),
     };
     finish_step_terminal(
@@ -692,6 +1412,11 @@ fn skip_step(
         step,
         summary,
         StepOutcome::Skipped,
+        Some(reason),
+        attempts,
+        started_at,
+        error,
+        facts,
     );
     Ok(())
 }
@@ -772,7 +1497,6 @@ fn apply_step_review_edits(
 /// source step's own captures) and the synthetic body-overflow field.
 /// Returns an empty vec when the plan can't be resolved — the rest of the
 /// run still has a useful summary even without captures.
-#[allow(clippy::too_many_arguments)]
 pub fn build_step_captures(
     step: &ags_protocol::workflow::CompiledStep,
     ctx: &crate::runtime::workflows::WorkflowContext,
@@ -906,37 +1630,56 @@ pub(crate) fn is_safely_skippable(step: &ags_protocol::workflow::CompiledStep) -
 }
 
 /// Outcome of deciding what to do with a failed step (no I/O).
+#[derive(Debug)]
 pub(crate) enum FailureDisposition {
-    /// Skip the step and continue. `reason` labels the summary (`None` = a plain
-    /// user skip; `Some` = tolerated / already-exists).
-    Skip { reason: Option<String> },
+    /// Skip the step and continue. `reason` is the typed telemetry label;
+    /// `summary_tail` is the prose the human summary appends, kept separate
+    /// because it can embed raw API error text and must never be transmitted.
+    Skip {
+        reason: ags_protocol::workflow::StepOutcomeReason,
+        summary_tail: Option<String>,
+    },
     /// Re-dispatch the same step.
     Retry,
-    /// Stop the run; the error stands.
-    Fatal,
+    /// Stop the run; the error stands. `reason` names the stage the failure is
+    /// attributed to: the attempt's own failing stage when the run gave up
+    /// unattended (`--no-input`), or the gate the user was at when they either
+    /// declined an unsafe skip (`FrontendContract`) or chose to cancel
+    /// (`AtFailureGate`).
+    Fatal {
+        reason: ags_protocol::workflow::StepOutcomeReason,
+    },
 }
 
 /// Decide what to do when `step`'s dispatch returns `error`. Pure: consults the
 /// step flags, the error, `no_input`, and — only when interactive — the frontend
-/// gate. Order matches the design's precedence.
+/// gate. Order matches the design's precedence. `attempt_stage` is the stage the
+/// current attempt actually failed at (dispatch, capture, or a frontend-contract
+/// violation); it becomes the `Fatal` reason only on the `--no-input` short
+/// circuit, where there is no interactive gate to attribute the failure to.
 pub(crate) fn decide_step_failure(
     step: &ags_protocol::workflow::CompiledStep,
     error: &RuntimeError,
     no_input: bool,
     frontend: &mut dyn WorkflowFrontend,
+    attempt_stage: ags_protocol::workflow::StepOutcomeReason,
 ) -> Result<FailureDisposition, RuntimeError> {
     if step.continue_on_failure {
         return Ok(FailureDisposition::Skip {
-            reason: Some(error_reason_tail(error)),
+            reason: ags_protocol::workflow::StepOutcomeReason::ToleratedFailure,
+            summary_tail: Some(error_reason_tail(error)),
         });
     }
     if step.skip_if_exists && is_conflict(error) {
         return Ok(FailureDisposition::Skip {
-            reason: Some("already exists".to_string()),
+            reason: ags_protocol::workflow::StepOutcomeReason::AlreadyExists,
+            summary_tail: Some("already exists".to_string()),
         });
     }
     if no_input {
-        return Ok(FailureDisposition::Fatal);
+        return Ok(FailureDisposition::Fatal {
+            reason: attempt_stage,
+        });
     }
     let safe = is_safely_skippable(step);
     match frontend.resolve_step_failure(step, error, safe)? {
@@ -945,11 +1688,16 @@ pub(crate) fn decide_step_failure(
         // buggy/default/test frontend could still return Skip. Skipping an unsafe
         // step would bind a null into a needed downstream reference, so treat it
         // as Fatal — never skip an unsafe step regardless of the frontend.
-        ags_protocol::workflow::StepFailureAction::Skip if safe => {
-            Ok(FailureDisposition::Skip { reason: None })
-        }
-        ags_protocol::workflow::StepFailureAction::Skip => Ok(FailureDisposition::Fatal),
-        ags_protocol::workflow::StepFailureAction::Cancel => Ok(FailureDisposition::Fatal),
+        ags_protocol::workflow::StepFailureAction::Skip if safe => Ok(FailureDisposition::Skip {
+            reason: ags_protocol::workflow::StepOutcomeReason::DeclinedAfterFailure,
+            summary_tail: None,
+        }),
+        ags_protocol::workflow::StepFailureAction::Skip => Ok(FailureDisposition::Fatal {
+            reason: ags_protocol::workflow::StepOutcomeReason::FrontendContract,
+        }),
+        ags_protocol::workflow::StepFailureAction::Cancel => Ok(FailureDisposition::Fatal {
+            reason: ags_protocol::workflow::StepOutcomeReason::AtFailureGate,
+        }),
     }
 }
 
@@ -986,10 +1734,16 @@ pub fn build_final_output(
     workflow_supplied: &std::collections::BTreeMap<String, serde_json::Value>,
 ) -> Option<CommandOutput> {
     if options.dry_run {
+        // A synthesised single command reports the bare request, so `--dry-run`
+        // on `ags <service> <resource> <method>` looks the same as it always
+        // has. A lone local-action step has no request and falls through to the
+        // multi-step envelope.
         if compiled.steps.len() == 1 {
-            return dry_run_previews
-                .first()
-                .map(|p| CommandOutput::DryRun(p.command.clone()));
+            if let Some(ags_protocol::workflow::StepDryRunAction::Request(command)) =
+                dry_run_previews.first().map(|p| &p.action)
+            {
+                return Some(CommandOutput::DryRun(command.clone()));
+            }
         }
         return Some(CommandOutput::WorkflowDryRun {
             workflow_id: compiled.id.clone(),
@@ -1100,6 +1854,17 @@ pub fn no_input_precheck(
     issues
 }
 
+/// Machine-readable code for the first violation's kind. Only the *kind* is
+/// encoded — never an input, step, or field name, which are user-authored for
+/// an external workflow and must not be transmitted.
+fn no_input_violation_code(violation: &NoInputViolation) -> &'static str {
+    match violation {
+        NoInputViolation::MissingInput { .. } => "no_input.missing_input",
+        NoInputViolation::ConfirmRequired { .. } => "no_input.confirm_required",
+        NoInputViolation::StepLocalGather { .. } => "no_input.step_local_gather",
+    }
+}
+
 /// Build an aggregated `RuntimeError` from a non-empty violation list.
 pub fn no_input_violations_to_error(
     violations: &[NoInputViolation],
@@ -1163,7 +1928,9 @@ pub fn no_input_violations_to_error(
             lines.join("\n  ")
         ),
         details: Some(Box::new(ErrorDetails {
-            code: None,
+            code: violations
+                .first()
+                .map(|v| no_input_violation_code(v).to_string()),
             reason: Some(
                 "The run is non-interactive (--no-input, or stdin and stderr are not terminals)."
                     .to_string(),
@@ -1558,10 +2325,12 @@ mod tests {
             id: id.into(),
             index,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("svc"),
                 operation: OperationId::new("op"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1733,6 +2502,12 @@ mod tests {
         }
     }
 
+    /// Arbitrary attempt-stage fixture for `decide_step_failure` tests that
+    /// don't care which stage the attempt failed at.
+    fn dispatch_stage() -> ags_protocol::workflow::StepOutcomeReason {
+        ags_protocol::workflow::StepOutcomeReason::Dispatch
+    }
+
     fn upstream(status: u16) -> RuntimeError {
         RuntimeError {
             kind: ags_protocol::error::RuntimeErrorKind::Upstream { status, code: None },
@@ -1776,7 +2551,8 @@ mod tests {
         let mut step = compiled_step("s", 0);
         step.continue_on_failure = true;
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
-        let d = decide_step_failure(&step, &upstream(500), false, &mut fe).unwrap();
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
         assert!(matches!(d, FailureDisposition::Skip { .. }));
         assert_eq!(
             fe.calls.get(),
@@ -1790,14 +2566,92 @@ mod tests {
         let mut step = compiled_step("s", 0);
         step.skip_if_exists = true;
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
-        let d = decide_step_failure(&step, &already_exists_409(), false, &mut fe).unwrap();
+        let d = decide_step_failure(
+            &step,
+            &already_exists_409(),
+            false,
+            &mut fe,
+            dispatch_stage(),
+        )
+        .unwrap();
         match d {
-            FailureDisposition::Skip { reason } => {
-                assert_eq!(reason.as_deref(), Some("already exists"))
+            FailureDisposition::Skip {
+                reason,
+                summary_tail,
+            } => {
+                assert_eq!(
+                    reason,
+                    ags_protocol::workflow::StepOutcomeReason::AlreadyExists
+                );
+                assert_eq!(summary_tail.as_deref(), Some("already exists"));
             }
             _ => panic!("expected Skip"),
         }
         assert_eq!(fe.calls.get(), 0, "no gate for auto-skip");
+    }
+
+    #[test]
+    fn test_decide_step_failure_labels_skip_if_exists_as_already_exists() {
+        let mut step = compiled_step("s", 0);
+        step.skip_if_exists = true;
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
+        match decide_step_failure(
+            &step,
+            &already_exists_409(),
+            false,
+            &mut fe,
+            dispatch_stage(),
+        )
+        .unwrap()
+        {
+            FailureDisposition::Skip { reason, .. } => {
+                assert_eq!(
+                    reason,
+                    ags_protocol::workflow::StepOutcomeReason::AlreadyExists
+                );
+            }
+            other => panic!("expected Skip, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_decide_step_failure_labels_continue_on_failure_as_tolerated() {
+        let mut step = compiled_step("s", 0);
+        step.continue_on_failure = true;
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
+        match decide_step_failure(
+            &step,
+            &already_exists_409(),
+            false,
+            &mut fe,
+            dispatch_stage(),
+        )
+        .unwrap()
+        {
+            FailureDisposition::Skip { reason, .. } => {
+                assert_eq!(
+                    reason,
+                    ags_protocol::workflow::StepOutcomeReason::ToleratedFailure
+                );
+            }
+            other => panic!("expected Skip, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_decide_step_failure_labels_gate_skip_as_declined_after_failure() {
+        let step = compiled_step("s", 0); // no captures → safely skippable
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Skip);
+        match decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap()
+        {
+            FailureDisposition::Skip { reason, .. } => {
+                assert_eq!(
+                    reason,
+                    ags_protocol::workflow::StepOutcomeReason::DeclinedAfterFailure
+                );
+            }
+            other => panic!("expected Skip, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1807,7 +2661,8 @@ mod tests {
         let mut step = compiled_step("s", 0);
         step.skip_if_exists = true;
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Retry);
-        let d = decide_step_failure(&step, &upstream(409), false, &mut fe).unwrap();
+        let d =
+            decide_step_failure(&step, &upstream(409), false, &mut fe, dispatch_stage()).unwrap();
         assert!(matches!(d, FailureDisposition::Retry));
         assert_eq!(fe.calls.get(), 1, "bare 409 is not auto-skipped");
     }
@@ -1817,7 +2672,8 @@ mod tests {
         let mut step = compiled_step("s", 0);
         step.skip_if_exists = true;
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Retry);
-        let d = decide_step_failure(&step, &upstream(500), false, &mut fe).unwrap();
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
         assert!(matches!(d, FailureDisposition::Retry));
         assert_eq!(fe.calls.get(), 1);
     }
@@ -1826,8 +2682,15 @@ mod tests {
     fn test_decide_unmarked_409_goes_to_gate_with_allow_skip_flag() {
         let step = compiled_step("s", 0); // no captures → safely skippable
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Skip);
-        let d = decide_step_failure(&step, &upstream(409), false, &mut fe).unwrap();
-        assert!(matches!(d, FailureDisposition::Skip { reason: None }));
+        let d =
+            decide_step_failure(&step, &upstream(409), false, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(
+            d,
+            FailureDisposition::Skip {
+                reason: ags_protocol::workflow::StepOutcomeReason::DeclinedAfterFailure,
+                summary_tail: None
+            }
+        ));
         assert!(
             fe.last_allow_skip.get(),
             "no-capture step is safely skippable"
@@ -1843,8 +2706,9 @@ mod tests {
         // never exercised. If the coupling ever loosens, this test fails.
         let step = compiled_step("s", 0);
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Retry);
-        let d = decide_step_failure(&step, &upstream(500), true, &mut fe).unwrap();
-        assert!(matches!(d, FailureDisposition::Fatal));
+        let d =
+            decide_step_failure(&step, &upstream(500), true, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(d, FailureDisposition::Fatal { .. }));
         assert_eq!(
             fe.calls.get(),
             0,
@@ -1856,8 +2720,9 @@ mod tests {
     fn test_decide_unsafe_step_gate_allow_skip_false() {
         let step = defaultless_capture_step();
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
-        let d = decide_step_failure(&step, &upstream(500), false, &mut fe).unwrap();
-        assert!(matches!(d, FailureDisposition::Fatal));
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(d, FailureDisposition::Fatal { .. }));
         assert!(
             !fe.last_allow_skip.get(),
             "defaultless capture is not safely skippable"
@@ -1870,9 +2735,10 @@ mod tests {
         // the decision must NOT skip — that would break downstream.
         let step = defaultless_capture_step();
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Skip);
-        let d = decide_step_failure(&step, &upstream(500), false, &mut fe).unwrap();
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
         assert!(
-            matches!(d, FailureDisposition::Fatal),
+            matches!(d, FailureDisposition::Fatal { .. }),
             "unsafe + Skip must be Fatal"
         );
         assert!(!fe.last_allow_skip.get(), "gate was told allow_skip=false");
@@ -1882,9 +2748,66 @@ mod tests {
     fn test_decide_no_input_is_fatal_without_gate() {
         let step = compiled_step("s", 0);
         let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Skip);
-        let d = decide_step_failure(&step, &upstream(500), true, &mut fe).unwrap();
-        assert!(matches!(d, FailureDisposition::Fatal));
+        let d =
+            decide_step_failure(&step, &upstream(500), true, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(d, FailureDisposition::Fatal { .. }));
         assert_eq!(fe.calls.get(), 0, "no gate in no_input mode");
+    }
+
+    /// The `--no-input` short circuit attributes the Fatal reason to the
+    /// stage the attempt actually failed at, not a fixed label.
+    #[test]
+    fn test_decide_no_input_fatal_carries_attempt_stage() {
+        let step = compiled_step("s", 0);
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Retry);
+        let d = decide_step_failure(
+            &step,
+            &upstream(500),
+            true,
+            &mut fe,
+            ags_protocol::workflow::StepOutcomeReason::Capture,
+        )
+        .unwrap();
+        assert!(matches!(
+            d,
+            FailureDisposition::Fatal {
+                reason: ags_protocol::workflow::StepOutcomeReason::Capture
+            }
+        ));
+    }
+
+    /// The defensive downgrade — a frontend returning `Skip` for an unsafe
+    /// step — must be labelled `FrontendContract`, distinguishing "the
+    /// frontend broke the contract" from every other Fatal cause.
+    #[test]
+    fn test_decide_unsafe_step_skip_from_frontend_labels_frontend_contract() {
+        let step = defaultless_capture_step();
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Skip);
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(
+            d,
+            FailureDisposition::Fatal {
+                reason: ags_protocol::workflow::StepOutcomeReason::FrontendContract
+            }
+        ));
+    }
+
+    /// A user-chosen Cancel at the interactive failure gate must be labelled
+    /// `AtFailureGate`, distinguishing "the user gave up" from an unattended
+    /// failure.
+    #[test]
+    fn test_decide_cancel_from_frontend_labels_at_failure_gate() {
+        let step = compiled_step("s", 0);
+        let mut fe = FailureFrontend::new(ags_protocol::workflow::StepFailureAction::Cancel);
+        let d =
+            decide_step_failure(&step, &upstream(500), false, &mut fe, dispatch_stage()).unwrap();
+        assert!(matches!(
+            d,
+            FailureDisposition::Fatal {
+                reason: ags_protocol::workflow::StepOutcomeReason::AtFailureGate
+            }
+        ));
     }
 
     /// Build a `WorkflowInputSpec` fixture.
@@ -1898,6 +2821,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: Default::default(),
+            file_picker: None,
         }
     }
 
@@ -2479,5 +3403,355 @@ mod tests {
             /* force_pause */ true,
             &plan
         ));
+    }
+
+    // --- input-provenance counting -----------------------------------------
+
+    /// Build a runtime whose HTTP client panics if dispatched; the
+    /// provenance fixtures declare zero steps, so dispatch is never reached.
+    fn provenance_test_runtime() -> crate::runtime::Runtime {
+        use crate::runtime::dispatch::http::{HttpClient, HttpRequest, HttpResponse};
+
+        struct NeverClient;
+        #[async_trait::async_trait]
+        impl HttpClient for NeverClient {
+            async fn send(&self, _: HttpRequest) -> Result<HttpResponse, RuntimeError> {
+                unreachable!("provenance fixtures declare no steps to dispatch")
+            }
+        }
+
+        crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext::default(),
+            Box::new(NeverClient),
+            reqwest::Client::new(),
+        )
+    }
+
+    /// Zero-step workflow declaring two inputs: `flagged` (no default, meant
+    /// to be pre-supplied) and `defaulted` (carries a declared default).
+    fn provenance_workflow() -> CompiledWorkflow {
+        let mut defaulted = input_spec("defaulted");
+        defaulted.default = Some(serde_json::json!("dv"));
+        CompiledWorkflow {
+            id: WorkflowId::new("wf"),
+            name: "WF".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![input_spec("flagged"), defaulted],
+            is_reviewed_by_default: true,
+            steps: vec![],
+            outputs: vec![],
+            completion: None,
+        }
+    }
+
+    /// Frontend for provenance fixtures: records the `RunFacts` carried by
+    /// `WorkflowFinished`, and lets a test simulate a prompted value by
+    /// returning it from `collect_workflow_inputs`.
+    #[derive(Default)]
+    struct ProvenanceFrontend {
+        finished_facts: Option<ags_protocol::workflow::RunFacts>,
+        prompted_inputs: BTreeMap<String, serde_json::Value>,
+    }
+
+    impl WorkflowFrontend for ProvenanceFrontend {
+        fn on_event(&mut self, event: &WorkflowEvent) {
+            if let WorkflowEvent::WorkflowFinished { facts, .. } = event {
+                self.finished_facts = Some(facts.clone());
+            }
+        }
+
+        fn gather_workflow_inputs(
+            &mut self,
+            _needed: &[ags_protocol::workflow::WorkflowInputNeeded],
+            _step_context: &CompiledStep,
+            _supplied: &[ags_protocol::workflow::SuppliedInputView],
+        ) -> Result<ags_protocol::workflow::GatherResult, RuntimeError> {
+            unreachable!("provenance fixtures declare no steps to gather inputs for")
+        }
+
+        fn confirm_step(
+            &mut self,
+            _step: &CompiledStep,
+            _preview: &ags_protocol::workflow::StepPreview,
+        ) -> Result<ags_protocol::workflow::StepConfirmOutcome, RuntimeError> {
+            unreachable!("provenance fixtures declare no steps to confirm")
+        }
+
+        fn collect_workflow_inputs(
+            &mut self,
+            _specs: &[WorkflowInputSpec],
+            current: &BTreeMap<String, serde_json::Value>,
+        ) -> Result<Option<ags_protocol::workflow::CollectOutcome>, RuntimeError> {
+            let mut inputs = current.clone();
+            for (name, value) in &self.prompted_inputs {
+                inputs.insert(name.clone(), value.clone());
+            }
+            Ok(Some(ags_protocol::workflow::CollectOutcome {
+                inputs,
+                run_mode: ags_protocol::workflow::RunMode::ReviewInputSteps,
+            }))
+        }
+    }
+
+    /// Run `provenance_workflow` with `flagged` pre-supplied (as a CLI flag
+    /// would) and `defaulted` left unset so the default-layering loop fills
+    /// it. `review_steps` stays false, so Phase 1 never runs.
+    async fn run_workflow_with_one_flag_and_one_default(frontend: &mut ProvenanceFrontend) {
+        let compiled = provenance_workflow();
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("flagged".to_string(), serde_json::json!("fv"));
+        let options = RunOptions::default();
+        let mut runtime = provenance_test_runtime();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let _ = Executor::execute(&compiled, pre_supplied, frontend, &mut run_context).await;
+    }
+
+    #[tokio::test]
+    async fn test_run_facts_count_flag_and_default_provenance() {
+        let mut frontend = ProvenanceFrontend::default();
+        run_workflow_with_one_flag_and_one_default(&mut frontend).await;
+        let facts = frontend
+            .finished_facts
+            .expect("WorkflowFinished must be emitted");
+        assert_eq!(facts.inputs_from_flag, 1);
+        assert_eq!(facts.inputs_from_default, 1);
+        assert_eq!(facts.inputs_from_prompt, 0);
+        assert_eq!(facts.inputs_edited_in_form, 0);
+    }
+
+    #[tokio::test]
+    async fn test_run_facts_count_prompted_input_provenance() {
+        // `review_steps: true` so Phase 1 runs; nothing is pre-supplied, so
+        // `flagged` enters Phase 1 with no value at all and `defaulted`
+        // enters holding its declared default. The frontend's
+        // `collect_workflow_inputs` fills `flagged` (present in neither
+        // `flag_names` nor `default_added` — the prompt branch) and changes
+        // `defaulted` away from its declared default. Both values differ from
+        // their pre-Phase-1 state (`None` vs `Some`, and `Some(default)` vs
+        // `Some(edited)`), so both count as edited — filling in a
+        // previously-unset input is, by this diff, an edit too.
+        let compiled = provenance_workflow();
+        let mut frontend = ProvenanceFrontend {
+            finished_facts: None,
+            prompted_inputs: BTreeMap::from([
+                ("flagged".to_string(), serde_json::json!("typed")),
+                ("defaulted".to_string(), serde_json::json!("edited")),
+            ]),
+        };
+        let options = RunOptions {
+            review_steps: true,
+            ..Default::default()
+        };
+        let mut runtime = provenance_test_runtime();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let _ =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context).await;
+        let facts = frontend
+            .finished_facts
+            .expect("WorkflowFinished must be emitted");
+        assert_eq!(facts.inputs_from_flag, 0);
+        assert_eq!(
+            facts.inputs_from_default, 1,
+            "defaulted is still attributed to the declared default even though the form changed its value"
+        );
+        assert_eq!(
+            facts.inputs_from_prompt, 1,
+            "flagged was supplied at the run-start form, not by flag or default"
+        );
+        assert_eq!(
+            facts.inputs_edited_in_form, 2,
+            "both flagged (filled from nothing) and defaulted (changed) differ from their pre-Phase-1 value"
+        );
+    }
+
+    /// A local-action step failure must carry `StepErrorFacts` in the
+    /// `StepFinished` event so that telemetry receives the error
+    /// classification.
+    #[test]
+    fn test_local_step_failure_carries_error_facts_in_step_finished() {
+        use ags_protocol::error::RuntimeError;
+        use ags_protocol::workflow::{RunFacts, StepErrorFacts, WorkflowEvent, WorkflowFrontend};
+        use std::sync::Mutex;
+
+        /// Recording frontend that captures the `StepFinished` event's `error`.
+        struct Recorder(Mutex<Option<Option<StepErrorFacts>>>);
+        impl WorkflowFrontend for Recorder {
+            fn on_event(&mut self, event: &WorkflowEvent) {
+                if let WorkflowEvent::StepFinished { error, .. } = event {
+                    *self.0.lock().unwrap() = Some(error.clone());
+                }
+            }
+            fn gather_workflow_inputs(
+                &mut self,
+                _: &[ags_protocol::workflow::WorkflowInputNeeded],
+                _: &ags_protocol::workflow::CompiledStep,
+                _: &[ags_protocol::workflow::SuppliedInputView],
+            ) -> Result<ags_protocol::workflow::GatherResult, RuntimeError> {
+                Ok(ags_protocol::workflow::GatherResult::default())
+            }
+            fn confirm_step(
+                &mut self,
+                _: &ags_protocol::workflow::CompiledStep,
+                _: &ags_protocol::workflow::StepPreview,
+            ) -> Result<ags_protocol::workflow::StepConfirmOutcome, RuntimeError> {
+                Ok(ags_protocol::workflow::StepConfirmOutcome::Proceed)
+            }
+        }
+
+        let mut step = compiled_step("upload-image", 0);
+        step.operation = None;
+        step.kind = ags_protocol::workflow::StepKind::Local;
+        step.action = Some("ams/upload-image".to_string());
+
+        let error = RuntimeError::internal("ams/upload-image failed — directory not found");
+        let facts = StepErrorFacts::from_error(&error);
+
+        let mut recorder = Recorder(Mutex::new(None));
+        let mut summaries = Vec::new();
+        let mut run_facts = RunFacts::default();
+
+        finish_step_terminal(
+            &mut recorder,
+            &mut summaries,
+            &step,
+            "upload-image failed".into(),
+            StepOutcome::Failed,
+            None,
+            1,
+            std::time::Instant::now(),
+            Some(facts),
+            &mut run_facts,
+        );
+
+        let recorded = recorder
+            .0
+            .lock()
+            .unwrap()
+            .take()
+            .expect("StepFinished event must be emitted");
+        let error_facts = recorded.expect("error must be Some for a local step failure");
+        assert_eq!(
+            error_facts.class, "internal",
+            "class must reflect the underlying RuntimeError kind"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // FIX 2: A local action that fails during dry-run must produce a
+    // StepFinished(Failed) event and increment steps_failed, rather
+    // than escaping the executor via bare `?`.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_dry_run_local_action_failure_uses_step_bookkeeping() {
+        use std::sync::Mutex;
+
+        /// Captures StepFinished events emitted by the executor.
+        struct EventCapture {
+            finished: Mutex<Vec<(String, StepOutcome)>>,
+        }
+        impl EventCapture {
+            fn new() -> Self {
+                Self {
+                    finished: Mutex::new(Vec::new()),
+                }
+            }
+        }
+        impl WorkflowFrontend for EventCapture {
+            fn on_event(&mut self, event: &WorkflowEvent) {
+                if let WorkflowEvent::StepFinished { id, outcome, .. } = event {
+                    self.finished.lock().unwrap().push((id.clone(), *outcome));
+                }
+            }
+            fn gather_workflow_inputs(
+                &mut self,
+                _: &[ags_protocol::workflow::WorkflowInputNeeded],
+                _: &CompiledStep,
+                _: &[ags_protocol::workflow::SuppliedInputView],
+            ) -> Result<ags_protocol::workflow::GatherResult, RuntimeError> {
+                unreachable!("dry_run + assume_yes should not gather")
+            }
+            fn confirm_step(
+                &mut self,
+                _: &CompiledStep,
+                _: &ags_protocol::workflow::StepPreview,
+            ) -> Result<ags_protocol::workflow::StepConfirmOutcome, RuntimeError> {
+                unreachable!("dry_run should not confirm")
+            }
+        }
+
+        struct NeverClient;
+        #[async_trait::async_trait]
+        impl crate::runtime::dispatch::http::HttpClient for NeverClient {
+            async fn send(
+                &self,
+                _: crate::runtime::dispatch::http::HttpRequest,
+            ) -> Result<crate::runtime::dispatch::http::HttpResponse, RuntimeError> {
+                unreachable!("dry_run + local action should not dispatch HTTP")
+            }
+        }
+
+        let mut step = compiled_step("fail-step", 0);
+        step.kind = ags_protocol::workflow::StepKind::Local;
+        step.action = Some("test-fail".into());
+        step.operation = None;
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("test-wf"),
+            name: "Test".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: false,
+            steps: vec![step],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext::default(),
+            Box::new(NeverClient),
+            reqwest::Client::new(),
+        );
+        let options = RunOptions {
+            dry_run: true,
+            assume_yes: true,
+            no_input: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let mut frontend = EventCapture::new();
+
+        let result =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context).await;
+
+        // With the fix: the error is captured in step bookkeeping, not
+        // propagated via bare `?`. The executor returns Ok with a Failed
+        // outcome and the error in pending_error.
+        let (outcome, _, pending_error) = result.expect(
+            "dry-run action failure must be captured in step bookkeeping, \
+             not escape the executor as bare Err",
+        );
+        assert_eq!(
+            outcome,
+            RunOutcome::Failed,
+            "run outcome must be Failed when the local action fails"
+        );
+        assert!(
+            pending_error.is_some(),
+            "pending_error must carry the action's error"
+        );
+
+        // StepFinished must have been emitted with Failed outcome.
+        let finished = frontend.finished.lock().unwrap();
+        assert_eq!(finished.len(), 1, "exactly one StepFinished expected");
+        assert_eq!(finished[0].0, "fail-step");
+        assert_eq!(
+            finished[0].1,
+            StepOutcome::Failed,
+            "StepFinished must carry Failed outcome"
+        );
     }
 }

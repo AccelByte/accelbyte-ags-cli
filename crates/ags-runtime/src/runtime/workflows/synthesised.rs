@@ -80,6 +80,7 @@ pub fn synthesise_workflow_definition(
             sensitive: false,
             options_source: None,
             location: param_location_to_field_location(param.location),
+            file_picker: None,
         });
     }
 
@@ -119,6 +120,7 @@ pub fn synthesise_workflow_definition(
                         sensitive: false,
                         options_source: None,
                         location: StepFieldLocation::Body,
+                        file_picker: None,
                     });
                 }
             }
@@ -133,6 +135,7 @@ pub fn synthesise_workflow_definition(
     Ok(WorkflowDefinition {
         id: workflow_id,
         name: format!("{} {}", service.as_str(), operation_id.as_str()),
+        workflow_protocol_version: None,
         intent: None,
         description: None,
         briefing: None,
@@ -141,10 +144,12 @@ pub fn synthesise_workflow_definition(
         steps: vec![StepDefinition {
             id: "main".into(),
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: service.clone(),
                 operation: operation_id.clone(),
-            },
+            }),
             dependencies: vec![],
             confirm: requires_confirmation(operation.http_method, &operation.name),
             is_optional: false,
@@ -188,14 +193,15 @@ fn parameter_schema_value(param: &ParameterSchema) -> serde_json::Value {
 }
 
 /// Map an OpenAPI `ParameterLocation` to its `StepFieldLocation` counterpart.
-/// `Body` and `FormData` are not used in the parameter loop (they are skipped
-/// before this is called), but the default branch falls back to `Body` safely.
+/// `Body` is not used in the parameter loop (skipped before this is called);
+/// `FormData` is used and maps to its own `StepFieldLocation::FormData`.
 fn param_location_to_field_location(loc: ParameterLocation) -> StepFieldLocation {
     match loc {
         ParameterLocation::Path => StepFieldLocation::Path,
         ParameterLocation::Query => StepFieldLocation::Query,
         ParameterLocation::Header => StepFieldLocation::Header,
-        ParameterLocation::Body | ParameterLocation::FormData => StepFieldLocation::Body,
+        ParameterLocation::FormData => StepFieldLocation::FormData,
+        ParameterLocation::Body => StepFieldLocation::Body,
     }
 }
 
@@ -253,7 +259,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -264,6 +269,7 @@ mod tests {
             location: ParameterLocation::Path,
             required: true,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }
@@ -416,7 +422,10 @@ mod tests {
             Some(&"dev".to_string())
         );
         assert_eq!(
-            request.body.as_ref().and_then(|b| b.get("namespace")),
+            match &request.body {
+                Some(ags_protocol::request::RequestBody::Json(v)) => v.get("namespace"),
+                _ => None,
+            },
             Some(&serde_json::json!("dev"))
         );
     }
@@ -472,7 +481,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -516,5 +524,41 @@ mod tests {
     #[test]
     fn test_synth_get_method_confirm_false() {
         assert!(!confirm_for("delete-user", HttpMethod::Get));
+    }
+
+    /// Build a `ServiceSchema` fixture with one `csm` upload operation
+    /// exposing a required `file` formData parameter (`is_file: true`).
+    fn service_schema_with_formdata_upload_operation() -> ServiceSchema {
+        let op = operation(
+            "csm/admin/app-ui/v1/upload-assets",
+            MutationClass::Mutating,
+            vec![ParameterSchema {
+                name: "file".into(),
+                location: ParameterLocation::FormData,
+                required: true,
+                value_type: ValueType::String,
+                is_file: true,
+                description: None,
+                default: None,
+            }],
+            None,
+        );
+        service_schema_with(op)
+    }
+
+    /// A `formData` parameter's synthesised `WorkflowInputSpec.location` is
+    /// `FormData`, not `Body` — the two are not interchangeable once
+    /// multipart assembly depends on this to route the value correctly.
+    #[test]
+    fn test_formdata_param_location_is_formdata_not_body() {
+        let schema = service_schema_with_formdata_upload_operation();
+        let definition = synthesise_workflow_definition(
+            &ServiceId::new("csm"),
+            &OperationId::new("csm/admin/app-ui/v1/upload-assets"),
+            &schema,
+        )
+        .unwrap();
+        let file_input = definition.inputs.iter().find(|i| i.name == "file").unwrap();
+        assert_eq!(file_input.location, StepFieldLocation::FormData);
     }
 }

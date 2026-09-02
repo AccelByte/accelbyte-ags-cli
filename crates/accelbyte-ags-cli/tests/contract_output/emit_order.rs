@@ -23,7 +23,6 @@ fn dummy_operation() -> ags_protocol::catalogue::OperationSchema {
         api_version: ags_protocol::catalogue::ApiVersion(3),
         deprecated: false,
         response_content_type: None,
-        has_file_upload: false,
     }
 }
 
@@ -124,7 +123,6 @@ fn test_service_mutation_success_trace_before_data() {
             api_version: ags_protocol::catalogue::ApiVersion(4),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         },
         resource_name: "roles".to_string(),
         body: ApiBody::Shaped(Box::new(CommandResult::Raw(RawResult {

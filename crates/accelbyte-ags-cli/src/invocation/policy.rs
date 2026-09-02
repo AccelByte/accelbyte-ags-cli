@@ -43,6 +43,24 @@ pub fn base_surface(route: RouteKind, shape: Shape) -> Surface {
     }
 }
 
+/// Whether `base_surface` can produce a non-Plain surface for the given route
+/// under any possible shape. Exercises the decision matrix exhaustively in
+/// the test suite to catch regressions when `base_surface` changes.
+#[cfg(test)]
+pub fn route_can_upgrade_to_tui(route: RouteKind) -> bool {
+    const ALL_SHAPES: [Shape; 6] = [
+        Shape::Zero,
+        Shape::Small,
+        Shape::Form,
+        Shape::Multi,
+        Shape::AuthSp,
+        Shape::Static,
+    ];
+    ALL_SHAPES
+        .iter()
+        .any(|&shape| base_surface(route, shape) != Surface::Plain)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,6 +116,40 @@ mod tests {
         assert_eq!(
             base_surface(RouteKind::Builtin, Shape::Static),
             Surface::Plain
+        );
+    }
+
+    // --- route_can_upgrade_to_tui ---
+
+    #[test]
+    fn test_auth_route_cannot_upgrade_to_tui() {
+        assert!(
+            !route_can_upgrade_to_tui(RouteKind::Auth),
+            "Auth route always produces Plain — no TUI upgrade possible"
+        );
+    }
+
+    #[test]
+    fn test_workflow_route_can_upgrade_to_tui() {
+        assert!(
+            route_can_upgrade_to_tui(RouteKind::Workflow),
+            "Workflow route always produces Fullscreen for Multi shape"
+        );
+    }
+
+    #[test]
+    fn test_service_route_can_upgrade_to_tui() {
+        assert!(
+            route_can_upgrade_to_tui(RouteKind::Service),
+            "Service route produces Inline for Form shape"
+        );
+    }
+
+    #[test]
+    fn test_builtin_route_can_upgrade_to_tui() {
+        assert!(
+            route_can_upgrade_to_tui(RouteKind::Builtin),
+            "Builtin route produces Inline for Form shape (e.g. profile create)"
         );
     }
 }

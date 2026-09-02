@@ -156,6 +156,14 @@ impl FrontendContext {
     /// Apply the decision matrix now that the route and shape are
     /// known. Precedence: automation (JSON) > explicit `--ui` > matrix.
     /// Returns a context whose `surface_backend()` reflects the decision.
+    ///
+    /// Also publishes the resolved surface's telemetry label (see
+    /// [`crate::invocation::publish_finalized_ui_surface`]) so
+    /// `cli.command.invoked` — whose context is gathered before any route runs,
+    /// while `--ui=auto` still reads as plain — reports the surface the user
+    /// actually got, matching the run and step events. Publishing here rather
+    /// than at each call site is deliberate: every future route inherits the
+    /// invariant for free.
     pub fn finalize_surface(
         mut self,
         route: crate::invocation::shape::RouteKind,
@@ -164,7 +172,13 @@ impl FrontendContext {
         use crate::invocation::flags::UiFlag;
         use crate::invocation::policy::{base_surface, Surface};
         if matches!(self.consumer, ConsumerKind::Automation) {
-            return self; // StructuredJson; surface fields irrelevant
+            // StructuredJson; surface fields irrelevant. Still published: an
+            // automation consumer's finalized surface is `structured_json`,
+            // which is also what the pre-finalize label already says.
+            crate::invocation::publish_finalized_ui_surface(
+                self.surface_backend().telemetry_label(),
+            );
+            return self;
         }
         let surface = match self.ui_intent {
             UiFlag::Plain => Surface::Plain,
@@ -206,6 +220,7 @@ impl FrontendContext {
                 debug_assert!(false, "Json surface unreachable for a human consumer");
             }
         }
+        crate::invocation::publish_finalized_ui_surface(self.surface_backend().telemetry_label());
         self
     }
 
@@ -270,6 +285,18 @@ pub enum PhaseBackend {
     FullscreenTerminalUi,
     /// Machine-readable JSON output.
     StructuredJson,
+}
+
+impl PhaseBackend {
+    /// Stable telemetry label for the surface the user actually got.
+    pub fn telemetry_label(&self) -> &'static str {
+        match self {
+            PhaseBackend::PlainTerminal => "plain",
+            PhaseBackend::InlineTerminalUi => "inline",
+            PhaseBackend::FullscreenTerminalUi => "fullscreen",
+            PhaseBackend::StructuredJson => "structured_json",
+        }
+    }
 }
 
 /// Resolve the frontend context from CLI flags, capturing the real terminal.
@@ -351,8 +378,9 @@ pub fn resolve_surface(
 
 /// Pure resolver core: maps flags + already-captured capabilities to a context.
 /// Separated from `resolve_frontend_context` so it can be unit-tested without
-/// depending on whether the test process has a real TTY.
-fn resolve_with_terminal(
+/// depending on whether the test process has a real TTY. Also used by test
+/// helpers that must produce only resolver-valid contexts.
+pub(crate) fn resolve_with_terminal(
     flags: &GlobalFlags,
     terminal: TerminalCapabilities,
 ) -> Result<FrontendContext, CliError> {
@@ -1017,5 +1045,21 @@ mod tests {
         };
         let ctx = ctx.finalize_surface(RouteKind::Workflow, Shape::Multi);
         assert_eq!(ctx.surface_backend(), PhaseBackend::FullscreenTerminalUi);
+    }
+
+    /// Every `PhaseBackend` variant must map to its exact telemetry label —
+    /// these strings are a closed vocabulary transmitted verbatim.
+    #[test]
+    fn test_phase_backend_telemetry_label_matches_each_variant() {
+        assert_eq!(PhaseBackend::PlainTerminal.telemetry_label(), "plain");
+        assert_eq!(PhaseBackend::InlineTerminalUi.telemetry_label(), "inline");
+        assert_eq!(
+            PhaseBackend::FullscreenTerminalUi.telemetry_label(),
+            "fullscreen"
+        );
+        assert_eq!(
+            PhaseBackend::StructuredJson.telemetry_label(),
+            "structured_json"
+        );
     }
 }

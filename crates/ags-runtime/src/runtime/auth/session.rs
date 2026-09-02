@@ -58,6 +58,7 @@ pub enum TokenSource {
 }
 
 /// Result of token resolution including source metadata for verbose output.
+#[derive(Debug)]
 pub struct TokenResolution {
     pub token: String,
     pub source: TokenSource,
@@ -82,6 +83,12 @@ pub(crate) enum UnavailableReason {
     NoRefreshToken,
     /// A refresh token exists but its local expiry has already passed.
     RefreshTokenExpired,
+    /// The stored token was minted by a different client than the caller
+    /// expects. `stored_client_id` is always present (the both-`Some` rule),
+    /// so it is a `String`, carried here so the caller can build an error
+    /// naming the stored client without re-reading the store (which would
+    /// race a concurrent overwrite).
+    ClientMismatch { stored_client_id: String },
 }
 
 /// Outcome of an attempt to refresh a stored session in place.
@@ -119,6 +126,23 @@ pub(crate) enum RefreshMode {
     Force,
 }
 
+/// Whether a stored token may be used for `expected` client. The binding is
+/// enforced only when BOTH ids are present and they differ; a `None` on either
+/// side (legacy token, or no client configured) is treated as a match. On a
+/// real mismatch, returns the stored client id (raw, for the error message).
+///
+/// Comparison is normalised (hyphens stripped, lowercased) the same way client
+/// IDs are canonicalised on `ags config set client-id`, so a casing/hyphenation
+/// difference between sources (e.g. a raw `AGS_CLIENT_ID` vs a normalised stored
+/// config value) for the *same* IAM client is not reported as a spurious mismatch.
+fn client_matches(expected: Option<&str>, token: &store::TokenData) -> Result<(), String> {
+    use crate::runtime::config::client_ids_match;
+    match (expected, token.client_id.as_deref()) {
+        (Some(exp), Some(stored)) if !client_ids_match(exp, stored) => Err(stored.to_string()),
+        _ => Ok(()),
+    }
+}
+
 /// Probe whether the stored session for `profile` can be refreshed in place.
 ///
 /// Sequence:
@@ -139,6 +163,7 @@ pub(crate) async fn try_refresh_stored_session(
     client: &Client,
     profile: &str,
     mode: RefreshMode,
+    expected_client_id: Option<&str>,
 ) -> Result<RefreshOutcome, RuntimeError> {
     // Fast path: read stored token without locks.
     let stored = store::get_token_data_async(profile).await.ok().flatten();
@@ -148,6 +173,12 @@ pub(crate) async fn try_refresh_stored_session(
             reason: UnavailableReason::NoStoredToken,
         });
     };
+
+    if let Err(stored_client_id) = client_matches(expected_client_id, &token_data) {
+        return Ok(RefreshOutcome::Unavailable {
+            reason: UnavailableReason::ClientMismatch { stored_client_id },
+        });
+    }
 
     // Probe reuses a still-fresh token; Force always refreshes.
     if mode == RefreshMode::Probe {
@@ -175,6 +206,13 @@ pub(crate) async fn try_refresh_stored_session(
             reason: UnavailableReason::NoStoredToken,
         });
     };
+
+    if let Err(stored_client_id) = client_matches(expected_client_id, &token_data) {
+        return Ok(RefreshOutcome::Unavailable {
+            reason: UnavailableReason::ClientMismatch { stored_client_id },
+        });
+    }
+
     let now = unix_now();
     if mode == RefreshMode::Probe {
         if let Some(outcome) = refreshed_from_fresh_stored(&token_data, now) {
@@ -221,6 +259,7 @@ pub(crate) async fn try_refresh_stored_session(
             .grant_type
             .unwrap_or(ags_protocol::request::GrantType::AuthorizationCode),
         now,
+        client_id,
     );
     // `_lock` must still be in scope across this await (unlocked write relies on
     // the caller's lock). Do not move the write out of this function.
@@ -322,7 +361,16 @@ pub async fn resolve_access_token(
         None | Some(ags_protocol::request::GrantType::AuthorizationCode)
     );
 
-    match try_refresh_stored_session(client, profile, RefreshMode::Probe).await? {
+    let current_client_id = credentials::resolve_client_id_value(profile);
+
+    match try_refresh_stored_session(
+        client,
+        profile,
+        RefreshMode::Probe,
+        current_client_id.as_deref(),
+    )
+    .await?
+    {
         RefreshOutcome::Refreshed {
             token,
             source,
@@ -344,31 +392,62 @@ pub async fn resolve_access_token(
             }
             // Confidential clients fall through to a fresh client-credentials grant.
         }
-        RefreshOutcome::Unavailable { reason } => {
-            // For authorization-code profiles with an existing stored token
-            // that can't be refreshed, surface a precise session-expiry
-            // error using the reason the refresh helper already observed —
-            // avoids a second storage read and the TOCTOU window it would
-            // introduce. `NoStoredToken` is left to fall through so callers
-            // configured via `AGS_CLIENT_ID`/`AGS_CLIENT_SECRET` env vars
-            // can still obtain a token via the client-credentials grant
-            // below; if those credentials are also missing the grant's own
-            // missing-credentials error surfaces with the right suggestion.
-            // Confidential clients always fall through.
-            if is_authorization_code {
-                match reason {
-                    UnavailableReason::NoStoredToken => {}
-                    UnavailableReason::NoRefreshToken => {
-                        return Err(RuntimeError::from(AuthError::SessionExpiredNoRefreshToken));
-                    }
-                    UnavailableReason::RefreshTokenExpired => {
-                        return Err(RuntimeError::from(
-                            AuthError::SessionExpiredRefreshTokenExpired,
-                        ));
-                    }
+        // For authorization-code profiles with an existing stored token
+        // that can't be refreshed, surface a precise session-expiry
+        // error using the reason the refresh helper already observed —
+        // avoids a second storage read and the TOCTOU window it would
+        // introduce. `NoStoredToken` is left to fall through so callers
+        // configured via `AGS_CLIENT_ID`/`AGS_CLIENT_SECRET` env vars
+        // can still obtain a token via the client-credentials grant
+        // below; if those credentials are also missing the grant's own
+        // missing-credentials error surfaces with the right suggestion.
+        // Confidential clients always fall through.
+        RefreshOutcome::Unavailable { reason } => match reason {
+            UnavailableReason::ClientMismatch { stored_client_id } => {
+                // The stored session belongs to a different client. If the
+                // currently-configured client can re-mint (a secret is
+                // resolvable now), discard the stale token and fall through to
+                // a fresh client-credentials grant below. Otherwise we cannot
+                // silently re-authenticate (no secret → needs a browser), so
+                // refuse rather than call the API with the wrong client.
+                //
+                // Check the env var first (non-blocking); only fall back to the
+                // async keychain wrapper so this collision path — the exact one
+                // hit under CI parallelism — never parks a Tokio worker on a
+                // blocking keychain read.
+                //
+                // The secret is resolved per-profile, not per-client (as it is
+                // everywhere else via `resolve_credentials`); by that convention
+                // its presence is taken as "the current client's secret".
+                let can_remint = std::env::var(crate::runtime::config::ENV_CLIENT_SECRET).is_ok()
+                    || credentials::resolve_stored_client_secret(profile)
+                        .await
+                        .is_some();
+                if !can_remint {
+                    return Err(RuntimeError::from(AuthError::StoredSessionClientMismatch {
+                        profile: profile.to_string(),
+                        stored_client_id,
+                        current_client_id: current_client_id.clone().unwrap_or_default(),
+                    }));
+                }
+                // else: fall through to the client-credentials grant.
+            }
+            UnavailableReason::NoStoredToken => {
+                // Fall through to the client-credentials grant below.
+            }
+            UnavailableReason::NoRefreshToken => {
+                if is_authorization_code {
+                    return Err(RuntimeError::from(AuthError::SessionExpiredNoRefreshToken));
                 }
             }
-        }
+            UnavailableReason::RefreshTokenExpired => {
+                if is_authorization_code {
+                    return Err(RuntimeError::from(
+                        AuthError::SessionExpiredRefreshTokenExpired,
+                    ));
+                }
+            }
+        },
     }
 
     // Last resort: client-credentials grant. Reached only for confidential
@@ -406,6 +485,7 @@ pub async fn resolve_access_token(
         &result,
         ags_protocol::request::GrantType::ClientCredentials,
         unix_now(),
+        &client_id,
     );
     let outcome = store::store_token_data_unlocked_async(profile, token_data).await?;
 
@@ -415,6 +495,22 @@ pub async fn resolve_access_token(
         expires_in_secs: Some(result.expires_in),
         warnings: merge_warnings(expires_in_warning, outcome.warning),
     })
+}
+
+/// Force a refresh of the stored session for `profile`, bypassing the
+/// still-fresh-token fast path.
+///
+/// Returns `Ok(true)` when a new access token was obtained and persisted, and
+/// `Ok(false)` when no refresh was possible (no stored token, no refresh token,
+/// client mismatch, or the refresh endpoint rejected the request). Callers use
+/// this to decide whether retrying an authenticated request is worthwhile; a
+/// `false` return means the caller should surface the original auth failure.
+pub async fn force_refresh_session(client: &Client, profile: &str) -> Result<bool, RuntimeError> {
+    match try_refresh_stored_session(client, profile, RefreshMode::Force, None).await? {
+        RefreshOutcome::Refreshed { .. } => Ok(true),
+        RefreshOutcome::Unavailable { .. } => Ok(false),
+        RefreshOutcome::Rejected { .. } => Ok(false),
+    }
 }
 
 /// Merge two optional warnings into a stable ordered list.
@@ -505,11 +601,12 @@ mod try_refresh_tests {
                 refresh_token: Some("refresh".to_string()),
                 refresh_expires_at: Some(now + 7200),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -541,7 +638,7 @@ mod try_refresh_tests {
         .unwrap();
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -567,11 +664,12 @@ mod try_refresh_tests {
                 refresh_token: None,
                 refresh_expires_at: None,
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -598,11 +696,12 @@ mod try_refresh_tests {
                 refresh_token: Some("refresh".to_string()),
                 refresh_expires_at: Some(now.saturating_sub(60)),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -639,11 +738,12 @@ mod try_refresh_tests {
                 refresh_token: Some("valid-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -690,11 +790,12 @@ mod try_refresh_tests {
                 refresh_token: Some("dead-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -719,6 +820,7 @@ mod try_refresh_tests {
                 refresh_token: Some("valid-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
@@ -726,7 +828,7 @@ mod try_refresh_tests {
             .timeout(std::time::Duration::from_millis(500))
             .build()
             .unwrap();
-        let result = try_refresh_stored_session(&client, "default", RefreshMode::Probe).await;
+        let result = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None).await;
         assert!(
             matches!(
                 &result,
@@ -763,11 +865,12 @@ mod try_refresh_tests {
                 refresh_token: Some("valid-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Force)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Force, None)
             .await
             .unwrap();
 
@@ -794,11 +897,12 @@ mod try_refresh_tests {
                 refresh_token: Some("valid-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
         let client = reqwest::Client::new();
-        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe)
+        let outcome = try_refresh_stored_session(&client, "default", RefreshMode::Probe, None)
             .await
             .unwrap();
 
@@ -851,6 +955,7 @@ mod try_refresh_tests {
                 refresh_token: Some("rt-original".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
@@ -858,13 +963,13 @@ mod try_refresh_tests {
         let a = {
             let client = client.clone();
             tokio::spawn(async move {
-                try_refresh_stored_session(&client, "default", RefreshMode::Force).await
+                try_refresh_stored_session(&client, "default", RefreshMode::Force, None).await
             })
         };
         let b = {
             let client = client.clone();
             tokio::spawn(async move {
-                try_refresh_stored_session(&client, "default", RefreshMode::Force).await
+                try_refresh_stored_session(&client, "default", RefreshMode::Force, None).await
             })
         };
         let (ra, rb) = tokio::join!(a, b);
@@ -901,6 +1006,7 @@ mod try_refresh_tests {
                 refresh_token: Some("valid-refresh".to_string()),
                 refresh_expires_at: Some(now + 86_400),
                 grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
             },
         );
 
@@ -909,14 +1015,14 @@ mod try_refresh_tests {
             let client = client.clone();
             let p = "default".to_string();
             tokio::spawn(async move {
-                try_refresh_stored_session(&client, &p, RefreshMode::Probe).await
+                try_refresh_stored_session(&client, &p, RefreshMode::Probe, None).await
             })
         };
         let b = {
             let client = client.clone();
             let p = "default".to_string();
             tokio::spawn(async move {
-                try_refresh_stored_session(&client, &p, RefreshMode::Probe).await
+                try_refresh_stored_session(&client, &p, RefreshMode::Probe, None).await
             })
         };
 
@@ -934,5 +1040,544 @@ mod try_refresh_tests {
                 other => panic!("expected Refreshed, got {other:?}"),
             }
         }
+    }
+
+    /// A fresh stored token whose client_id differs from the expected client is
+    /// NOT reused: the helper returns ClientMismatch on the unlocked fast path,
+    /// without any network call.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_returns_client_mismatch_on_fresh_token_wrong_client() {
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            "https://unused.invalid",
+            TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("refresh".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("client-A".to_string()),
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let outcome =
+            try_refresh_stored_session(&client, "default", RefreshMode::Probe, Some("client-B"))
+                .await
+                .unwrap();
+
+        match outcome {
+            RefreshOutcome::Unavailable {
+                reason: UnavailableReason::ClientMismatch { stored_client_id },
+            } => assert_eq!(stored_client_id, "client-A"),
+            other => panic!("expected ClientMismatch, got {other:?}"),
+        }
+    }
+
+    /// A matching client id reuses the fresh stored token as normal.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_reuses_stored_token_when_client_matches() {
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            "https://unused.invalid",
+            TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("refresh".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("client-A".to_string()),
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let outcome =
+            try_refresh_stored_session(&client, "default", RefreshMode::Probe, Some("client-A"))
+                .await
+                .unwrap();
+
+        assert!(matches!(
+            outcome,
+            RefreshOutcome::Refreshed {
+                source: TokenSource::Stored,
+                ..
+            }
+        ));
+    }
+
+    /// The stored id and the expected id differ only in casing and hyphenation
+    /// (the exact form `normalise_client_id` canonicalises) — they are the SAME
+    /// IAM client, so the fresh token is reused, not treated as a mismatch.
+    /// Regression guard for the normalised comparison in `client_matches`.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_reuses_stored_token_when_client_matches_after_normalisation() {
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            "https://unused.invalid",
+            TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: Some("refresh".to_string()),
+                refresh_expires_at: Some(now + 7200),
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("D39A8BB1-04E5-45A7-A4B1-EF6EC3D55A3C".to_string()),
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let outcome = try_refresh_stored_session(
+            &client,
+            "default",
+            RefreshMode::Probe,
+            Some("d39a8bb104e545a7a4b1ef6ec3d55a3c"),
+        )
+        .await
+        .unwrap();
+
+        assert!(matches!(
+            outcome,
+            RefreshOutcome::Refreshed {
+                source: TokenSource::Stored,
+                ..
+            }
+        ));
+    }
+
+    /// A legacy token (client_id: None) matches any expected client — never break
+    /// an existing session on upgrade.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_reuses_legacy_token_with_no_client_id() {
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            "https://unused.invalid",
+            TokenData {
+                access_token: "fresh".to_string(),
+                expires_at: now + 3600,
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: None,
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let outcome =
+            try_refresh_stored_session(&client, "default", RefreshMode::Probe, Some("client-B"))
+                .await
+                .unwrap();
+
+        assert!(matches!(
+            outcome,
+            RefreshOutcome::Refreshed {
+                source: TokenSource::Stored,
+                ..
+            }
+        ));
+    }
+
+    /// A STALE token (expired access) whose refresh token is present but whose
+    /// client differs from the expected client must NOT be refreshed: the guard
+    /// fires before any refresh attempt. The mock endpoint is mounted with
+    /// `.expect(0)`, so wiremock's on-drop verification fails if a refresh call
+    /// leaks through. This is the case a bare "is the fresh token reusable" check
+    /// would miss — enforcement must precede the refresh path, not just the reuse
+    /// path.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_probe_client_mismatch_on_stale_token_makes_no_network_call() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"should-not-be-called","expires_in":3600,"token_type":"Bearer"}"#,
+            ))
+            .expect(0)
+            .mount(&server)
+            .await;
+
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            &server.uri(),
+            TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("refresh-A".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: Some("client-A".to_string()),
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let outcome =
+            try_refresh_stored_session(&client, "default", RefreshMode::Probe, Some("client-B"))
+                .await
+                .unwrap();
+
+        match outcome {
+            RefreshOutcome::Unavailable {
+                reason: UnavailableReason::ClientMismatch { stored_client_id },
+            } => assert_eq!(stored_client_id, "client-A"),
+            other => panic!("expected ClientMismatch, got {other:?}"),
+        }
+        // server dropped here → `.expect(0)` asserts the refresh endpoint was never hit.
+    }
+}
+
+#[cfg(test)]
+mod force_refresh_tests {
+    use super::*;
+    use crate::runtime::auth::store::{self, TokenData};
+    use crate::runtime::config::ProfileConfig;
+    use crate::support::test_helpers::{now_secs, TempEnvGuard};
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Standard test setup: creates an isolated `AGS_HOME`, disables the OS
+    /// keychain, saves a `ProfileConfig` pointing at `base_url`, and persists
+    /// `token` to the "default" profile. Returns the guards that must be kept
+    /// alive for the duration of the test.
+    ///
+    /// Follows the same fixture pattern as `try_refresh_tests::setup_profile`.
+    fn setup_profile(
+        base_url: &str,
+        token: TokenData,
+    ) -> (tempfile::TempDir, TempEnvGuard, TempEnvGuard) {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        ProfileConfig {
+            base_url: Some(base_url.to_string()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+        store::store_token_data("default", &token).unwrap();
+
+        (tmp, home, no_kc)
+    }
+
+    /// A successful forced refresh returns `Ok(true)` and the stored token is
+    /// updated to the new value from the refresh endpoint.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_force_refresh_returns_true_on_success() {
+        let _base = TempEnvGuard::remove("AGS_BASE_URL");
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"refreshed-token","expires_in":3600,"token_type":"Bearer","refresh_token":"rotated","refresh_expires_in":7200}"#,
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            &server.uri(),
+            TokenData {
+                access_token: "old-token".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("valid-refresh".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let result = force_refresh_session(&client, "default").await.unwrap();
+        assert!(result, "successful forced refresh must return true");
+
+        let stored = store::get_token_data("default").unwrap().unwrap();
+        assert_eq!(
+            stored.access_token, "refreshed-token",
+            "stored token must be updated after successful refresh"
+        );
+    }
+
+    /// A rejected refresh (endpoint returns non-2xx) returns `Ok(false)`, NOT
+    /// an `Err`. The caller decides whether to surface the original auth failure
+    /// or attempt a different recovery path.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_force_refresh_returns_false_on_rejection() {
+        let _base = TempEnvGuard::remove("AGS_BASE_URL");
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(401).set_body_string(
+                r#"{"error":"invalid_grant","error_description":"refresh token expired"}"#,
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            &server.uri(),
+            TokenData {
+                access_token: "expired".to_string(),
+                expires_at: now.saturating_sub(60),
+                refresh_token: Some("dead-refresh".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let result = force_refresh_session(&client, "default").await.unwrap();
+        assert!(!result, "rejected refresh must return Ok(false), not Err");
+    }
+
+    /// No stored token returns `Ok(false)` — the wrapper must not surface the
+    /// internal `Unavailable(NoStoredToken)` as an `Err`.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_force_refresh_returns_false_when_no_stored_token() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+
+        ProfileConfig {
+            base_url: Some("https://unused.invalid".to_string()),
+            client_id: Some("cid".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+        // No token stored for "default".
+
+        let client = reqwest::Client::new();
+        let result = force_refresh_session(&client, "default").await.unwrap();
+        assert!(!result, "no stored token must return Ok(false), not Err");
+    }
+
+    /// Forced mode really is forced: with a still-fresh stored access token, the
+    /// refresh endpoint is still called. Asserted via wiremock's `.expect(1)` —
+    /// if the wrapper quietly delegated with `Probe` instead of `Force`, the
+    /// endpoint would not be called (wiremock would fail on drop). This is the
+    /// assertion that distinguishes `Force` from `Probe`.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_force_refresh_calls_endpoint_even_when_token_fresh() {
+        let _base = TempEnvGuard::remove("AGS_BASE_URL");
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"forced-new","expires_in":3600,"token_type":"Bearer","refresh_token":"rotated","refresh_expires_in":7200}"#,
+            ))
+            .expect(1) // MUST be called exactly once — the Force/Probe discriminator
+            .mount(&server)
+            .await;
+
+        let now = now_secs();
+        let (_tmp, _home, _no_kc) = setup_profile(
+            &server.uri(),
+            TokenData {
+                access_token: "still-fresh".to_string(),
+                expires_at: now + 3600, // comfortably valid
+                refresh_token: Some("valid-refresh".to_string()),
+                refresh_expires_at: Some(now + 86_400),
+                grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+                client_id: None,
+            },
+        );
+
+        let client = reqwest::Client::new();
+        let result = force_refresh_session(&client, "default").await.unwrap();
+        assert!(result, "forced refresh with fresh token must return true");
+
+        let stored = store::get_token_data("default").unwrap().unwrap();
+        assert_eq!(
+            stored.access_token, "forced-new",
+            "stored token must be updated even though original was fresh"
+        );
+        // wiremock's `.expect(1)` on drop asserts the endpoint was called exactly once.
+    }
+}
+
+#[cfg(test)]
+mod resolve_tests {
+    use super::*;
+    use crate::runtime::auth::store::{self, TokenData};
+    use crate::runtime::config::ProfileConfig;
+    use crate::support::test_helpers::{now_secs, TempEnvGuard};
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    /// Store a fresh token minted by `stored_client`, configure the profile's
+    /// current client to `current_client`, isolate state, disable keychain.
+    /// Returns guards that must stay alive for the test.
+    fn setup(
+        base_url: &str,
+        stored_client: Option<&str>,
+        current_client: &str,
+    ) -> (
+        tempfile::TempDir,
+        TempEnvGuard,
+        TempEnvGuard,
+        TempEnvGuard,
+        TempEnvGuard,
+    ) {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+        // Clear a developer's live base URL so ProfileConfig.base_url wins.
+        let base = TempEnvGuard::remove("AGS_BASE_URL");
+        // CRITICAL: resolve_access_token returns AGS_ACCESS_TOKEN before it ever
+        // touches storage. If a developer/CI env has it set, these tests would
+        // silently exercise none of the binding logic. Clear it for the whole
+        // module so every case actually reaches the stored-token path.
+        let atok = TempEnvGuard::remove("AGS_ACCESS_TOKEN");
+
+        ProfileConfig {
+            base_url: Some(base_url.to_string()),
+            client_id: Some(current_client.to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            "default",
+            &TokenData {
+                access_token: "stored-access".to_string(),
+                expires_at: now + 3600,
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: stored_client.map(str::to_string),
+            },
+        )
+        .unwrap();
+
+        (tmp, home, no_kc, base, atok)
+    }
+
+    /// Mismatch + a secret is resolvable for the current client → the stale
+    /// token is discarded and a fresh client-credentials grant is minted.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_resolve_remints_on_mismatch_when_secret_present() {
+        let _secret = TempEnvGuard::remove("AGS_CLIENT_ID"); // don't override ProfileConfig
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/iam/v3/oauth/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"access_token":"fresh-B","expires_in":3600,"token_type":"Bearer"}"#,
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let (_tmp, _home, _no_kc, _base, _atok) =
+            setup(&server.uri(), Some("client-A"), "client-B");
+        let _cs = TempEnvGuard::set("AGS_CLIENT_SECRET", "secret-B");
+
+        let client = reqwest::Client::new();
+        let res = resolve_access_token(&client, "default").await.unwrap();
+        assert_eq!(res.token, "fresh-B");
+        assert!(matches!(res.source, TokenSource::ClientCredentials));
+    }
+
+    /// Mismatch + no secret (authorization-code client) → hard error naming
+    /// both clients; no token endpoint call.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_resolve_errors_on_mismatch_when_no_secret() {
+        let _cid = TempEnvGuard::remove("AGS_CLIENT_ID");
+        let _cs = TempEnvGuard::remove("AGS_CLIENT_SECRET");
+        let (_tmp, _home, _no_kc, _base, _atok) =
+            setup("https://unused.invalid", Some("client-A"), "client-B");
+
+        let client = reqwest::Client::new();
+        let err = resolve_access_token(&client, "default").await.unwrap_err();
+        assert!(
+            err.message.contains("different client"),
+            "unexpected message: {}",
+            err.message
+        );
+    }
+
+    /// Matching client id → the stored token is used as-is.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_resolve_uses_stored_when_client_matches() {
+        let _cid = TempEnvGuard::remove("AGS_CLIENT_ID");
+        let _cs = TempEnvGuard::remove("AGS_CLIENT_SECRET");
+        let (_tmp, _home, _no_kc, _base, _atok) =
+            setup("https://unused.invalid", Some("client-B"), "client-B");
+
+        let client = reqwest::Client::new();
+        let res = resolve_access_token(&client, "default").await.unwrap();
+        assert_eq!(res.token, "stored-access");
+        assert!(matches!(res.source, TokenSource::Stored));
+    }
+
+    /// Legacy stored token (client_id: None) → used as-is, no error.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_resolve_uses_legacy_token_none_client() {
+        let _cid = TempEnvGuard::remove("AGS_CLIENT_ID");
+        let _cs = TempEnvGuard::remove("AGS_CLIENT_SECRET");
+        let (_tmp, _home, _no_kc, _base, _atok) = setup("https://unused.invalid", None, "client-B");
+
+        let client = reqwest::Client::new();
+        let res = resolve_access_token(&client, "default").await.unwrap();
+        assert_eq!(res.token, "stored-access");
+        assert!(matches!(res.source, TokenSource::Stored));
+    }
+
+    /// Current client unconfigured (no `AGS_CLIENT_ID`, no `ProfileConfig.client_id`)
+    /// → the expected id is `None`, so the both-`Some` rule treats a bound stored
+    /// token as a match and it is used as-is (spec-enumerated current-`None` case).
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_resolve_uses_stored_when_current_client_unconfigured() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _no_kc = TempEnvGuard::set("AGS_NO_KEYCHAIN", "1");
+        let _base = TempEnvGuard::remove("AGS_BASE_URL");
+        let _atok = TempEnvGuard::remove("AGS_ACCESS_TOKEN");
+        let _cid = TempEnvGuard::remove("AGS_CLIENT_ID");
+        let _cs = TempEnvGuard::remove("AGS_CLIENT_SECRET");
+
+        // ProfileConfig has no client_id → resolve_client_id_value returns None.
+        ProfileConfig {
+            base_url: Some("https://unused.invalid".to_string()),
+            ..Default::default()
+        }
+        .save("default")
+        .unwrap();
+
+        let now = now_secs();
+        store::store_token_data(
+            "default",
+            &TokenData {
+                access_token: "stored-access".to_string(),
+                expires_at: now + 3600,
+                refresh_token: None,
+                refresh_expires_at: None,
+                grant_type: Some(ags_protocol::request::GrantType::ClientCredentials),
+                client_id: Some("client-A".to_string()),
+            },
+        )
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let res = resolve_access_token(&client, "default").await.unwrap();
+        assert_eq!(res.token, "stored-access");
+        assert!(matches!(res.source, TokenSource::Stored));
     }
 }

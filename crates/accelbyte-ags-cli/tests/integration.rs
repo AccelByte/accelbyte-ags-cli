@@ -1,6 +1,8 @@
 #[path = "common/mod.rs"]
 mod common;
 
+#[path = "integration/ams_upload.rs"]
+mod ams_upload;
 #[path = "integration/auth.rs"]
 mod auth;
 #[path = "integration/binary_response.rs"]

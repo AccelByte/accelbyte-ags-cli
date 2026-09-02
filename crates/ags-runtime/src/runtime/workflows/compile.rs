@@ -6,12 +6,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use ags_protocol::error::RuntimeError;
-#[cfg(test)]
-use ags_protocol::workflow::StepDefinition;
 use ags_protocol::workflow::{
     ArithmeticOperand, BindingSource, CompiledStep, CompiledWorkflow, ReferenceTarget,
     TransformKind, WorkflowDefinition, WorkflowInputSpec,
 };
+#[cfg(test)]
+use ags_protocol::workflow::{FilePickerSpec, StepDefinition};
 
 /// Extract `{name}` placeholders from a Format template. Returns placeholder
 /// names in order of first appearance. Handles `{{` and `}}` escapes.
@@ -101,6 +101,7 @@ pub fn compile_workflow(
     catalogue: &mut Catalogue,
 ) -> Result<CompiledWorkflow, RuntimeError> {
     validate_unique_step_ids(definition)?;
+    validate_step_kinds(definition)?;
     validate_dependencies(definition)?;
     validate_step_output_references(definition)?;
     validate_workflow_references(definition)?;
@@ -118,17 +119,86 @@ pub fn compile_workflow(
     let resolved_inputs = resolve_input_schemas(definition, catalogue)?;
 
     validate_options_sources(definition, &resolved_inputs, catalogue)?;
+    validate_file_pickers(&resolved_inputs)?;
     validate_nested_paths(definition, catalogue)?;
     validate_leaf_collisions(definition)?;
 
     let mut compiled_steps = Vec::with_capacity(definition.steps.len());
     for (index, step) in definition.steps.iter().enumerate() {
-        let service_schema = catalogue.get_or_load(step.operation.service.as_str())?;
-        let auto_derived = auto_derive_step(step, service_schema, &resolved_inputs)?;
+        use ags_protocol::workflow::StepKind;
+        let auto_derived = match step.kind {
+            StepKind::Api => {
+                let op_ref = step.operation.as_ref().ok_or_else(|| {
+                    RuntimeError::internal(format!(
+                        "step '{}': API step reached compile_workflow without an operation",
+                        step.id
+                    ))
+                })?;
+                let service_schema = catalogue.get_or_load(op_ref.service.as_str())?;
+                auto_derive_step(step, service_schema, &resolved_inputs)?
+            }
+            StepKind::Local => {
+                let action = step.action.as_deref().ok_or_else(|| {
+                    RuntimeError::internal(format!(
+                        "step '{}': local step reached compile_workflow without an action",
+                        step.id
+                    ))
+                })?;
+                let handler = match crate::runtime::workflows::local_actions::lookup(action) {
+                    Some(handler) => handler,
+                    None => {
+                        let known = crate::runtime::workflows::local_actions::known_names();
+                        return Err(RuntimeError::internal(format!(
+                            "step '{}': unknown local action '{}'; known actions: {}",
+                            step.id,
+                            action,
+                            if known.is_empty() {
+                                "(none)".to_string()
+                            } else {
+                                known.join(", ")
+                            },
+                        )));
+                    }
+                };
+
+                // Validate input bindings against the action's declared inputs,
+                // matching the checks the deleted validate_native_step performed.
+                let declared = handler.inputs();
+                for binding in &step.inputs {
+                    let root = binding
+                        .field
+                        .split(['.', '['])
+                        .next()
+                        .unwrap_or(&binding.field);
+                    if !declared.iter().any(|input| input.name == root) {
+                        return Err(RuntimeError::internal(format!(
+                            "step '{}' binds '{}', which local action '{}' does not accept",
+                            step.id, binding.field, action
+                        )));
+                    }
+                }
+                for input in declared.iter().filter(|input| input.required) {
+                    let is_bound = step.inputs.iter().any(|binding| {
+                        binding.field == input.name
+                            || binding.field.starts_with(&format!("{}.", input.name))
+                    });
+                    if !is_bound {
+                        return Err(RuntimeError::internal(format!(
+                            "step '{}' leaves required input '{}' of local action '{}' unbound",
+                            step.id, input.name, action
+                        )));
+                    }
+                }
+
+                Vec::new()
+            }
+        };
         compiled_steps.push(CompiledStep {
             id: step.id.clone(),
             index,
             description: step.description.clone(),
+            kind: step.kind,
+            action: step.action.clone(),
             operation: step.operation.clone(),
             dependencies: step.dependencies.clone(),
             confirm: step.confirm,
@@ -166,6 +236,68 @@ fn validate_unique_step_ids(definition: &WorkflowDefinition) -> Result<(), Runti
                 definition.id.as_str(),
                 step.id
             )));
+        }
+    }
+    Ok(())
+}
+
+/// Rule 1b: every step's `kind` / `operation` / `action` triple is
+/// consistent. API steps must have `operation` and no `action`; local
+/// steps must have `action` and no `operation`.
+fn validate_step_kinds(definition: &WorkflowDefinition) -> Result<(), RuntimeError> {
+    use ags_protocol::workflow::StepKind;
+    for step in &definition.steps {
+        match step.kind {
+            StepKind::Api => {
+                if step.operation.is_none() {
+                    return Err(RuntimeError::internal(format!(
+                        "step '{}': kind 'api' requires an 'operation' field",
+                        step.id
+                    )));
+                }
+                if step.action.is_some() {
+                    return Err(RuntimeError::internal(format!(
+                        "step '{}': kind 'api' must not have an 'action' field",
+                        step.id
+                    )));
+                }
+            }
+            StepKind::Local => {
+                if step.action.is_none() {
+                    return Err(RuntimeError::internal(format!(
+                        "step '{}': kind 'local' requires an 'action' field",
+                        step.id
+                    )));
+                }
+                if step.operation.is_some() {
+                    return Err(RuntimeError::internal(format!(
+                        "step '{}': kind 'local' must not have an 'operation' field",
+                        step.id
+                    )));
+                }
+                // Local actions do not participate in the executor's
+                // flow-control machinery that these flags gate. A workflow
+                // that sets any of them would silently ignore the author's
+                // intent. Reject early with a clear error instead.
+                for (flag, value) in [
+                    ("confirm", step.confirm),
+                    ("is_optional", step.is_optional),
+                    ("continue_on_failure", step.continue_on_failure),
+                    ("skip_if_exists", step.skip_if_exists),
+                ] {
+                    if value {
+                        let rationale = if flag == "skip_if_exists" {
+                            " (it responds to HTTP 409, which local actions do not produce)"
+                        } else {
+                            ""
+                        };
+                        return Err(RuntimeError::internal(format!(
+                            "step '{}': '{flag}' is not supported on kind 'local' steps{rationale}",
+                            step.id
+                        )));
+                    }
+                }
+            }
         }
     }
     Ok(())
@@ -640,12 +772,14 @@ fn collect_use_site_schemas(
 ) -> Result<Vec<serde_json::Value>, RuntimeError> {
     let mut sites = Vec::new();
     for step in &definition.steps {
-        let service_schema = catalogue.get_or_load(step.operation.service.as_str())?;
-        let operation = find_operation_or_error(
-            service_schema,
-            &step.operation,
-            &format!("step '{}'", step.id),
-        )?;
+        // Local steps have no operation — skip schema collection.
+        let op_ref = match &step.operation {
+            Some(r) => r,
+            None => continue,
+        };
+        let service_schema = catalogue.get_or_load(op_ref.service.as_str())?;
+        let operation =
+            find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
 
         let mut explicitly_bound_fields = BTreeSet::new();
         for binding in &step.inputs {
@@ -724,12 +858,14 @@ fn validate_nested_paths(
     catalogue: &mut Catalogue,
 ) -> Result<(), RuntimeError> {
     for step in &definition.steps {
-        let service_schema = catalogue.get_or_load(step.operation.service.as_str())?;
-        let operation = find_operation_or_error(
-            service_schema,
-            &step.operation,
-            &format!("step '{}'", step.id),
-        )?;
+        // Local steps have no operation — skip nested-path validation.
+        let op_ref = match &step.operation {
+            Some(r) => r,
+            None => continue,
+        };
+        let service_schema = catalogue.get_or_load(op_ref.service.as_str())?;
+        let operation =
+            find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
         let root_fields = operation
             .request_body
             .as_ref()
@@ -946,6 +1082,68 @@ fn validate_options_sources(
     Ok(())
 }
 
+/// Rule: an input declaring a `file_picker` must be a coherent, safe local-
+/// file browsing affordance. Errors are `RuntimeError::internal`, matching
+/// `validate_options_sources`'s convention — a broken declaration fails hard
+/// at compile time rather than shipping silently degrading to free text.
+fn validate_file_pickers(resolved_inputs: &[WorkflowInputSpec]) -> Result<(), RuntimeError> {
+    for input in resolved_inputs {
+        let Some(picker) = &input.file_picker else {
+            continue;
+        };
+
+        // Rule 1: target input is string-typed (same rule as options_source).
+        let is_string = input
+            .schema
+            .as_ref()
+            .and_then(|s| s.get("type"))
+            .and_then(|t| t.as_str())
+            == Some("string");
+        if !is_string {
+            return Err(RuntimeError::internal(format!(
+                "input '{}' declares a file_picker but is not string-typed; \
+                 file_picker attaches only to {{\"type\":\"string\"}} inputs",
+                input.name
+            )));
+        }
+
+        // Rule 2: mutually exclusive with options_source — both are alternate
+        // value-resolution mechanisms for a string field.
+        if input.options_source.is_some() {
+            return Err(RuntimeError::internal(format!(
+                "input '{}' declares both a file_picker and an options_source; \
+                 these are alternate value-resolution mechanisms and cannot combine",
+                input.name
+            )));
+        }
+
+        // Rule 3: extensions, if present, are well-formed.
+        if let Some(extensions) = &picker.extensions {
+            for ext in extensions {
+                if ext.is_empty() || ext.starts_with('.') {
+                    return Err(RuntimeError::internal(format!(
+                        "input '{}' file_picker extension '{}' must be non-empty and \
+                         must not start with '.' (write \"png\", not \".png\")",
+                        input.name, ext
+                    )));
+                }
+            }
+        }
+
+        // Rule 4: start_dir, if present, must be non-empty. Existence on disk
+        // is deliberately NOT checked here — see the type's own doc comment.
+        if let Some(start_dir) = &picker.start_dir {
+            if start_dir.is_empty() {
+                return Err(RuntimeError::internal(format!(
+                    "input '{}' file_picker start_dir must not be empty when present",
+                    input.name
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Whether a `Literal` value's JSON type is compatible with an operation field
 /// schema's declared `type`. Permissive when the schema has no `type`.
 fn literal_matches_schema_type(value: &serde_json::Value, schema: &serde_json::Value) -> bool {
@@ -1029,7 +1227,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -1072,7 +1269,9 @@ mod tests {
         StepDefinition {
             id: id.into(),
             description: None,
-            operation: op_ref(op_id),
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(op_ref(op_id)),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1089,6 +1288,7 @@ mod tests {
         WorkflowDefinition {
             id: WorkflowId::new("wf"),
             name: "Test Workflow".into(),
+            workflow_protocol_version: None,
             intent: None,
             description: None,
             briefing: None,
@@ -1184,6 +1384,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }
     }
 
@@ -1195,7 +1396,9 @@ mod tests {
         StepDefinition {
             id: "step1".into(),
             description: None,
-            operation: op_ref(op.id.as_str()),
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(op_ref(op.id.as_str())),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1314,6 +1517,7 @@ mod tests {
             location: ParameterLocation::Query,
             required: true,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }];
@@ -1346,6 +1550,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             steps: vec![simple_step("s1", "Op")],
             ..simple_definition(vec![])
@@ -1374,6 +1579,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             steps: vec![simple_step("s1", "Op")],
             ..simple_definition(vec![])
@@ -1400,6 +1606,7 @@ mod tests {
                 sensitive: true,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             steps: vec![simple_step("s1", "Op")],
             ..simple_definition(vec![])
@@ -1814,6 +2021,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         let err = compile_workflow(&definition, &mut cat).unwrap_err();
@@ -1867,6 +2075,7 @@ mod tests {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             });
         }
         let mut cat = catalogue_with_svc(simple_schema(op));
@@ -1934,6 +2143,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         compile_workflow(&definition, &mut cat).expect("must compile");
@@ -1970,6 +2180,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         let err = compile_workflow(&definition, &mut cat).unwrap_err();
@@ -2007,6 +2218,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         compile_workflow(&definition, &mut cat).expect("must compile");
@@ -2053,6 +2265,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         let err = compile_workflow(&definition, &mut cat).unwrap_err();
@@ -2105,6 +2318,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         });
         let mut cat = catalogue_with_svc(simple_schema(op));
         compile_workflow(&definition, &mut cat).expect("must compile");
@@ -2129,6 +2343,7 @@ mod tests {
             sensitive: false,
             options_source: Some(source),
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }
     }
 
@@ -2161,6 +2376,7 @@ mod tests {
             location: ParameterLocation::Path,
             required: true,
             value_type: ValueType::String,
+            is_file: false,
             description: None,
             default: None,
         }];
@@ -2392,6 +2608,110 @@ mod tests {
         assert!(compile_workflow(&def, &mut cat).is_ok());
     }
 
+    // ---------------------------------------------------------------------------
+    // file_picker validation tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_compile_workflow_file_picker_on_non_string_input_errors() {
+        let op = default_operation("Op");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "Op")]);
+        def.inputs.push(WorkflowInputSpec {
+            name: "iconFile".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "integer"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(FilePickerSpec {
+                extensions: None,
+                start_dir: None,
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        });
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("not string-typed"),
+            "got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn test_compile_workflow_file_picker_and_options_source_together_errors() {
+        let op = list_op_with_namespace("List");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "List")]);
+        let mut img_id_input = input_with_source(
+            "imgId",
+            serde_json::json!({"type": "string"}),
+            images_like_source("List"),
+        );
+        img_id_input.file_picker = Some(FilePickerSpec {
+            extensions: None,
+            start_dir: None,
+        });
+        def.inputs = vec![workflow_input("namespace"), img_id_input];
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message
+                .contains("both a file_picker and an options_source"),
+            "got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn test_compile_workflow_file_picker_extension_with_leading_dot_errors() {
+        let op = default_operation("Op");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "Op")]);
+        def.inputs.push(WorkflowInputSpec {
+            name: "iconFile".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "string"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(FilePickerSpec {
+                extensions: Some(vec![".png".to_string()]),
+                start_dir: None,
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        });
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("must not start with"),
+            "got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn test_compile_workflow_valid_file_picker_compiles() {
+        let op = default_operation("Op");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "Op")]);
+        def.inputs.push(WorkflowInputSpec {
+            name: "iconFile".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "string"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(FilePickerSpec {
+                extensions: Some(vec!["png".to_string(), "jpg".to_string()]),
+                start_dir: Some("/tmp".to_string()),
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        });
+        compile_workflow(&def, &mut cat).expect("valid file_picker input compiles");
+    }
+
     #[test]
     fn test_compile_workflow_passes_briefing_through() {
         let briefing = WorkflowBriefing {
@@ -2402,6 +2722,7 @@ mod tests {
         let def = WorkflowDefinition {
             id: WorkflowId::new("wf"),
             name: "WF".into(),
+            workflow_protocol_version: None,
             intent: None,
             description: None,
             briefing: Some(briefing.clone()),
@@ -2477,5 +2798,383 @@ mod tests {
         }];
         let err = compile_workflow(&def, &mut fake_catalogue()).unwrap_err();
         assert!(err.to_string().contains("has no default"), "got: {err}");
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 2: compile_workflow rejects an unknown local action
+    // name with an error that lists the known action names.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_rejects_unknown_local_action() {
+        let def = WorkflowDefinition {
+            id: WorkflowId::new("wf"),
+            name: "test".into(),
+            workflow_protocol_version: None,
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![StepDefinition {
+                id: "bad-step".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("does-not-exist".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            outputs: vec![],
+            completion: None,
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("unknown local action"),
+            "error must mention 'unknown local action': {err}"
+        );
+        assert!(
+            err.message.contains("does-not-exist"),
+            "error must echo the bad action name: {err}"
+        );
+        assert!(
+            err.message.contains("docker-login"),
+            "error must list known action names: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 4: an existing API workflow compiles without error
+    // after the additive discriminator is added (regression guard).
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_api_workflow_unchanged() {
+        let op = default_operation("Op");
+        let schema = service_with(vec![op]);
+        let mut cat = catalogue_with_svc(schema);
+        let def = simple_definition(vec![simple_step("s1", "Op")]);
+
+        let compiled =
+            compile_workflow(&def, &mut cat).expect("existing API workflow must still compile");
+        assert_eq!(compiled.steps.len(), 1);
+        assert_eq!(
+            compiled.steps[0].kind,
+            ags_protocol::workflow::StepKind::Api
+        );
+        assert!(
+            compiled.steps[0].operation.is_some(),
+            "compiled API step must retain its operation"
+        );
+        assert!(
+            compiled.steps[0].action.is_none(),
+            "compiled API step must not gain an action"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Compile validates local step kind/action/operation consistency.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_local_step_with_operation_rejected() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: Some(op_ref("Op")),
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("must not have an 'operation' field"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_compile_local_step_skip_if_exists_rejected() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: true,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("skip_if_exists"),
+            "error must mention skip_if_exists: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Compile rejects local steps that set confirm / is_optional /
+    // continue_on_failure. These flags rely on the API dispatch path's
+    // flow-control machinery, which a local action does not use.
+    // Ported from the original validate_local_step four-flag loop.
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn test_compile_local_step_confirm_rejected() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: true,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("confirm"),
+            "error must mention confirm: {err}"
+        );
+    }
+
+    #[test]
+    fn test_compile_local_step_is_optional_rejected() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: true,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("is_optional"),
+            "error must mention is_optional: {err}"
+        );
+    }
+
+    #[test]
+    fn test_compile_local_step_continue_on_failure_rejected() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: true,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("continue_on_failure"),
+            "error must mention continue_on_failure: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Compile accepts a valid local step with a known action.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_valid_local_step_succeeds() {
+        let op = default_operation("Op");
+        let schema = service_with(vec![op]);
+        let mut cat = catalogue_with_svc(schema);
+        let def = WorkflowDefinition {
+            steps: vec![
+                simple_step("fetch-token", "Op"),
+                StepDefinition {
+                    id: "authenticate-docker".into(),
+                    description: Some("Login".into()),
+                    kind: ags_protocol::workflow::StepKind::Local,
+                    // The test-echo action is available under #[cfg(test)].
+                    action: Some("test-echo".into()),
+                    operation: None,
+                    dependencies: vec!["fetch-token".into()],
+                    confirm: false,
+                    is_optional: false,
+                    continue_on_failure: false,
+                    skip_if_exists: false,
+                    is_reviewed: None,
+                    inputs: vec![],
+                    outputs: vec![],
+                },
+            ],
+            ..simple_definition(vec![])
+        };
+        let compiled = compile_workflow(&def, &mut cat).expect("valid local step must compile");
+        assert_eq!(compiled.steps.len(), 2);
+        assert_eq!(
+            compiled.steps[1].kind,
+            ags_protocol::workflow::StepKind::Local
+        );
+        assert_eq!(compiled.steps[1].action.as_deref(), Some("test-echo"));
+        assert!(compiled.steps[1].auto_derived.is_empty());
+    }
+
+    // -----------------------------------------------------------------
+    // FIX 1a: compile_workflow rejects a local step that binds a field
+    // the action does not declare. The error names the offending field.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_local_step_rejects_unknown_binding_field() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("test-echo".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![StepInputBinding {
+                    field: "bogus".into(),
+                    source: BindingSource::Literal(ags_protocol::workflow::LiteralBinding {
+                        value: serde_json::json!("value"),
+                        sensitive: false,
+                    }),
+                    show_in_review: false,
+                    description: None,
+                }],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat)
+            .expect_err("binding a field the action does not declare must be rejected");
+        assert!(
+            err.message.contains("bogus"),
+            "error must name the unknown field: {err}"
+        );
+        assert!(
+            err.message.contains("does not accept"),
+            "error must say the action does not accept the field: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // FIX 1b: compile_workflow rejects a local step that leaves a
+    // required declared input unbound. The error names the missing input.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_local_step_rejects_unbound_required_input() {
+        // docker-login declares registry, username, password as required.
+        // Binding none of them must fail.
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat)
+            .expect_err("leaving required inputs unbound must be rejected");
+        assert!(
+            err.message.contains("leaves required input"),
+            "error must mention the missing input: {err}"
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // FIX 3: skip_if_exists rejection includes the HTTP 409 rationale.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_compile_local_step_skip_if_exists_includes_rationale() {
+        let def = WorkflowDefinition {
+            steps: vec![StepDefinition {
+                id: "bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("docker-login".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: true,
+                is_reviewed: None,
+                inputs: vec![],
+                outputs: vec![],
+            }],
+            ..simple_definition(vec![])
+        };
+        let mut cat = Catalogue::new();
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("409"),
+            "skip_if_exists rejection must include the HTTP 409 rationale: {err}"
+        );
     }
 }

@@ -2,6 +2,7 @@ pub mod completions;
 pub mod config;
 pub mod describe;
 pub mod doctor;
+pub mod extend;
 pub mod profile;
 pub mod refresh_specs;
 pub mod version;

@@ -101,7 +101,8 @@ pub(crate) fn sort_gather_fields_by_location(
     sort_form_fields_by_location(fields, &loc_by_label);
 }
 
-/// Sort form fields by request location (Path → Query → Header → Body), then
+/// Sort form fields by request location (Path → Query → Header → Body → Form
+/// Data), then
 /// case-insensitive label, given a prebuilt `label → location` map. Labels
 /// absent from the map sort as the default location. Callers build the map
 /// from whichever input shape they hold (workflow needs/supplied, or the full
@@ -112,13 +113,14 @@ pub(crate) fn sort_form_fields_by_location(
 ) {
     use ags_protocol::workflow::StepFieldLocation;
 
-    /// Stable ordering rank for a field by location: path < query < header < body.
+    /// Stable ordering rank for a field by location: path < query < header < body < form data.
     fn location_rank(loc: StepFieldLocation) -> u8 {
         match loc {
             StepFieldLocation::Path => 0,
             StepFieldLocation::Query => 1,
             StepFieldLocation::Header => 2,
             StepFieldLocation::Body => 3,
+            StepFieldLocation::FormData => 4,
         }
     }
 
@@ -508,6 +510,12 @@ where
                 drive_enum_picker(tty, phase.form_mut(), idx, options_fetch, next_event)?;
                 continue;
             }
+            // Unreachable in practice: FilePicker fields are only ever
+            // constructed when `file_pickers: true` is passed to
+            // `build_inputs_form`, which the Inline surface never does
+            // (fullscreen-only feature). Mapped to Continue defensively,
+            // matching this file's own OpenEnumPicker-in-review precedent.
+            PhaseStep::Done(PhaseResult::OpenFilePicker(_)) => continue,
         }
     }
 }
@@ -722,8 +730,10 @@ pub(crate) const GATHER_REVIEW_SUBMIT_DESCRIPTION: &str = "Review the request be
 /// declared-input map (`Ok(None)` on cancel). Both rich surfaces (fullscreen,
 /// inline) call this, so the form construction — field builder, submit hint,
 /// focus, box title — lives in one place and cannot drift; only `drive` (the
-/// render loop) is surface-specific. `dynamic_enums` is the surface's picker
-/// capability (fullscreen `true`; inline `false` → plain-text inputs).
+/// render loop) is surface-specific. `dynamic_enums` and `file_pickers` are
+/// the surface's picker capabilities: fullscreen passes both `true`; inline
+/// passes `dynamic_enums: true` (its own in-viewport picker) but
+/// `file_pickers: false` (the file-picker directory browser is Fullscreen-only).
 ///
 /// FIELD ORDER: this renders `specs` in the order given — it deliberately does
 /// NOT sort. Ordering is the caller's job: the workflow executor hands inputs
@@ -737,6 +747,7 @@ pub(crate) fn collect_inputs_form<D>(
     specs: &[ags_protocol::workflow::WorkflowInputSpec],
     current: &std::collections::BTreeMap<String, serde_json::Value>,
     dynamic_enums: bool,
+    file_pickers: bool,
     drive: D,
 ) -> Result<
     Option<(
@@ -760,7 +771,7 @@ where
     }
     let mut form = Form::new(
         "gather-inputs",
-        build_inputs_form(specs, current, dynamic_enums),
+        build_inputs_form(specs, current, dynamic_enums, file_pickers),
     )
     .with_submit_focusable(true)
     .with_run_mode_buttons(true) // run-start gather shows the three buttons
@@ -1297,6 +1308,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         // Built in a deliberately scrambled order: body, header, query, path.
         let mut fields = vec![
@@ -1349,6 +1361,7 @@ mod tests {
             schema: serde_json::json!({}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         // Form order: role-id (path scalar) first, permissions (body) last.
         let fields = vec![
@@ -1388,6 +1401,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         }
     }
 
@@ -1659,6 +1673,7 @@ mod tests {
             schema: serde_json::json!({"type": "object", "properties": {}}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         }
     }
 
@@ -1712,6 +1727,7 @@ mod tests {
                 }),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         let mut tty = Terminal::new(TestBackend::new(80, 30)).expect("TestBackend");
@@ -1751,6 +1767,7 @@ mod tests {
                 }),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         let mut tty = Terminal::new(TestBackend::new(80, 30)).expect("TestBackend");
@@ -1793,6 +1810,7 @@ mod tests {
                 }),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             }],
         );
         let mut tty = Terminal::new(TestBackend::new(80, 30)).expect("TestBackend");
@@ -1940,6 +1958,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             },
             FormField {
                 label: "client-name".into(),
@@ -1952,6 +1971,7 @@ mod tests {
                 schema: serde_json::json!({"type":"string"}),
                 read_only: false,
                 dynamic: None,
+                file_picker: None,
             },
         ];
         let mut tty = Terminal::new(TestBackend::new(80, 30)).expect("TestBackend");
@@ -2017,6 +2037,7 @@ mod tests {
             schema: serde_json::json!({"type": "string"}),
             read_only: false,
             dynamic: None,
+            file_picker: None,
         };
         let user_id = FormField {
             label: "userId".into(),
@@ -2034,6 +2055,7 @@ mod tests {
                 optional_deps: vec![],
                 resolved: None,
             }),
+            file_picker: None,
         };
         Form::new("pick", vec![namespace, user_id])
     }
@@ -2123,7 +2145,7 @@ mod tests {
         use ags_protocol::workflow::RunMode;
         let current =
             std::collections::BTreeMap::from([("namespace".to_string(), serde_json::json!("dev"))]);
-        let result = collect_inputs_form(&[], &current, true, |_form| {
+        let result = collect_inputs_form(&[], &current, true, false, |_form| {
             panic!("drive must not run when there are no specs to collect");
         })
         .unwrap();

@@ -2,6 +2,22 @@
 
 pub use ags_protocol::error::{ErrorMetadata, SuggestionKind};
 
+/// Sub-classification of `CliError::Api`, preserved from the originating
+/// `RuntimeErrorKind` at conversion time. `CliError::Api` has exactly one real
+/// constructor (`From<RuntimeError>` below), so this field is always populated
+/// correctly there; nothing else constructs `CliError::Api` directly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApiErrorCategory {
+    /// 403 — authenticated but not permitted.
+    Permission,
+    /// 404 — target entity or route does not exist.
+    NotFound,
+    /// 400/422 — the server rejected the request shape.
+    Rejected,
+    /// Any other upstream HTTP status (5xx, or an unmapped 4xx).
+    Upstream,
+}
+
 /// Top-level error enum that maps each failure category to a distinct exit code
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
@@ -22,6 +38,7 @@ pub enum CliError {
     Api {
         message: String,
         metadata: Option<Box<ErrorMetadata>>,
+        category: ApiErrorCategory,
     },
     /// Connection or transport-level failure (exit code 4)
     #[error("{message}")]
@@ -73,13 +90,45 @@ impl CliError {
         }
     }
 
+    /// Stable, coarse error taxonomy for telemetry — never the raw message
+    /// (which may embed user input). Matches the dashboard's friction-tile
+    /// taxonomy (see `ags-telemetry-metrics-dashboard-design.md` §5/§9.4).
+    pub fn telemetry_class(&self) -> &'static str {
+        match self {
+            CliError::Usage { .. } => "usage",
+            CliError::Auth { .. } => "auth",
+            CliError::Api { category, .. } => match category {
+                ApiErrorCategory::Permission => "permission",
+                ApiErrorCategory::NotFound => "not_found",
+                ApiErrorCategory::Rejected => "rejected",
+                ApiErrorCategory::Upstream => "upstream",
+            },
+            CliError::Network { .. } => "network",
+            CliError::Internal(_) => "internal",
+        }
+    }
+
+    /// Borrow the error's structured metadata, when it has any. `None` for
+    /// `CliError::Internal`, which carries no structured metadata at all.
+    pub fn metadata(&self) -> Option<&ErrorMetadata> {
+        match self {
+            CliError::Usage { metadata, .. }
+            | CliError::Auth { metadata, .. }
+            | CliError::Api { metadata, .. }
+            | CliError::Network { metadata, .. } => metadata.as_deref(),
+            CliError::Internal(_) => None,
+        }
+    }
+
     /// Project the error into a structured `ErrorView` for a frontend to render.
     pub fn view(&self) -> ErrorView {
         let exit_code = self.exit_code();
         match self {
             CliError::Usage { message, metadata }
             | CliError::Auth { message, metadata }
-            | CliError::Api { message, metadata }
+            | CliError::Api {
+                message, metadata, ..
+            }
             | CliError::Network { message, metadata } => {
                 let meta = metadata.as_deref();
                 ErrorView {
@@ -132,12 +181,28 @@ impl From<ags_protocol::error::RuntimeError> for CliError {
             .as_ref()
             .and_then(|details| details.reason.clone());
 
+        // Telemetry-only facts: the kind is authoritative for an upstream
+        // status/code pair; otherwise fall back to a client-side code recorded
+        // in `details.code` (e.g. a `--no-input` rejection). Never rendered.
+        let (http_status, kind_code) = match &error.kind {
+            RuntimeErrorKind::Upstream { status, code } => (Some(*status), code.clone()),
+            _ => (None, None),
+        };
+        let code = kind_code.or_else(|| {
+            error
+                .details
+                .as_ref()
+                .and_then(|details| details.code.clone())
+        });
+
         let metadata = Some(Box::new(ErrorMetadata {
             reason,
             detail,
             suggestion: error.hint,
             suggestion_kind,
             tip,
+            code,
+            http_status,
             trace: error.trace,
         }));
 
@@ -150,9 +215,14 @@ impl From<ags_protocol::error::RuntimeError> for CliError {
                 message: error.message,
                 metadata,
             },
+            // A client-side size guard, but bucketed as `upstream`
+            // telemetry-wise since none of the other categories fit better
+            // and it still represents an API response the CLI couldn't
+            // fully process.
             RuntimeErrorKind::ResponseTooLarge => CliError::Api {
                 message: error.message,
                 metadata,
+                category: ApiErrorCategory::Upstream,
             },
             RuntimeErrorKind::Internal => {
                 // Internal invariants become boxed anyhow errors (exit code 5).
@@ -165,14 +235,58 @@ impl From<ags_protocol::error::RuntimeError> for CliError {
                 message: error.message,
                 metadata,
             },
-            RuntimeErrorKind::Rejected
-            | RuntimeErrorKind::Forbidden
-            | RuntimeErrorKind::NotFound
-            | RuntimeErrorKind::Upstream { .. } => CliError::Api {
+            RuntimeErrorKind::Forbidden => CliError::Api {
                 message: error.message,
                 metadata,
+                category: ApiErrorCategory::Permission,
+            },
+            RuntimeErrorKind::NotFound => CliError::Api {
+                message: error.message,
+                metadata,
+                category: ApiErrorCategory::NotFound,
+            },
+            RuntimeErrorKind::Rejected => CliError::Api {
+                message: error.message,
+                metadata,
+                category: ApiErrorCategory::Rejected,
+            },
+            RuntimeErrorKind::Upstream { .. } => CliError::Api {
+                message: error.message,
+                metadata,
+                category: ApiErrorCategory::Upstream,
             },
         }
+    }
+}
+
+/// Read a single line from stdin via the shared sanitizing reader and map
+/// errors to [`CliError::Usage`].
+///
+/// Three callers need this conversion: `update-secret`, `update-var`, and
+/// `auth login --client-secret-stdin`. The IO call is one line; the real
+/// value is the shared error mapping — keeping the messages identical across
+/// all call sites so a wording change never needs three lockstep edits.
+///
+/// Lives in `errors.rs` (alongside the existing `From<RuntimeError>` and
+/// `From<anyhow::Error>` conversions) because its purpose is bridging
+/// a runtime error type to a CLI error type. The one-line IO call is a
+/// convenience that keeps every call site to a single function call.
+pub(crate) fn read_stdin_line() -> Result<String, CliError> {
+    ags_runtime::support::strings::read_stdin_line().map_err(map_stdin_line_error)
+}
+
+/// Map a [`StdinLineError`](ags_runtime::support::strings::StdinLineError)
+/// to [`CliError::Usage`].
+fn map_stdin_line_error(e: ags_runtime::support::strings::StdinLineError) -> CliError {
+    match e {
+        ags_runtime::support::strings::StdinLineError::Io(io_err) => CliError::Usage {
+            message: format!("Failed to read from stdin: {io_err}"),
+            metadata: None,
+        },
+        ags_runtime::support::strings::StdinLineError::Empty => CliError::Usage {
+            message: "Expected a value from stdin but got empty input".to_string(),
+            metadata: None,
+        },
     }
 }
 
@@ -224,7 +338,8 @@ mod tests {
         assert_eq!(
             CliError::Api {
                 message: "forbidden".into(),
-                metadata: None
+                metadata: None,
+                category: ApiErrorCategory::Permission,
             }
             .exit_code(),
             3
@@ -263,7 +378,7 @@ mod tests {
 
     mod runtime_error_conversion {
         use super::*;
-        use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
+        use ags_protocol::error::{ErrorDetails, RuntimeError, RuntimeErrorKind};
 
         /// Build a placeholder `RuntimeError` so each test only varies the kind it cares about.
         fn make(kind: RuntimeErrorKind) -> RuntimeError {
@@ -392,6 +507,186 @@ mod tests {
                 Some(&trace),
                 "the propagated trace should match what was attached"
             );
+        }
+
+        /// Forbidden must classify as the `permission` telemetry class, distinct from a
+        /// generic API error — the dashboard's friction panel needs auth vs. permission
+        /// vs. not-found broken out, not collapsed into one `api` bucket.
+        #[test]
+        fn test_forbidden_telemetry_class_is_permission() {
+            let err: CliError = make(RuntimeErrorKind::Forbidden).into();
+            assert_eq!(err.telemetry_class(), "permission");
+        }
+
+        #[test]
+        fn test_not_found_telemetry_class_is_not_found() {
+            let err: CliError = make(RuntimeErrorKind::NotFound).into();
+            assert_eq!(err.telemetry_class(), "not_found");
+        }
+
+        #[test]
+        fn test_rejected_telemetry_class_is_rejected() {
+            let err: CliError = make(RuntimeErrorKind::Rejected).into();
+            assert_eq!(err.telemetry_class(), "rejected");
+        }
+
+        #[test]
+        fn test_upstream_telemetry_class_is_upstream() {
+            let err: CliError = make(RuntimeErrorKind::Upstream {
+                status: 502,
+                code: None,
+            })
+            .into();
+            assert_eq!(err.telemetry_class(), "upstream");
+        }
+
+        /// `ResponseTooLarge` is a client-side size guard, not a server
+        /// failure, but it still bucketed as `upstream` telemetry-wise since
+        /// none of the other categories fit better and it represents an API
+        /// response the CLI couldn't fully process. See the doc comment on
+        /// the `RuntimeErrorKind::ResponseTooLarge` match arm in the
+        /// `From<RuntimeError> for CliError` impl above for the full
+        /// rationale.
+        #[test]
+        fn test_response_too_large_telemetry_class_is_upstream() {
+            let err: CliError = make(RuntimeErrorKind::ResponseTooLarge).into();
+            assert_eq!(err.telemetry_class(), "upstream");
+        }
+
+        #[test]
+        fn test_validation_telemetry_class_is_usage() {
+            let err: CliError = make(RuntimeErrorKind::Validation).into();
+            assert_eq!(err.telemetry_class(), "usage");
+        }
+
+        #[test]
+        fn test_not_authenticated_telemetry_class_is_auth() {
+            let err: CliError = make(RuntimeErrorKind::NotAuthenticated).into();
+            assert_eq!(err.telemetry_class(), "auth");
+        }
+
+        #[test]
+        fn test_network_telemetry_class_is_network() {
+            let err: CliError = make(RuntimeErrorKind::Network).into();
+            assert_eq!(err.telemetry_class(), "network");
+        }
+
+        #[test]
+        fn test_internal_telemetry_class_is_internal() {
+            let err = CliError::Internal(anyhow::anyhow!("boom"));
+            assert_eq!(err.telemetry_class(), "internal");
+        }
+
+        /// `RuntimeErrorKind::telemetry_class` and `CliError::telemetry_class`
+        /// must never drift apart — they are two independent classifications
+        /// of the same failure and telemetry consumers assume they agree.
+        #[test]
+        fn test_cli_error_class_matches_runtime_kind_class() {
+            for kind in [
+                RuntimeErrorKind::NotAuthenticated,
+                RuntimeErrorKind::Forbidden,
+                RuntimeErrorKind::NotFound,
+                RuntimeErrorKind::Validation,
+                RuntimeErrorKind::Rejected,
+                RuntimeErrorKind::Network,
+                RuntimeErrorKind::Internal,
+            ] {
+                let expected = kind.telemetry_class();
+                let err: CliError = make(kind).into();
+                assert_eq!(err.telemetry_class(), expected);
+            }
+        }
+
+        /// The HTTP status and error code from an `Upstream` kind must reach
+        /// `ErrorMetadata` verbatim so telemetry can report them without
+        /// re-parsing the rendered message.
+        #[test]
+        fn test_upstream_error_carries_status_and_code_into_metadata() {
+            let err: CliError = RuntimeError {
+                kind: RuntimeErrorKind::Upstream {
+                    status: 409,
+                    code: Some("20013".to_string()),
+                },
+                message: "conflict".to_string(),
+                details: None,
+                hint: None,
+                trace: None,
+            }
+            .into();
+            let CliError::Api { metadata, .. } = &err else {
+                panic!("expected CliError::Api, got {err:?}");
+            };
+            let metadata = metadata.as_deref().expect("metadata must be present");
+            assert_eq!(metadata.http_status, Some(409));
+            assert_eq!(metadata.code, Some("20013".to_string()));
+        }
+
+        /// When the kind carries no status/code (e.g. a client-side
+        /// `Validation` rejection), a code recorded in `details.code` must
+        /// still reach `ErrorMetadata` so telemetry can see it.
+        #[test]
+        fn test_details_code_reaches_metadata_when_kind_carries_none() {
+            let err: CliError = RuntimeError {
+                kind: RuntimeErrorKind::Validation,
+                message: "cannot run non-interactively".to_string(),
+                details: Some(Box::new(ErrorDetails {
+                    code: Some("no_input.missing_input".to_string()),
+                    reason: None,
+                    detail: None,
+                    suggestion_kind: None,
+                    tip: None,
+                })),
+                hint: None,
+                trace: None,
+            }
+            .into();
+            let CliError::Usage { metadata, .. } = &err else {
+                panic!("expected CliError::Usage, got {err:?}");
+            };
+            let metadata = metadata.as_deref().expect("metadata must be present");
+            assert_eq!(metadata.code, Some("no_input.missing_input".to_string()));
+            assert_eq!(metadata.http_status, None);
+        }
+    }
+
+    // ── map_stdin_line_error ──
+
+    mod stdin_line_error_mapping {
+        use super::*;
+
+        #[test]
+        fn io_error_maps_to_usage_with_message() {
+            let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "broken pipe");
+            let cli_err =
+                map_stdin_line_error(ags_runtime::support::strings::StdinLineError::Io(io_err));
+            match cli_err {
+                CliError::Usage { ref message, .. } => {
+                    assert!(
+                        message.starts_with("Failed to read from stdin:"),
+                        "message must describe the IO failure: {message}"
+                    );
+                    assert!(
+                        message.contains("broken pipe"),
+                        "message must include the inner error: {message}"
+                    );
+                }
+                other => panic!("expected CliError::Usage, got: {other:?}"),
+            }
+        }
+
+        #[test]
+        fn empty_input_maps_to_usage_with_exact_message() {
+            let cli_err =
+                map_stdin_line_error(ags_runtime::support::strings::StdinLineError::Empty);
+            match cli_err {
+                CliError::Usage { ref message, .. } => {
+                    assert_eq!(
+                        message, "Expected a value from stdin but got empty input",
+                        "empty-input message must match the exact wording all call sites expect"
+                    );
+                }
+                other => panic!("expected CliError::Usage, got: {other:?}"),
+            }
         }
     }
 }

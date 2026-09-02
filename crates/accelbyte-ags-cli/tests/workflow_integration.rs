@@ -88,7 +88,6 @@ fn simple_get_operation(op_id: &str, path: &str) -> OperationSchema {
         api_version: ApiVersion(1),
         deprecated: false,
         response_content_type: None,
-        has_file_upload: false,
     }
 }
 
@@ -140,10 +139,12 @@ fn make_two_step_workflow() -> CompiledWorkflow {
         id: "step-a".into(),
         index: 0,
         description: Some("run step A".into()),
-        operation: OperationReference {
+        kind: ags_protocol::workflow::StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: svc.clone(),
             operation: OperationId::new("wf-svc/public/step-a/v1/run"),
-        },
+        }),
         dependencies: vec![],
         confirm: false,
         is_optional: false,
@@ -159,10 +160,12 @@ fn make_two_step_workflow() -> CompiledWorkflow {
         id: "step-b".into(),
         index: 1,
         description: Some("run step B".into()),
-        operation: OperationReference {
+        kind: ags_protocol::workflow::StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: svc,
             operation: OperationId::new("wf-svc/public/step-b/v1/run"),
-        },
+        }),
         dependencies: vec!["step-a".into()],
         confirm: false,
         is_optional: false,
@@ -189,6 +192,7 @@ fn make_two_step_workflow() -> CompiledWorkflow {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }],
         is_reviewed_by_default: true,
         steps: vec![step_a, step_b],

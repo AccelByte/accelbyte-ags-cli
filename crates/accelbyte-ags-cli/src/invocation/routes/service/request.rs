@@ -88,6 +88,7 @@ pub(super) fn build_command_request(
     let mut path_params: BTreeMap<String, String> = BTreeMap::new();
     let mut query_params: BTreeMap<String, String> = BTreeMap::new();
     let mut header_params: BTreeMap<String, String> = BTreeMap::new();
+    let mut form_params: BTreeMap<String, String> = BTreeMap::new();
 
     for parameter in &operation.parameters {
         let value = match arg_matches.get_one::<String>(parameter.name.as_str()) {
@@ -104,9 +105,13 @@ pub(super) fn build_command_request(
             ParameterLocation::Header => {
                 header_params.insert(parameter.name.clone(), value.clone());
             }
-            ParameterLocation::Body | ParameterLocation::FormData => {
+            ParameterLocation::FormData => {
+                form_params.insert(parameter.name.clone(), value.clone());
+            }
+            ParameterLocation::Body => {
                 // Body-parameter metadata is consumed via operation.request_body;
-                // formData is treated as body-shaped. Neither appears as a flag.
+                // it does not appear as an individually-read flag value (the
+                // body comes from `--json`/interactive editing instead).
             }
         }
     }
@@ -120,7 +125,8 @@ pub(super) fn build_command_request(
         path_params,
         query_params,
         header_params,
-        body,
+        form_params,
+        body: body.map(ags_protocol::request::RequestBody::Json),
         output_format,
         pagination,
         verbosity: flags.verbosity,
@@ -506,7 +512,6 @@ mod resolve_tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -528,7 +533,6 @@ mod resolve_tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -618,5 +622,61 @@ mod resolve_tests {
         )
         .unwrap();
         assert_eq!(request.output_format, OutputFormat::Json);
+    }
+
+    /// Build an operation with a single required `formData`, `type: file`
+    /// parameter named per `name`.
+    fn operation_with_formdata_file_param(name: &str) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new("test-upload"),
+            name: "upload".to_string(),
+            summary: "Upload something".to_string(),
+            description: None,
+            mutation_class: MutationClass::Mutating,
+            http_method: HttpMethod::Post,
+            path_template: "/test/v1/uploads".to_string(),
+            parameters: vec![ags_protocol::catalogue::ParameterSchema {
+                name: name.to_string(),
+                location: ParameterLocation::FormData,
+                required: true,
+                value_type: ags_protocol::catalogue::ValueType::String,
+                is_file: true,
+                description: None,
+                default: None,
+            }],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: "admin".to_string(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// A `formData` parameter's clap-parsed value lands in
+    /// `CommandRequest.form_params`, keyed by parameter name.
+    #[test]
+    fn test_build_command_request_captures_formdata_param() {
+        let operation = operation_with_formdata_file_param("file");
+        let arg_matches = clap::Command::new("test")
+            .arg(clap::Arg::new("file").long("file"))
+            .try_get_matches_from(["test", "--file", "/tmp/asset.png"])
+            .unwrap();
+
+        let request = build_command_request(
+            &operation,
+            &arg_matches,
+            &flags::GlobalFlags::default(),
+            OutputFormat::Human,
+            ServiceId::new("csm"),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.form_params.get("file"),
+            Some(&"/tmp/asset.png".to_string())
+        );
     }
 }

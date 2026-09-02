@@ -12,7 +12,7 @@
 use ags_protocol::catalogue::{OperationId, ServiceId};
 use ags_protocol::workflow::{
     BindingSource, CaptureSource, LabelDetail, OperationReference, OptionParameterBinding,
-    OptionsSource, ReferenceBinding, ReferenceTarget, StepDefinition, StepInputBinding,
+    OptionsSource, ReferenceBinding, ReferenceTarget, StepDefinition, StepInputBinding, StepKind,
     StepOutputCapture, WorkflowBriefing, WorkflowDefinition, WorkflowId, WorkflowInputSpec,
     WorkflowOutputAlias,
 };
@@ -85,10 +85,12 @@ fn opt_read(
     StepDefinition {
         id: id.to_string(),
         description: Some(description.to_string()),
-        operation: OperationReference {
+        kind: StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: ServiceId::new(service),
             operation: OperationId::new(operation),
-        },
+        }),
         dependencies: vec![],
         confirm: false,
         is_optional: false,
@@ -155,6 +157,7 @@ fn input(
         sensitive: false,
         options_source: None,
         location: ags_protocol::workflow::StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -176,6 +179,7 @@ fn input_with_options(
         sensitive: false,
         options_source: Some(options_source),
         location: ags_protocol::workflow::StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -219,6 +223,7 @@ fn build_definition() -> WorkflowDefinition {
     WorkflowDefinition {
         id: WorkflowId::new("player-overview"),
         name: "Investigate a player".to_string(),
+        workflow_protocol_version: None,
         intent: Some("player investigation moderation overview lookup user".to_string()),
         description: Some("Read-only cross-service overview for one player".to_string()),
         briefing: Some(WorkflowBriefing {

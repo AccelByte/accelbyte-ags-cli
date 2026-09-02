@@ -130,11 +130,7 @@ impl crate::runtime::Runtime {
 
         let headers = vec![("Authorization".to_string(), "Bearer <token>".to_string())];
 
-        let body = if operation.request_body.is_some() {
-            request.body.clone()
-        } else {
-            None
-        };
+        let body = request.body.clone();
 
         Ok(DryRunResult {
             http_method: operation.http_method,
@@ -215,6 +211,51 @@ impl crate::runtime::Runtime {
 }
 
 #[cfg(test)]
+mod tests {
+    use crate::runtime::execution::ExecutionContext;
+    use crate::runtime::Runtime;
+    use ags_protocol::catalogue::{OperationId, ServiceId};
+    use ags_protocol::request::{FormPart, OutputFormat, PaginationHint, RequestBody, Verbosity};
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+
+    /// `dry_run_command` preserves a `RequestBody::Multipart` body for a
+    /// real formData operation — regression for the bug where the body was
+    /// nulled out whenever `operation.request_body.is_none()`, which is
+    /// always true for a formData operation (body and formData are
+    /// mutually exclusive per OAS2).
+    #[test]
+    fn test_dry_run_command_preserves_multipart_body_for_formdata_operation() {
+        let mut runtime =
+            Runtime::from_reqwest(ExecutionContext::default(), reqwest::Client::new());
+        let mut path_params = BTreeMap::new();
+        path_params.insert("namespace".to_string(), "dev".to_string());
+        path_params.insert("appUiName".to_string(), "some-app".to_string());
+        let request = ags_protocol::request::CommandRequest {
+            service: ServiceId::new("csm"),
+            operation_id: OperationId::new("csm/admin/app-ui/v1/upload-assets"),
+            namespace: None,
+            path_params,
+            query_params: BTreeMap::new(),
+            header_params: BTreeMap::new(),
+            body: Some(RequestBody::Multipart(vec![FormPart::File {
+                name: "file".to_string(),
+                path: PathBuf::from("/tmp/asset.png"),
+                filename: "asset.png".to_string(),
+            }])),
+            form_params: BTreeMap::new(),
+            output_format: OutputFormat::Human,
+            pagination: PaginationHint::Auto,
+            verbosity: Verbosity::Normal,
+            output: None,
+        };
+
+        let result = runtime.dry_run_command(&request).unwrap();
+        assert!(matches!(result.body, Some(RequestBody::Multipart(_))));
+    }
+}
+
+#[cfg(test)]
 mod fetch_options_body_tests {
     use crate::runtime::dispatch::http::{HttpBody, HttpClient, HttpRequest, HttpResponse};
     use crate::runtime::execution::ExecutionContext;
@@ -268,6 +309,7 @@ mod fetch_options_body_tests {
             path_params: BTreeMap::from([("namespace".to_string(), "dev".to_string())]),
             query_params: BTreeMap::new(),
             header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
             body: None,
             output_format: OutputFormat::Json,
             pagination: PaginationHint::All,

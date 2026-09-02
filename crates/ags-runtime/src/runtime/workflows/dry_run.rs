@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use ags_protocol::error::RuntimeError;
 use ags_protocol::request::CommandRequest;
-use ags_protocol::workflow::{CaptureSource, CompiledStep, StepDryRunPreview};
+use ags_protocol::workflow::{CaptureSource, CompiledStep, StepDryRunAction, StepDryRunPreview};
 
 use crate::catalogue::Catalogue;
 use crate::runtime::workflows::auto_derive::find_operation_or_error;
@@ -20,12 +20,15 @@ pub fn synthesise_dry_run_outputs(
     catalogue: &mut Catalogue,
 ) -> Result<BTreeMap<String, serde_json::Value>, RuntimeError> {
     let mut out = BTreeMap::new();
-    let service_schema = catalogue.get_or_load(step.operation.service.as_str())?;
-    let operation = find_operation_or_error(
-        service_schema,
-        &step.operation,
-        &format!("step '{}'", step.id),
-    )?;
+    let op_ref = step.operation.as_ref().ok_or_else(|| {
+        RuntimeError::internal(format!(
+            "step '{}': API step reached synthesise_dry_run_outputs without an operation",
+            step.id
+        ))
+    })?;
+    let service_schema = catalogue.get_or_load(op_ref.service.as_str())?;
+    let operation =
+        find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
     for capture in &step.outputs {
         let placeholder = match &capture.source {
             CaptureSource::ResponseBody { path } => placeholder_for_body_path(
@@ -76,9 +79,30 @@ pub fn build_step_dry_run_preview(
     Ok(StepDryRunPreview {
         step_id: step.id.clone(),
         step_index: step.index,
-        command,
+        action: StepDryRunAction::Request(command),
         synthesised_outputs: synthesised_outputs.clone(),
     })
+}
+
+/// Build the dry-run preview for a local-action step. `produced` is the value
+/// the action's dry run returned; `synthesised_outputs` are the step's
+/// declared captures already resolved against it, so downstream references
+/// and the preview agree.
+pub fn build_local_dry_run_preview(
+    step: &CompiledStep,
+    action: &str,
+    produced: serde_json::Value,
+    synthesised_outputs: BTreeMap<String, serde_json::Value>,
+) -> StepDryRunPreview {
+    StepDryRunPreview {
+        step_id: step.id.clone(),
+        step_index: step.index,
+        action: StepDryRunAction::Local {
+            action: action.to_string(),
+            preview: produced,
+        },
+        synthesised_outputs,
+    }
 }
 
 #[cfg(test)]
@@ -96,10 +120,12 @@ mod tests {
             id: "s1".into(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ags_protocol::catalogue::ServiceId::new("svc"),
                 operation: ags_protocol::catalogue::OperationId::new("Op"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -131,6 +157,34 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_api_step_without_operation_returns_internal_error() {
+        let malformed = CompiledStep {
+            id: "bad".into(),
+            index: 0,
+            description: None,
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: None,
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+            auto_derived: vec![],
+        };
+        let mut catalogue = crate::catalogue::Catalogue::new();
+        let err = synthesise_dry_run_outputs(&malformed, &mut catalogue).unwrap_err();
+        assert_eq!(err.kind, ags_protocol::error::RuntimeErrorKind::Internal);
+        assert!(
+            err.message.contains("without an operation"),
+            "error must explain the missing operation: {err}"
+        );
+    }
+
     /// Build a placeholder `OperationSchema` fixture.
     fn dummy_operation() -> ags_protocol::catalogue::OperationSchema {
         ags_protocol::catalogue::OperationSchema {
@@ -149,7 +203,6 @@ mod tests {
             api_version: ags_protocol::catalogue::ApiVersion::new(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 }

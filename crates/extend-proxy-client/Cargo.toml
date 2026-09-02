@@ -1,0 +1,25 @@
+[package]
+name = "extend-proxy-client"
+version.workspace = true
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+description = "Client-side Rust port of extend-proxy's multiplexed tunneling protocol (Rust port of extend-helper-cli's modules/extend-proxy client)."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+rand = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tracing-subscriber = { workspace = true }
+socket2 = { workspace = true }

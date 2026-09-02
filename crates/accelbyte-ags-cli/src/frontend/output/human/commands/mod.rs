@@ -1,10 +1,16 @@
+pub mod ams_upload;
+pub(crate) mod app_ui_upload;
 pub mod auth;
+pub mod clone_template;
 pub mod completions;
 pub mod config;
 pub mod doctor;
 pub mod profile;
 pub mod refresh_specs;
 pub mod service;
+pub mod setup_env;
+pub mod update_secret;
+pub mod update_var;
 pub mod version;
 pub mod workflow;
 pub mod workflow_dry_run;

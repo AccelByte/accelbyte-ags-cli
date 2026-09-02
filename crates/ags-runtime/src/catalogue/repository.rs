@@ -68,7 +68,7 @@ pub fn refresh_one(service: &str) -> Result<(), RuntimeError> {
 /// rewritten even if siblings failed.
 ///
 /// The cache lock is held for the entire operation — across the directory
-/// clear and all 24 per-service writes. This serialises any concurrent
+/// clear and every per-service write. This serialises any concurrent
 /// `ags` invocation that calls `load_service` against the lock, which will
 /// print "Waiting for file lock on spec cache…" until the rebuild finishes.
 /// The lock must span the full cycle to prevent a concurrent reader from

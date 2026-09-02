@@ -12,13 +12,16 @@
 //!   `CommandOutput` variants
 
 pub use super::output_views::{
-    ApiBody, ApiOutput, ApiSuccess, AuthActionData, AuthActionStatus, AuthOutput, AuthSource,
-    AuthStatusData, AuthView, BinaryWrittenDestination, BinaryWrittenOutput, CommandIntent,
-    CompletionsOutput, ConfigOutput, ConfigView, DescribeOutput, ExecutionTrace, FieldEntry,
-    LogoutAllData, LogoutData, OperationWarning, Presence, ProfileOutput, ProfileShowData,
-    ProfileSummary, ProfileView, RefreshMode, RefreshSpecsOutput, RequestTrace, ResolutionTrace,
-    ResponseTrace, Section, SkeletonOutput, TokenState, VersionOutput, WorkflowCompletionView,
-    WorkflowOutputItem, WorkflowOutputProvenance, WorkflowOutputView,
+    AmsEntrypointKind, AmsUploadOutput, AmsUploadPlan, AmsUploadResult, AmsUploadView, ApiBody,
+    ApiOutput, ApiSuccess, AppUiUploadOutput, AuthActionData, AuthActionStatus, AuthOutput,
+    AuthSource, AuthStatusData, AuthView, BinaryWrittenDestination, BinaryWrittenOutput,
+    CloneTemplateOutput, CommandIntent, CompletionsOutput, ConfigOutput, ConfigView,
+    DescribeOutput, ExecutionTrace, FieldEntry, LogoutAllData, LogoutData, OperationWarning,
+    Presence, ProfileOutput, ProfileShowData, ProfileSummary, ProfileView, RefreshMode,
+    RefreshSpecsOutput, RequestTrace, ResolutionTrace, ResponseTrace, Section, SetupEnvOutput,
+    SetupEnvStatus, SkeletonOutput, TokenState, UpdateSecretOutput, UpdateVarOutput, VersionOutput,
+    WorkflowAddOutput, WorkflowCompletionView, WorkflowOutputItem, WorkflowOutputProvenance,
+    WorkflowOutputView, WorkflowRemoveOutput, WorkflowTemplateOutput,
 };
 
 /// Top-level output produced by any command before rendering.
@@ -32,6 +35,8 @@ pub enum CommandOutput {
     Profile(ProfileOutput),
     /// Output from a service API call
     Service(Box<ApiOutput>),
+    /// Output from `ags ams upload` — a completed upload or a `--dry-run` plan.
+    AmsUpload(AmsUploadOutput),
     /// Final output from a multi-step workflow (or a 1-step workflow that
     /// declares outputs). Carries the alias map plus the completed-step
     /// record. Empty `outputs` is legal for multi-step workflows that don't
@@ -86,9 +91,25 @@ pub enum CommandOutput {
     Describe(DescribeOutput),
     /// Output from `ags refresh-specs`
     RefreshSpecs(RefreshSpecsOutput),
+    /// Output from `ags extend clone-template`
+    CloneTemplate(CloneTemplateOutput),
+    /// Output from `ags extend app-ui setup-env`
+    SetupEnv(SetupEnvOutput),
+    /// Output from `ags extend app-ui upload`
+    AppUiUpload(AppUiUploadOutput),
+    /// Output from `ags extend update-var`
+    UpdateVar(UpdateVarOutput),
+    /// Outcome of `ags workflow add <path>`
+    WorkflowAdd(WorkflowAddOutput),
+    /// Outcome of `ags workflow template`
+    WorkflowTemplate(WorkflowTemplateOutput),
+    /// Outcome of `ags workflow remove <id>`
+    WorkflowRemove(WorkflowRemoveOutput),
     /// A binary (or raw text via `--output`) response body was written to
     /// disk or stdout. The renderer emits a confirmation line on stderr
     /// when the destination is a file; when the destination is stdout,
     /// the renderer emits nothing (the bytes themselves are the output).
     BinaryWritten(BinaryWrittenOutput),
+    /// Output from `ags extend update-secret`
+    UpdateSecret(UpdateSecretOutput),
 }

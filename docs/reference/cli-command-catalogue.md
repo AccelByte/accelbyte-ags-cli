@@ -4,8 +4,8 @@ Auto-generated from `specs/*.json.gz` via `scripts/generate_cli_command_catalogu
 
 Lists every operation the CLI dispatches. Deprecated operations and the `internal` resource are excluded. Each row corresponds to a concrete `--api-scope` / `--api-version` combination.
 
-**Services:** 24
-**Operations:** 1990
+**Services:** 25
+**Operations:** 1996
 
 ## achievement
 
@@ -393,8 +393,8 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 ## csm
 
 - Spec name: `csm`
-- Resources: 13
-- Operations: 80
+- Resources: 14
+- Operations: 84
 
 | Resource | Method | Scope | Version | HTTP | Path | Summary |
 |----------|--------|-------|---------|------|------|---------|
@@ -404,9 +404,11 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `app-ui` | `upload-assets` | admin | v1 | POST | `/csm/v1/admin/namespaces/{namespace}/app-ui/{appUiName}/files/upload` | Uploads App UI assets as a ZIP archive |
 | `apps` | `apply` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/apply` | Creates or updates an Extend app from a declarative spec |
 | `apps` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Creates a new extend app |
+| `apps` | `create` | admin | v5 | POST | `/csm/v5/admin/namespaces/{namespace}/apps/{app}` | Creates a new extend app (v5) |
 | `apps` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Deletes the extend app by name |
 | `apps` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Retrieves the extend app by name |
 | `apps` | `get-release-info` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/apps/{app}/release` | Gets the Latest Release Version info of this App |
+| `apps` | `get-status-progress` | admin | v4 | GET | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/status-progress` | Retrieves progress steps for an extend app long-running operation |
 | `apps` | `list` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps` | Lists extend apps in the given game namespace |
 | `apps` | `request-resource-limit-increase` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/resources/form` | Submits a request to increase the app resource limits |
 | `apps` | `start` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/start` | Starts the Application |
@@ -421,6 +423,8 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `config` | `list-variables` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables` | Lists environment variables for the app |
 | `config` | `update-secret` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets/{configId}` | Updates an environment secret |
 | `config` | `update-variable` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/variables/{configId}` | Updates an environment variable |
+| `debug` | `get` | admin | v4 | GET | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/debuginfo` | Retrieves remote debug info for an extend app |
+| `debug` | `update` | admin | v4 | PUT | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/debugmode` | Enables or disables remote debug mode for an extend app |
 | `deployments` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/deployments` | Creates Deployment |
 | `deployments` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Deletes a deployment by ID |
 | `deployments` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Retrieves a deployment by ID |
@@ -478,6 +482,17 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `topics` | `list` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/asyncmessaging/topics` | Lists async messaging topics |
 | `topics` | `subscribe` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/asyncmessaging/topics/subscriptions` | Subscribes the app to the specified async messaging topics |
 | `topics` | `unsubscribe` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/asyncmessaging/topics/{topicName}/subscriptions` | Unsubscribes the app from an async messaging topic |
+
+## ehs
+
+- Spec name: `ehs`
+- Resources: 2
+- Operations: 2
+
+| Resource | Method | Scope | Version | HTTP | Path | Summary |
+|----------|--------|-------|---------|------|------|---------|
+| `grpc-reflection` | `get` | admin | v1 | GET | `/ehs/v1/admin/namespaces/{namespace}/reflection` | Lists a gRPC server's services and methods using server reflection |
+| `repository-credentials` | `get` | admin | v1 | GET | `/ehs/v1/namespaces/{namespace}/apps/{app}/token` | Retrieves Docker registry credentials for pushing container images to a publisher game app |
 
 ## game-telemetry
 
@@ -2213,3 +2228,11 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `types` | `list` | public | v1 | GET | `/ugc/v1/public/namespaces/{namespace}/types` | Lists available content types in a namespace |
 | `types` | `update` | admin | v1 | PUT | `/ugc/v1/admin/namespaces/{namespace}/types/{typeId}` | Updates a type and its subtypes |
 
+## Extend migration shortcuts
+
+The `extend` command group includes migration shortcuts that forward
+`extend-helper-cli` invocation names to their canonical `ags csm` operations. These
+are not spec-generated and therefore do not appear in the auto-generated tables above.
+
+For the full mapping table, see the "Extend migration shortcuts" subsection
+(10.5.10) in [cli-reference.md](cli-reference.md).

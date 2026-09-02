@@ -8,5 +8,7 @@
 mod auth;
 mod config;
 mod diagnostics;
+pub mod extend;
 mod profile;
 mod service;
+mod workflow;

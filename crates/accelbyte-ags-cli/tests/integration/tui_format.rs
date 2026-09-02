@@ -1,10 +1,10 @@
-use assert_cmd::Command;
+use crate::common::cli_helpers;
 
 /// The removed `--ui=tui` alias is rejected as an unknown value at flag-parse
 /// time (it was a deprecated alias for `--ui=inline`).
 #[test]
 fn test_ui_tui_alias_is_rejected() {
-    let mut cmd = Command::cargo_bin("ags").unwrap();
+    let mut cmd = cli_helpers::ags();
     cmd.args(["--ui=tui", "iam", "users", "list"]);
     let output = cmd.output().unwrap();
     assert!(!output.status.success(), "expected non-zero exit");
@@ -18,7 +18,7 @@ fn test_ui_tui_alias_is_rejected() {
 /// The removed `--format=tui` legacy alias is rejected as an unknown value.
 #[test]
 fn test_format_tui_alias_is_rejected() {
-    let mut cmd = Command::cargo_bin("ags").unwrap();
+    let mut cmd = cli_helpers::ags();
     cmd.args(["--format=tui", "iam", "users", "list"]);
     let output = cmd.output().unwrap();
     assert!(!output.status.success(), "expected non-zero exit");
@@ -36,7 +36,7 @@ fn test_format_tui_alias_is_rejected() {
 /// "cannot be combined with --format=json" usage error.
 #[test]
 fn test_ui_with_format_json_is_silently_ignored() {
-    let mut cmd = Command::cargo_bin("ags").unwrap();
+    let mut cmd = cli_helpers::ags();
     cmd.args(["--format=json", "--ui=inline", "iam", "users", "list"]);
     let output = cmd.output().unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);

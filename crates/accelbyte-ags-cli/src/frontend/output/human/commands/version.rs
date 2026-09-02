@@ -10,7 +10,10 @@ pub fn render_version_output(
     _options: &RenderOptions,
 ) -> Result<RenderedOutput, CliError> {
     Ok(RenderedOutput {
-        stdout: Some(format!("ags {}", output.version)),
+        stdout: Some(format!(
+            "ags {} (workflow protocol {})",
+            output.version, output.workflow_protocol_version
+        )),
         stderr: None,
         is_stdout_first: true,
     })

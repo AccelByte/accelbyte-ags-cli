@@ -86,6 +86,14 @@ pub enum AuthError {
     SessionExpiredRefreshTokenExpired,
     #[error("Session expired — no refresh token")]
     SessionExpiredNoRefreshToken,
+    /// The stored token for this profile was minted by a different IAM client
+    /// than the one currently configured. Not silently re-mintable (no secret).
+    #[error("Stored session for profile '{profile}' was created with a different client")]
+    StoredSessionClientMismatch {
+        profile: String,
+        stored_client_id: String,
+        current_client_id: String,
+    },
 
     // --- Forced refresh (`ags auth refresh`: the access token may still be
     // valid, so "session expired" would misdiagnose an IdP-side rejection) ---
@@ -239,6 +247,22 @@ impl From<AuthError> for ags_protocol::error::RuntimeError {
                 message,
                 None,
                 Some("Run 'ags auth login' to re-authenticate.".into()),
+                None,
+                None,
+            ),
+            AuthError::StoredSessionClientMismatch {
+                stored_client_id,
+                current_client_id,
+                ..
+            } => build_auth_runtime_error(
+                message,
+                Some(format!(
+                    "The cached token belongs to client '{stored_client_id}', but '{current_client_id}' is configured now."
+                )),
+                Some(
+                    "Run 'ags auth login' for this client, or select the matching profile with --profile/AGS_PROFILE."
+                        .into(),
+                ),
                 None,
                 None,
             ),

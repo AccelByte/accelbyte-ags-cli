@@ -68,6 +68,7 @@ async fn concurrent_resolve_access_token_issues_exactly_one_refresh() {
         refresh_token: Some("stale-refresh".to_string()),
         refresh_expires_at: Some(now + 86_400),
         grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+        client_id: None,
     };
     store::store_token_data(profile, &stale).unwrap();
 
@@ -170,6 +171,7 @@ async fn concurrent_refresh_with_rotation_all_callers_succeed() {
         refresh_token: Some("stale-refresh".to_string()),
         refresh_expires_at: Some(now + 86_400),
         grant_type: Some(ags_protocol::request::GrantType::AuthorizationCode),
+        client_id: None,
     };
     store::store_token_data(profile, &stale).unwrap();
 
@@ -243,6 +245,7 @@ async fn legacy_token_without_grant_type_reports_session_expired_on_refresh_fail
         refresh_token: Some("legacy-refresh".to_string()),
         refresh_expires_at: Some(now + 86_400),
         grant_type: None,
+        client_id: None,
     };
     store::store_token_data(profile, &stale).unwrap();
 

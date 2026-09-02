@@ -3,7 +3,7 @@ use serde_json::Value;
 
 // ── Root catalogue ──
 
-/// `ags describe` returns a catalogue of all 24 services
+/// `ags describe` returns a catalogue of every bundled service
 #[test]
 fn test_root_catalogue_returns_all_services() {
     let output = ags_isolated().args(["describe"]).output().unwrap();
@@ -25,7 +25,20 @@ fn test_root_catalogue_returns_all_services() {
         .iter()
         .filter(|c| c["node_type"] == "service")
         .count();
-    assert_eq!(service_count, 24, "all 24 services are listed");
+    // Floor, not a frozen count: the service registry grows as specs are bundled.
+    assert!(
+        service_count >= 25,
+        "expected at least 25 services, got {service_count}"
+    );
+    // A representative sample must always be present, including ehs (the newest).
+    for expected in ["achievement", "csm", "ehs", "iam", "ugc"] {
+        assert!(
+            children
+                .iter()
+                .any(|c| c["node_type"] == "service" && c["name"] == expected),
+            "service `{expected}` must be listed in the root catalogue"
+        );
+    }
     assert_eq!(
         children
             .iter()
@@ -417,6 +430,194 @@ fn test_describe_does_not_mark_json_endpoint_as_binary() {
     );
 }
 
+// ── Extend command group ──
+
+/// The root catalogue includes `extend` as a top-level `command-group`.
+#[test]
+fn test_describe_root_includes_extend() {
+    let output = ags_isolated().args(["describe"]).output().unwrap();
+    assert!(output.status.success());
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let children = json["data"]["children"].as_array().unwrap();
+    let extend = children
+        .iter()
+        .find(|c| c["name"] == "extend")
+        .expect("root catalogue must list an 'extend' child");
+    assert_eq!(
+        extend["node_type"], "command-group",
+        "extend must be a command-group, not a service"
+    );
+}
+
+/// `ags describe extend` lists `clone-template` as a child command.
+#[test]
+fn test_describe_extend_includes_clone_template() {
+    let output = ags_isolated()
+        .args(["describe", "extend"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["node_type"], "command-group");
+    let children = json["data"]["children"].as_array().unwrap();
+    let ct = children
+        .iter()
+        .find(|c| c["name"] == "clone-template")
+        .expect("extend must list clone-template");
+    assert_eq!(ct["node_type"], "command");
+}
+
+/// `ags describe csm` must NOT include a `clone-template` child. The CSM
+/// service catalogue lists only spec-driven resources — `clone-template`
+/// lives under the `extend` command group, not under any service.
+#[test]
+fn test_describe_csm_excludes_clone_template() {
+    let output = ags_isolated().args(["describe", "csm"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let children = json["data"]["children"].as_array().unwrap();
+    assert!(
+        !children.iter().any(|c| c["name"] == "clone-template"),
+        "csm must not contain a clone-template child: {children:?}"
+    );
+}
+
+// ── Extend migration shortcut aliases (Test Plan 5, 6, 7) ──
+
+/// Test Plan case 5 (binary level): `ags describe extend` output includes
+/// at least one alias child with `node_type: "alias"` and an `alias_of` array.
+#[test]
+fn test_describe_extend_includes_alias_children() {
+    let output = ags_isolated()
+        .args(["describe", "extend"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let children = json["data"]["children"].as_array().unwrap();
+
+    let aliases: Vec<&Value> = children
+        .iter()
+        .filter(|c| c["node_type"].as_str() == Some("alias"))
+        .collect();
+
+    assert!(
+        !aliases.is_empty(),
+        "describe extend must include at least one alias child"
+    );
+
+    // Spot-check the first alias child shape.
+    let first = aliases[0];
+    assert!(
+        first["alias_of"].is_array(),
+        "alias child must have an alias_of array"
+    );
+    let alias_of = first["alias_of"].as_array().unwrap();
+    assert_eq!(
+        alias_of.len(),
+        3,
+        "alias_of must be a 3-element canonical path (service, resource, method)"
+    );
+    assert!(
+        first["path"].is_array(),
+        "alias child must have a path array"
+    );
+    assert!(
+        first["summary"]
+            .as_str()
+            .unwrap_or("")
+            .contains("Migration shortcut"),
+        "alias summary must mention 'Migration shortcut'"
+    );
+}
+
+/// Test Plan case 6 (binary level): no `node_type: "command"` child in
+/// `describe extend` shares a name with any alias child. This protects
+/// downstream catalogue walkers.
+#[test]
+fn test_describe_extend_no_command_shadows_alias() {
+    let output = ags_isolated()
+        .args(["describe", "extend"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let children = json["data"]["children"].as_array().unwrap();
+
+    let command_names: Vec<&str> = children
+        .iter()
+        .filter(|c| c["node_type"].as_str() == Some("command"))
+        .filter_map(|c| c["name"].as_str())
+        .collect();
+
+    let alias_names: Vec<&str> = children
+        .iter()
+        .filter(|c| c["node_type"].as_str() == Some("alias"))
+        .filter_map(|c| c["name"].as_str())
+        .collect();
+
+    for alias in &alias_names {
+        assert!(
+            !command_names.contains(alias),
+            "command child '{alias}' collides with alias child — \
+             downstream walkers would see duplicate names with different node_types"
+        );
+    }
+}
+
+/// Test Plan case 7 (binary level): `ags describe csm apps` has no
+/// `alias_of` field on any child and no `"alias"` node_type. The CSM
+/// service catalogue is unaffected by the extend migration shortcuts.
+#[test]
+fn test_describe_csm_apps_unchanged_by_alias_feature() {
+    let output = ags_isolated()
+        .args(["describe", "csm", "apps"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["node_type"], "resource");
+    assert_eq!(json["data"]["name"], "apps");
+
+    let children = json["data"]["children"].as_array().unwrap();
+    assert!(!children.is_empty(), "csm apps must have method children");
+
+    for child in children {
+        assert_eq!(
+            child["node_type"], "method",
+            "csm apps child '{}' must be a method, got {:?}",
+            child["name"], child["node_type"]
+        );
+        assert!(
+            child.get("alias_of").is_none(),
+            "csm apps child '{}' must not have alias_of field",
+            child["name"]
+        );
+    }
+}
+
 // ── Display name aliases ──
 
 /// Display name aliases appear in the root catalogue (e.g. match2 → matchmaking)
@@ -436,4 +637,115 @@ fn test_aliased_service_name_in_root_catalogue() {
         "Expected 'matchmaking' in root catalogue"
     );
     assert_eq!(matchmaking.unwrap()["node_type"], "service");
+}
+
+// ── App UI describe ──
+
+/// `ags describe extend app-ui` returns a catalogue with `setup-env` as a child.
+#[test]
+fn test_describe_extend_app_ui() {
+    let output = ags_isolated()
+        .args(["describe", "extend", "app-ui"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["kind"], "catalogue");
+    assert_eq!(json["data"]["node_type"], "command-group");
+    assert_eq!(json["data"]["name"], "app-ui");
+
+    let children = json["data"]["children"].as_array().unwrap();
+    let setup_env = children
+        .iter()
+        .find(|c| c["name"] == "setup-env")
+        .expect("app-ui must list setup-env as a child");
+    assert_eq!(setup_env["node_type"], "command");
+}
+
+/// `ags describe extend app-ui setup-env` returns a command envelope.
+#[test]
+fn test_describe_extend_app_ui_setup_env() {
+    let output = ags_isolated()
+        .args(["describe", "extend", "app-ui", "setup-env"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["kind"], "command");
+    assert_eq!(json["data"]["node_type"], "command");
+    assert_eq!(json["data"]["name"], "setup-env");
+    assert_eq!(
+        json["path"],
+        serde_json::json!(["extend", "app-ui", "setup-env"])
+    );
+}
+
+// ── Hand-written commands ──
+
+/// `ags ams upload` has no OpenAPI operation behind it, so it has to be added
+/// to describe explicitly or AI consumers cannot find it.
+#[test]
+fn test_ams_service_catalogue_lists_the_upload_command() {
+    let output = ags_isolated().args(["describe", "ams"]).output().unwrap();
+    assert!(output.status.success());
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let upload = json["data"]["children"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|child| child["name"] == "upload")
+        .expect("ams must expose the upload command");
+    assert_eq!(upload["node_type"], "command");
+    assert_eq!(upload["path"], serde_json::json!(["ams", "upload"]));
+    assert!(!upload["summary"].as_str().unwrap().is_empty());
+}
+
+/// The described flags are read off the real Clap command, so they cannot
+/// drift from `--help`.
+#[test]
+fn test_ams_upload_describe_exposes_its_flags() {
+    let output = ags_isolated()
+        .args(["describe", "ams", "upload"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["kind"], "command");
+    assert_eq!(json["path"], serde_json::json!(["ams", "upload"]));
+    assert_eq!(json["data"]["command"], "ags ams upload");
+
+    let parameters = json["data"]["parameters"].as_array().unwrap();
+    let by_name = |name: &str| {
+        parameters
+            .iter()
+            .find(|parameter| parameter["name"] == name)
+            .unwrap_or_else(|| panic!("{name} must be described"))
+    };
+    assert_eq!(by_name("executable")["required"], true);
+    assert_eq!(by_name("image-name")["required"], true);
+    assert_eq!(by_name("path")["required"], false);
+    assert_eq!(by_name("symbol-files")["type"], "boolean");
+    assert_eq!(
+        by_name("target-arch")["enum_values"],
+        serde_json::json!(["linux-x86_64", "linux-arm_64"])
+    );
+    for parameter in parameters {
+        assert_eq!(parameter["location"], "flag");
+    }
 }

@@ -1,0 +1,49 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# release.yml is hand-annotated with security risk-acceptances; don't regenerate over it
+allow-dirty = ["ci"]
+# The installers to generate for each app
+installers = ["shell", "powershell", "homebrew"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "x86_64-pc-windows-msvc"]
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Where to host releases
+hosting = "github"
+# A GitHub repo to push Homebrew formulas to
+tap = "AccelByte/homebrew-tap"
+# Customize the Homebrew formula name
+formula = "ags-cli"
+# Publish jobs to run in CI
+publish-jobs = ["homebrew"]
+# Whether to install an updater program
+install-updater = false
+
+# Publish the Homebrew formula for pre-releases as well as stable releases.
+# Without this, publish-homebrew-formula skips on any tag with a prerelease
+# suffix, so a release-candidate cannot exercise the tap push.
+publish-prereleases = true
+
+# After running `dist generate`, release.yml needs these hand-edits re-applied:
+#   1. Three `# nosemgrep` risk-acceptance comments (cargo-dist/rustup bootstrap lines).
+#   2. Top-level `permissions: contents: read` instead of `contents: write`, with
+#      per-job `permissions: contents: write` on host, publish-homebrew-formula, and
+#      announce only (least-privilege scoping for PR vs tag-push triggers).
+#   3. Release tag trigger uses two globs ('v[0-9]+.[0-9]+.[0-9]+' and
+#      'v[0-9]+.[0-9]+.[0-9]+-*') instead of the generated open-ended wildcard.
+# Re-apply all three after every regeneration.
+#
+# Tag-vs-version guard: cargo-dist natively validates that the git tag matches
+# the Cargo.toml version (dist host --steps=create errors if they disagree),
+# so a separate "check tag matches package version" CI step is not needed.
+[dist.github-action-commits]
+"actions/checkout"          = "d23441a48e516b6c34aea4fa41551a30e30af803"  # = v6
+"actions/upload-artifact"   = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"  # = v7
+"actions/download-artifact" = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"  # = v8

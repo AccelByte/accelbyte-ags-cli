@@ -1,0 +1,334 @@
+[
+  {
+    "name": "Extend Override :: Challenge Goal Assignment :: C#",
+    "url": "https://github.com/AccelByte/challenge-assignment-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Challenge Goal Assignment",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Challenge Goal Assignment :: Go",
+    "url": "https://github.com/AccelByte/challenge-assignment-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Challenge Goal Assignment",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Challenge Goal Assignment :: Java",
+    "url": "https://github.com/AccelByte/challenge-assignment-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Challenge Goal Assignment",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Challenge Goal Assignment :: Python",
+    "url": "https://github.com/AccelByte/challenge-assignment-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Challenge Goal Assignment",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Cloudsave Validator :: C#",
+    "url": "https://github.com/AccelByte/cloudsave-validator-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Cloudsave Validator",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Cloudsave Validator :: Go",
+    "url": "https://github.com/AccelByte/cloudsave-validator-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Cloudsave Validator",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Cloudsave Validator :: Java",
+    "url": "https://github.com/AccelByte/cloudsave-validator-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Cloudsave Validator",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Cloudsave Validator :: Python",
+    "url": "https://github.com/AccelByte/cloudsave-validator-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Cloudsave Validator",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Entitlement Revocation :: C#",
+    "url": "https://github.com/AccelByte/revocation-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Entitlement Revocation",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Entitlement Revocation :: Go",
+    "url": "https://github.com/AccelByte/revocation-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Entitlement Revocation",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Entitlement Revocation :: Java",
+    "url": "https://github.com/AccelByte/revocation-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Entitlement Revocation",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Entitlement Revocation :: Python",
+    "url": "https://github.com/AccelByte/revocation-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Entitlement Revocation",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Lootbox Roll :: C#",
+    "url": "https://github.com/AccelByte/lootbox-roll-function-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Lootbox Roll",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Lootbox Roll :: Go",
+    "url": "https://github.com/AccelByte/lootbox-roll-function-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Lootbox Roll",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Lootbox Roll :: Java",
+    "url": "https://github.com/AccelByte/lootbox-roll-function-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Lootbox Roll",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Lootbox Roll :: Python",
+    "url": "https://github.com/AccelByte/lootbox-roll-function-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Lootbox Roll",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Matchmaking Function :: C#",
+    "url": "https://github.com/AccelByte/matchmaking-function-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Matchmaking Function",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Matchmaking Function :: Go",
+    "url": "https://github.com/AccelByte/matchmaking-function-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Matchmaking Function",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Matchmaking Function :: Java",
+    "url": "https://github.com/AccelByte/matchmaking-function-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Matchmaking Function",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Matchmaking Function :: Python",
+    "url": "https://github.com/AccelByte/matchmaking-function-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Matchmaking Function",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Profanity Filter :: C#",
+    "url": "https://github.com/AccelByte/profanity-filter-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Profanity Filter",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Profanity Filter :: Go",
+    "url": "https://github.com/AccelByte/profanity-filter-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Profanity Filter",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Profanity Filter :: Java",
+    "url": "https://github.com/AccelByte/profanity-filter-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Profanity Filter",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Profanity Filter :: Python",
+    "url": "https://github.com/AccelByte/profanity-filter-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Profanity Filter",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Rotating Shop Items :: C#",
+    "url": "https://github.com/AccelByte/rotating-shop-items-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Rotating Shop Items",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Rotating Shop Items :: Go",
+    "url": "https://github.com/AccelByte/rotating-shop-items-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Rotating Shop Items",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Rotating Shop Items :: Java",
+    "url": "https://github.com/AccelByte/rotating-shop-items-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Rotating Shop Items",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Rotating Shop Items :: Python",
+    "url": "https://github.com/AccelByte/rotating-shop-items-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Rotating Shop Items",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Session Dedicated Server :: C#",
+    "url": "https://github.com/AccelByte/session-dsm-grpc-plugin-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Session Dedicated Server",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Session Dedicated Server :: Go",
+    "url": "https://github.com/AccelByte/session-dsm-grpc-plugin-go.git",
+    "scenario": "Extend Override",
+    "template": "Session Dedicated Server",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Session Dedicated Server :: Java",
+    "url": "https://github.com/AccelByte/session-dsm-grpc-plugin-java.git",
+    "scenario": "Extend Override",
+    "template": "Session Dedicated Server",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Session Dedicated Server :: Python",
+    "url": "https://github.com/AccelByte/session-dsm-grpc-plugin-python.git",
+    "scenario": "Extend Override",
+    "template": "Session Dedicated Server",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Override :: Session Manager :: C#",
+    "url": "https://github.com/AccelByte/session-manager-grpc-plugin-server-csharp.git",
+    "scenario": "Extend Override",
+    "template": "Session Manager",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Override :: Session Manager :: Go",
+    "url": "https://github.com/AccelByte/session-manager-grpc-plugin-server-go.git",
+    "scenario": "Extend Override",
+    "template": "Session Manager",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Override :: Session Manager :: Java",
+    "url": "https://github.com/AccelByte/session-manager-grpc-plugin-server-java.git",
+    "scenario": "Extend Override",
+    "template": "Session Manager",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Override :: Session Manager :: Python",
+    "url": "https://github.com/AccelByte/session-manager-grpc-plugin-server-python.git",
+    "scenario": "Extend Override",
+    "template": "Session Manager",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Service Extension :: C#",
+    "url": "https://github.com/AccelByte/extend-service-extension-csharp.git",
+    "scenario": "Extend Service Extension",
+    "template": "Template",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Service Extension :: Go",
+    "url": "https://github.com/AccelByte/extend-service-extension-go.git",
+    "scenario": "Extend Service Extension",
+    "template": "Template",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Service Extension :: Java",
+    "url": "https://github.com/AccelByte/extend-service-extension-java.git",
+    "scenario": "Extend Service Extension",
+    "template": "Template",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Service Extension :: Python",
+    "url": "https://github.com/AccelByte/extend-service-extension-python.git",
+    "scenario": "Extend Service Extension",
+    "template": "Template",
+    "language": "Python"
+  },
+  {
+    "name": "Extend Event Handler :: C#",
+    "url": "https://github.com/AccelByte/extend-event-handler-csharp.git",
+    "scenario": "Extend Event Handler",
+    "template": "Template",
+    "language": "C#"
+  },
+  {
+    "name": "Extend Event Handler :: Go",
+    "url": "https://github.com/AccelByte/extend-event-handler-go.git",
+    "scenario": "Extend Event Handler",
+    "template": "Template",
+    "language": "Go"
+  },
+  {
+    "name": "Extend Event Handler :: Java",
+    "url": "https://github.com/AccelByte/extend-event-handler-java.git",
+    "scenario": "Extend Event Handler",
+    "template": "Template",
+    "language": "Java"
+  },
+  {
+    "name": "Extend Event Handler :: Python",
+    "url": "https://github.com/AccelByte/extend-event-handler-python.git",
+    "scenario": "Extend Event Handler",
+    "template": "Template",
+    "language": "Python"
+  },
+  {
+    "name": "Extend App UI :: react :: JavaScript",
+    "url": "https://github.com/AccelByte/extend-app-ui-templates.git",
+    "scenario": "Extend App UI",
+    "template": "react",
+    "language": "JavaScript",
+    "source_path": "templates/react"
+  },
+  {
+    "name": "Extend App UI :: react-minimal :: JavaScript",
+    "url": "https://github.com/AccelByte/extend-app-ui-templates.git",
+    "scenario": "Extend App UI",
+    "template": "react-minimal",
+    "language": "JavaScript",
+    "source_path": "templates/react-minimal"
+  },
+  {
+    "name": "Extend App UI :: react-multiple-extend-apps :: JavaScript",
+    "url": "https://github.com/AccelByte/extend-app-ui-templates.git",
+    "scenario": "Extend App UI",
+    "template": "react-multiple-extend-apps",
+    "language": "JavaScript",
+    "source_path": "templates/react-multiple-extend-apps"
+  }
+]

@@ -15,7 +15,7 @@ pub(crate) fn is_builtin_command(first: &str) -> bool {
     first.starts_with('-') // covers --help / -h / unknown leading flags
         || matches!(
             first,
-            "help" | "completions" | "config" | "profile" | "describe"
+            "help" | "completions" | "config" | "extend" | "profile" | "describe"
                 | "doctor" | "refresh-specs" | "version" | "workflow"
         )
 }
@@ -27,11 +27,17 @@ pub(crate) async fn route_builtin(
     options: crate::frontend::RenderOptions,
     raw_args: &[String],
     remaining: &[String],
+    frontend_context: &crate::invocation::context::FrontendContext,
+    is_meta_builtin: bool,
 ) -> Result<InvocationOutcome, CliError> {
     // Pre-surface failure: let the caller render it on a fresh plain frontend.
     crate::invocation::router::parse_page_limit(flags)?;
 
     let mut frontend = crate::frontend::frontend_for_surface(backend, options)?;
+
+    // The first-run hint fires after the frontend is constructed (surface
+    // known) and uses `is_meta_builtin` to suppress for --version / --help.
+    crate::invocation::try_emit_first_run_hint(frontend_context, is_meta_builtin);
 
     // Root help/version exits are lifecycle-free; other builtin commands are not.
     let lifecycle_free = is_lifecycle_free_root(raw_args, remaining);
@@ -41,7 +47,14 @@ pub(crate) async fn route_builtin(
             workflow_banner: None,
         });
     }
-    let result = dispatch(frontend.as_mut(), raw_args, flags, remaining).await;
+    let result = dispatch(
+        frontend.as_mut(),
+        raw_args,
+        flags,
+        remaining,
+        frontend_context,
+    )
+    .await;
     let outcome = crate::invocation::run_outcome_for(&result);
     if !lifecycle_free {
         frontend.on_event(&crate::frontend::FrontendEvent::RunFinished { outcome });
@@ -103,12 +116,13 @@ async fn dispatch(
     raw_args: &[String],
     flags: &mut flags::GlobalFlags,
     remaining: &[String],
+    frontend_context: &crate::invocation::context::FrontendContext,
 ) -> Result<InvocationOutcome, CliError> {
     if has_version_flag(raw_args) {
         handlers::version::handle_version(flags, frontend)?;
         Ok(InvocationOutcome::Complete)
     } else {
-        route(flags, remaining, frontend).await
+        route(flags, remaining, frontend, frontend_context).await
     }
 }
 
@@ -123,6 +137,7 @@ async fn route(
     flags: &flags::GlobalFlags,
     remaining: &[String],
     frontend: &mut dyn crate::frontend::Frontend,
+    frontend_context: &crate::invocation::context::FrontendContext,
 ) -> Result<InvocationOutcome, CliError> {
     if remaining.is_empty() {
         let mut command = builder::build_root_command();
@@ -159,6 +174,11 @@ async fn route(
 
     if first == "doctor" {
         return handlers::doctor::handle_doctor(&remaining[1..], flags, frontend).await;
+    }
+
+    if first == "extend" {
+        return handlers::extend::handle_extend(&remaining[1..], flags, frontend, frontend_context)
+            .await;
     }
 
     if first == "refresh-specs" {
@@ -294,6 +314,7 @@ mod run_contract_tests {
             "help",
             "completions",
             "config",
+            "extend",
             "profile",
             "describe",
             "doctor",
@@ -351,6 +372,22 @@ mod run_contract_tests {
         rest: &[&str],
     ) -> Result<InvocationOutcome, crate::errors::CliError> {
         let mut flags = GlobalFlags::default();
+        // Automation context: JSON backend, no interactive prompts.
+        let frontend_context = crate::invocation::context::FrontendContext {
+            consumer: crate::invocation::context::ConsumerKind::Automation,
+            interaction: crate::invocation::context::InteractionPolicy {
+                allow_input: false,
+                prefer_rich_ui: false,
+                prefer_fullscreen: false,
+            },
+            terminal: crate::invocation::context::TerminalCapabilities {
+                stdin_is_tty: false,
+                stdout_is_tty: false,
+                stderr_is_tty: false,
+                color_force_off: true,
+            },
+            ui_intent: crate::invocation::flags::UiFlag::Auto,
+        };
         let runtime = tokio::runtime::Builder::new_current_thread()
             .build()
             .expect("tokio runtime");
@@ -360,6 +397,8 @@ mod run_contract_tests {
             RenderOptions::default(),
             &remaining(raw_args),
             &remaining(rest),
+            &frontend_context,
+            false,
         ))
     }
 

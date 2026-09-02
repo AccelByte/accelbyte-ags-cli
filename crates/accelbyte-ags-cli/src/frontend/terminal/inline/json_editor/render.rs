@@ -9,11 +9,12 @@ use std::cell::Cell;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState};
+use ratatui::widgets::{Paragraph, Scrollbar, ScrollbarOrientation};
 use ratatui::Frame;
 
 use super::navigation::{flatten, get, NodePath};
 use super::node::{Node, NodeKind, ScalarValue};
+use crate::frontend::terminal::scrollbar::scrollbar_state;
 
 /// Render the tree into `area` with scroll-to-focus and a right-edge scrollbar
 /// when it overflows — mirroring the main form's field list so long JSON bodies
@@ -57,10 +58,7 @@ pub fn render_tree_view(
     };
     frame.render_widget(Paragraph::new(windowed), text_area);
 
-    if overflow {
-        let mut sb = ScrollbarState::new(max_start + 1)
-            .position(start)
-            .viewport_content_length(height);
+    if let Some(mut sb) = scrollbar_state(total, height, start) {
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)

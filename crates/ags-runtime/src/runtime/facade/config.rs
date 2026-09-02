@@ -168,11 +168,13 @@ impl crate::runtime::Runtime {
             "client-id" => validate_client_id(value),
             "namespace" => validate_namespace(value),
             "format" => validate_format(value),
-            "no-color" => validate_no_color(value),
+            "no-color" => validate_boolean(value, "no-color"),
+            "first-run-hint-seen" => validate_first_run_hint_seen(value),
             "timeout" => validate_timeout(value),
             "page-limit" => validate_page_limit(value),
             "grant-type" => validate_grant_type(value),
             "active-profile" => validate_active_profile(value),
+            "update-check" => validate_boolean(value, "update-check"),
             _ => Ok(None),
         }
     }
@@ -286,11 +288,11 @@ fn validate_format(value: &str) -> Result<Option<String>, RuntimeError> {
     Ok(None)
 }
 
-/// Validate that `value` is a boolean literal accepted by the no-color flag.
-fn validate_no_color(value: &str) -> Result<Option<String>, RuntimeError> {
+/// Validate that `value` is a boolean literal accepted by the first-run-hint-seen flag.
+fn validate_first_run_hint_seen(value: &str) -> Result<Option<String>, RuntimeError> {
     if value != "true" && value != "false" {
         return Err(validation_error(
-            format!("Invalid value '{value}' for no-color"),
+            format!("Invalid value '{value}' for first-run-hint-seen"),
             Some("Use 'true' or 'false'"),
         ));
     }
@@ -350,5 +352,18 @@ fn validate_active_profile(value: &str) -> Result<Option<String>, RuntimeError> 
             Some("Run 'ags profile list' to see available profiles, or 'ags profile create' to create one"),
         ));
     }
+    Ok(None)
+}
+
+/// Validate that `value` is a boolean literal (`true`/`false`), naming `key`
+/// in the error. A generalisation of `validate_no_color` for any bool key.
+fn validate_boolean(value: &str, key: &str) -> Result<Option<String>, RuntimeError> {
+    if value != "true" && value != "false" {
+        return Err(validation_error(
+            format!("Invalid value '{value}' for {key}"),
+            Some("Use 'true' or 'false'"),
+        ));
+    }
+
     Ok(None)
 }

@@ -245,12 +245,13 @@ impl ExecutionInteraction for InlineInteraction {
     ) -> Result<Option<ags_protocol::workflow::CollectOutcome>, CliError> {
         use crate::frontend::terminal::form_runner::collect_inputs_form;
         // Shared orchestration builds the form + projects inputs; the closure is
-        // the inline drive. `dynamic_enums: true` — inline now renders a picker
-        // for options_source inputs (driven by `drive_enum_picker` over the
-        // wired `OptionsFetch`); Task 6's `pickers_available_for` completes the
-        // surface enablement.
+        // the inline drive. `dynamic_enums: true` — inline renders a picker for
+        // options_source inputs (driven by `drive_enum_picker` over the wired
+        // `OptionsFetch`). `file_pickers: false` — inline has no directory-browser
+        // modal; the file-picker widget is Fullscreen-only, so a file_picker
+        // input falls back to a plain editable text field here.
         Ok(
-            collect_inputs_form(specs, current, true, |form| self.drive_inline(form))?.map(
+            collect_inputs_form(specs, current, true, false, |form| self.drive_inline(form))?.map(
                 |(inputs, run_mode)| ags_protocol::workflow::CollectOutcome { inputs, run_mode },
             ),
         )
@@ -387,6 +388,11 @@ where
             // Map to Continue so the loop keeps running rather than
             // panicking if the form ever emits it.
             PhaseStep::Done(PhaseResult::OpenEnumPicker(_)) => continue,
+            // OpenFilePicker does not occur in review forms (StepField has no
+            // file_picker), so this arm is unreachable in practice. Map to
+            // Continue so the loop keeps running rather than panicking if the
+            // form ever emits it.
+            PhaseStep::Done(PhaseResult::OpenFilePicker(_)) => continue,
         }
     }
 }
@@ -535,10 +541,12 @@ mod tests {
                 id: "test-step".to_string(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("iam"),
                     operation: OperationId::new("testOp"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -570,6 +578,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: StepFieldLocation::Body,
+            file_picker: None,
         }];
         let mut fields = build_full_surface_fields(&full_inputs, &[]);
         // Simulate the user filling the optional field.

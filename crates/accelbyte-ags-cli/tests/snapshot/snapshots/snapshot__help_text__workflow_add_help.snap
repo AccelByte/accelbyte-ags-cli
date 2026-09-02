@@ -1,0 +1,29 @@
+---
+source: crates/accelbyte-ags-cli/tests/snapshot/help_text.rs
+expression: stdout
+---
+Validate and install a workflow YAML file.
+
+The file is parsed and compiled, then copied into the CLI's
+config directory as <id>.yaml, named after its own `id:`
+field. That installed copy — not <path> — is what
+`workflow run`/`workflow list` use afterward, so editing
+<path> later has no effect until you run `add` again.
+Every file must declare a `workflow_protocol_version` field
+naming the workflow YAML protocol version it targets;
+`ags workflow template` fills this in automatically.
+Use --validate-only to check the file without installing it.
+
+Usage:
+  workflow add [OPTIONS] <path>
+
+Arguments:
+  <path>
+          Path to the workflow YAML file
+
+Options:
+      --validate-only
+          Validate without installing
+
+  -h, --help
+          Print help (see a summary with '-h')

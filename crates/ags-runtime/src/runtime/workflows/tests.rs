@@ -233,7 +233,8 @@ mod executor_skeleton {
         assert!(matches!(
             frontend.events[1],
             WorkflowEvent::WorkflowFinished {
-                outcome: RunOutcome::Success
+                outcome: RunOutcome::Success,
+                ..
             }
         ));
     }
@@ -313,7 +314,6 @@ mod executor_happy_path {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "test-svc".into(),
@@ -349,10 +349,12 @@ mod executor_happy_path {
                 id: "get-items".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -442,7 +444,8 @@ mod executor_happy_path {
                 matches!(
                     e,
                     WorkflowEvent::WorkflowFinished {
-                        outcome: RunOutcome::Success
+                        outcome: RunOutcome::Success,
+                        ..
                     }
                 )
             })
@@ -536,6 +539,7 @@ mod executor_happy_path {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -546,7 +550,6 @@ mod executor_happy_path {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let service_schema = ServiceSchema {
             name: "test-svc".into(),
@@ -582,16 +585,19 @@ mod executor_happy_path {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![CompiledStep {
                 id: "get-items".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -706,7 +712,6 @@ mod executor_confirm {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "test-svc".into(),
@@ -742,10 +747,12 @@ mod executor_confirm {
                 id: "get-items".into(),
                 index: 0,
                 description: Some("Get all items".into()),
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm,
                 is_optional: false,
@@ -854,7 +861,8 @@ mod executor_confirm {
             matches!(
                 e,
                 WorkflowEvent::WorkflowFinished {
-                    outcome: RunOutcome::Cancelled
+                    outcome: RunOutcome::Cancelled,
+                    ..
                 }
             )
         });
@@ -942,6 +950,72 @@ mod executor_confirm {
         });
         assert!(step_failed, "expected StepFinished{{Failed}}");
     }
+
+    /// The confirm gate breaking as I/O is a *failure* stage (`confirm`), never
+    /// the cancellation stage (`at_confirm`) — one label must not mix the user
+    /// abandoning the gate with the gate itself breaking.
+    #[tokio::test]
+    async fn test_confirm_io_error_reports_the_confirm_failure_stage() {
+        let compiled = make_workflow(true);
+        let mut frontend =
+            MockFrontend::new().with_confirm_error(RuntimeError::internal("terminal hung up"));
+        let options = RunOptions::default();
+        let mut runtime = make_runtime_never();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+            .await
+            .unwrap();
+
+        let reason = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Failed,
+                    reason,
+                    ..
+                } => Some(*reason),
+                _ => None,
+            })
+            .expect("expected StepFinished{Failed}");
+        assert_eq!(
+            reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::Confirm)
+        );
+    }
+
+    /// The user declining at the confirm gate stays `at_confirm`: the
+    /// cancellation label keeps its original, now-exclusive meaning.
+    #[tokio::test]
+    async fn test_confirm_decline_still_reports_at_confirm() {
+        let compiled = make_workflow(true);
+        let mut frontend = MockFrontend::new().with_confirm_response(false);
+        let options = RunOptions::default();
+        let mut runtime = make_runtime_never();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+            .await
+            .unwrap();
+
+        let reason = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Cancelled,
+                    reason,
+                    ..
+                } => Some(*reason),
+                _ => None,
+            })
+            .expect("expected StepFinished{Cancelled}");
+        assert_eq!(
+            reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::AtConfirm)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -1011,7 +1085,6 @@ mod executor_failure {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: service_name.into(),
@@ -1045,10 +1118,12 @@ mod executor_failure {
             id: id.into(),
             index,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new(service),
                 operation: OperationId::new(operation),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1152,7 +1227,8 @@ mod executor_failure {
             matches!(
                 e,
                 WorkflowEvent::WorkflowFinished {
-                    outcome: RunOutcome::Failed
+                    outcome: RunOutcome::Failed,
+                    ..
                 }
             )
         });
@@ -1264,7 +1340,8 @@ mod executor_failure {
             matches!(
                 e,
                 WorkflowEvent::WorkflowFinished {
-                    outcome: RunOutcome::Failed
+                    outcome: RunOutcome::Failed,
+                    ..
                 }
             )
         });
@@ -1429,7 +1506,8 @@ mod executor_failure {
             matches!(
                 e,
                 WorkflowEvent::WorkflowFinished {
-                    outcome: RunOutcome::Failed
+                    outcome: RunOutcome::Failed,
+                    ..
                 }
             )
         });
@@ -1437,6 +1515,493 @@ mod executor_failure {
             wf_failed,
             "expected WorkflowFinished{{Failed}} after catalogue error"
         );
+    }
+
+    /// Run the catalogue-lookup-error fixture (a step referencing a service
+    /// the catalogue was never seeded with) against `frontend`, driving it to
+    /// completion. Reuses the setup behind `test_catalogue_lookup_error_fails_step`
+    /// so the schema-load failure path is exercised from one source of truth.
+    async fn run_workflow_with_unknown_service(frontend: &mut MockFrontend) {
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("cat-err-wf-reason"),
+            name: "catalogue error workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![make_step(
+                "s0",
+                0,
+                "unknown-service-reason",
+                "Op0",
+                vec![],
+                vec![],
+            )],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(NeverClient),
+            reqwest::Client::new(),
+        );
+        // Deliberately do NOT insert "unknown-service-reason" into the catalogue.
+
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        Executor::execute(&compiled, BTreeMap::new(), frontend, &mut run_context)
+            .await
+            .unwrap();
+    }
+
+    /// A schema-load failure (the step's service is unknown to the catalogue)
+    /// must report the typed `SchemaLoad` reason and carry error facts.
+    #[tokio::test]
+    async fn test_schema_load_failure_reports_schema_load_reason() {
+        let mut frontend = MockFrontend::new();
+        run_workflow_with_unknown_service(&mut frontend).await;
+        let (reason, error) = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Failed,
+                    reason,
+                    error,
+                    ..
+                } => Some((*reason, error.clone())),
+                _ => None,
+            })
+            .expect("a failed StepFinished must be emitted");
+        assert_eq!(
+            reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::SchemaLoad)
+        );
+        assert!(error.is_some(), "a failed step must carry error facts");
+    }
+
+    /// Run a single-step workflow whose dispatch fails with an HTTP 409
+    /// carrying an AccelByte error code, against `frontend`. The default
+    /// `MockFrontend::resolve_step_failure` (Cancel) halts the run at the
+    /// interactive failure gate, so the emitted `StepFinished{Failed}` carries
+    /// the classified error facts.
+    async fn run_workflow_with_upstream_409(frontend: &mut MockFrontend) {
+        let svc = "conflict-svc";
+        let op_id = "ConflictOp";
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("conflict-wf"),
+            name: "conflict workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![make_step("s0", 0, svc, op_id, vec![], vec![])],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let service_schema = make_service_schema(svc, op_id);
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(QueuedClient::new(vec![Ok(HttpResponse {
+                status: 409,
+                body: HttpBody::Text(
+                    r#"{"errorCode":20013,"errorMessage":"conflict"}"#.to_string(),
+                ),
+            })])),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, service_schema);
+
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        Executor::execute(&compiled, BTreeMap::new(), frontend, &mut run_context)
+            .await
+            .unwrap();
+    }
+
+    /// A dispatch failure classified as an upstream 409 must carry the HTTP
+    /// status and the "upstream" telemetry class in its error facts.
+    #[tokio::test]
+    async fn test_dispatch_failure_carries_status_and_class() {
+        let mut frontend = MockFrontend::new();
+        run_workflow_with_upstream_409(&mut frontend).await;
+        let error = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished { error, .. } => error.clone(),
+                _ => None,
+            })
+            .expect("failed step must carry error facts");
+        assert_eq!(error.http_status, Some(409));
+        assert_eq!(error.class, "upstream");
+    }
+
+    // ------------------------------------------------------------------ //
+    // Test 5: StepFinished.attempts counts every real dispatch             //
+    // ------------------------------------------------------------------ //
+
+    /// HTTP client whose every dispatch fails with a transport error, for
+    /// driving the interactive failure gate through repeated retries.
+    struct AlwaysErrClient;
+
+    #[async_trait]
+    impl HttpClient for AlwaysErrClient {
+        async fn send(&self, _request: HttpRequest) -> Result<HttpResponse, RuntimeError> {
+            Err(RuntimeError::internal("simulated transport failure"))
+        }
+    }
+
+    /// Frontend that answers the failure gate with `Retry` a fixed number of
+    /// times and then `Cancel`, so a test can drive a known number of
+    /// dispatch attempts.
+    struct RetryThenCancelFrontend {
+        retries_remaining: u32,
+        events: Vec<WorkflowEvent>,
+    }
+
+    impl RetryThenCancelFrontend {
+        /// Retry `retries` times before cancelling.
+        fn new(retries: u32) -> Self {
+            Self {
+                retries_remaining: retries,
+                events: Vec::new(),
+            }
+        }
+    }
+
+    impl WorkflowFrontend for RetryThenCancelFrontend {
+        fn on_event(&mut self, event: &WorkflowEvent) {
+            self.events.push(event.clone());
+        }
+
+        fn gather_workflow_inputs(
+            &mut self,
+            _needed: &[ags_protocol::workflow::WorkflowInputNeeded],
+            _step_context: &CompiledStep,
+            _supplied: &[ags_protocol::workflow::SuppliedInputView],
+        ) -> Result<ags_protocol::workflow::GatherResult, RuntimeError> {
+            unreachable!("fixture step needs no gather")
+        }
+
+        fn confirm_step(
+            &mut self,
+            _step: &CompiledStep,
+            _preview: &ags_protocol::workflow::StepPreview,
+        ) -> Result<ags_protocol::workflow::StepConfirmOutcome, RuntimeError> {
+            unreachable!("fixture step does not confirm")
+        }
+
+        fn resolve_step_failure(
+            &mut self,
+            _step: &CompiledStep,
+            _error: &RuntimeError,
+            _allow_skip: bool,
+        ) -> Result<ags_protocol::workflow::StepFailureAction, RuntimeError> {
+            if self.retries_remaining > 0 {
+                self.retries_remaining -= 1;
+                Ok(ags_protocol::workflow::StepFailureAction::Retry)
+            } else {
+                Ok(ags_protocol::workflow::StepFailureAction::Cancel)
+            }
+        }
+    }
+
+    /// Drive a 1-step workflow whose dispatch always fails through
+    /// `Executor::execute`, so a test can exercise the interactive failure
+    /// gate under a real dispatch loop.
+    async fn run_always_failing_single_step(frontend: &mut dyn WorkflowFrontend) {
+        let svc = "test-svc";
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("always-failing-wf"),
+            name: "always failing workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![make_step("s0", 0, svc, "Op0", vec![], vec![])],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(AlwaysErrClient),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, make_service_schema(svc, "Op0"));
+
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let _ = Executor::execute(&compiled, BTreeMap::new(), frontend, &mut run_context).await;
+    }
+
+    #[tokio::test]
+    async fn test_step_finished_reports_every_dispatch_attempt() {
+        let mut frontend = RetryThenCancelFrontend::new(2);
+        run_always_failing_single_step(&mut frontend).await;
+
+        let attempts = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished { attempts, .. } => Some(*attempts),
+                _ => None,
+            })
+            .expect("StepFinished must be emitted");
+        assert_eq!(attempts, 3, "two retries means three dispatch attempts");
+    }
+
+    /// Build a one-operation `ServiceSchema` whose body has one required
+    /// string field, `storeName` — enough for `resolve_step_fields` to
+    /// produce a non-empty field plan for the failing-step tests below.
+    fn make_service_schema_with_store_name_body(
+        service_name: &str,
+        operation_id: &str,
+    ) -> ServiceSchema {
+        use ags_protocol::catalogue::{BodyField, BodyFieldType, BodySchema};
+        let operation = OperationSchema {
+            id: OperationId::new(operation_id),
+            name: "op".into(),
+            summary: "Op".into(),
+            description: None,
+            mutation_class: MutationClass::Mutating,
+            http_method: HttpMethod::Post,
+            path_template: "/items".into(),
+            parameters: vec![],
+            request_body: Some(BodySchema {
+                item_type: None,
+                is_array: false,
+                definition_name: "Body".into(),
+                fields: vec![BodyField {
+                    name: "storeName".into(),
+                    field_type: BodyFieldType::String,
+                    required: true,
+                    description: None,
+                    children: vec![],
+                    default: None,
+                }],
+            }),
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        };
+        ServiceSchema {
+            name: service_name.into(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "items".into(),
+                description: String::new(),
+                methods: vec![MethodSchema {
+                    name: "op".into(),
+                    summary: String::new(),
+                    default_scope: None,
+                    scopes: vec![ScopeEntry {
+                        scope: String::new(),
+                        default_version: ApiVersion(1),
+                        contracts: vec![operation],
+                    }],
+                }],
+            }],
+        }
+    }
+
+    /// Build a 1-step workflow whose step binds a `storeName` body field to
+    /// the literal `"acme-store"` — used by the `input_fields` wiring tests
+    /// below, so the resolved field plan is non-empty.
+    fn make_one_step_workflow_with_store_name_binding(svc: &str) -> CompiledWorkflow {
+        let mut step = make_step("s0", 0, svc, "Op0", vec![], vec![]);
+        step.inputs = vec![ags_protocol::workflow::StepInputBinding {
+            field: "storeName".to_string(),
+            source: ags_protocol::workflow::BindingSource::Literal(
+                ags_protocol::workflow::LiteralBinding {
+                    value: serde_json::json!("acme-store"),
+                    sensitive: false,
+                },
+            ),
+            show_in_review: false,
+            description: None,
+        }];
+        CompiledWorkflow {
+            id: WorkflowId::new("store-name-wf"),
+            name: "store name workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![step],
+            outputs: vec![],
+            completion: None,
+        }
+    }
+
+    /// A bundled workflow's failed step reports its resolved `storeName`
+    /// field with its real (redacted-if-needed, here harmless) value.
+    #[tokio::test]
+    async fn test_bundled_workflow_failed_step_reports_real_input_field_value() {
+        let svc = "test-svc";
+        let compiled = make_one_step_workflow_with_store_name_binding(svc);
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(AlwaysErrClient),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, make_service_schema_with_store_name_body(svc, "Op0"));
+
+        let options = RunOptions {
+            is_bundled_workflow: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let mut frontend = MockFrontend::new();
+        let _ =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context).await;
+
+        let input_fields = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    error: Some(facts), ..
+                } => Some(facts.input_fields.clone()),
+                _ => None,
+            })
+            .expect("a failed step must carry StepErrorFacts");
+        let store_name = input_fields
+            .iter()
+            .find(|f| f.field == "storeName")
+            .expect("storeName must be in the resolved field plan");
+        assert_eq!(store_name.value, Some(serde_json::json!("acme-store")));
+        assert_eq!(store_name.source, "literal");
+        assert!(store_name.required);
+    }
+
+    /// An external (user-installed) workflow's failed step reports every
+    /// field with `value: None`, even a field whose name and schema are
+    /// entirely harmless.
+    #[tokio::test]
+    async fn test_external_workflow_failed_step_withholds_every_input_field_value() {
+        let svc = "test-svc";
+        let compiled = make_one_step_workflow_with_store_name_binding(svc);
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(AlwaysErrClient),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, make_service_schema_with_store_name_body(svc, "Op0"));
+
+        // Default `is_bundled_workflow: false` — the safe default for an
+        // external or unregistered (synthesised) workflow.
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let mut frontend = MockFrontend::new();
+        let _ =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context).await;
+
+        let input_fields = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    error: Some(facts), ..
+                } => Some(facts.input_fields.clone()),
+                _ => None,
+            })
+            .expect("a failed step must carry StepErrorFacts");
+        assert!(!input_fields.is_empty());
+        assert!(input_fields.iter().all(|f| f.value.is_none()));
+    }
+
+    /// A successful step's `StepFinished` carries no `StepErrorFacts` at all
+    /// (and therefore no `input_fields`) — the type-level enforcement the
+    /// design relies on for "failures only".
+    #[tokio::test]
+    async fn test_successful_step_carries_no_error_facts_or_input_fields() {
+        let svc = "test-svc";
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("one-step-ok-wf"),
+            name: "one step ok workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![make_step("s0", 0, svc, "Op0", vec![], vec![])],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(QueuedClient::new(vec![ok_response(r#"{"id": 1}"#)])),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, make_service_schema(svc, "Op0"));
+
+        let options = RunOptions {
+            is_bundled_workflow: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+        let mut frontend = MockFrontend::new();
+        let (outcome, _, _) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+        assert_eq!(outcome, RunOutcome::Success);
+
+        let error = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished { error, .. } => Some(error.clone()),
+                _ => None,
+            })
+            .expect("StepFinished must be emitted");
+        assert!(error.is_none());
     }
 }
 
@@ -1485,7 +2050,6 @@ mod executor_dry_run {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: service_name.into(),
@@ -1528,10 +2092,12 @@ mod executor_dry_run {
             id: id.into(),
             index,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new(service),
                 operation: OperationId::new(operation),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1555,10 +2121,12 @@ mod executor_dry_run {
             id: id.into(),
             index,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new(service),
                 operation: OperationId::new(operation),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1840,7 +2408,6 @@ mod executor_no_input {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "test-svc".into(),
@@ -1895,16 +2462,19 @@ mod executor_no_input {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![CompiledStep {
                 id: "step-a".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -1943,10 +2513,12 @@ mod executor_no_input {
             id: "step-a".into(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("test-svc"),
                 operation: OperationId::new("GetItems"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1969,10 +2541,12 @@ mod executor_no_input {
             id: "step-b".into(),
             index: 1,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("test-svc"),
                 operation: OperationId::new("GetItems"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -2006,6 +2580,7 @@ mod executor_no_input {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![step_a, step_b],
@@ -2050,10 +2625,12 @@ mod executor_no_input {
                 id: "confirm-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: true,
                 is_optional: false,
@@ -2096,10 +2673,12 @@ mod executor_no_input {
                 id: "confirm-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: true,
                 is_optional: false,
@@ -2144,10 +2723,12 @@ mod executor_no_input {
                 id: "confirm-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: true,
                 is_optional: false,
@@ -2193,10 +2774,12 @@ mod executor_no_input {
                 id: "local-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -2379,6 +2962,41 @@ mod executor_no_input {
         );
     }
 
+    /// A no-input rejection must carry a machine-readable `details.code`
+    /// naming the first violation's kind, so telemetry can report it without
+    /// parsing the prose message.
+    #[test]
+    fn test_no_input_error_carries_a_machine_code_for_the_first_violation() {
+        let violations = vec![NoInputViolation::ConfirmRequired {
+            step: "create-store".to_string(),
+        }];
+        let error = no_input_violations_to_error(&violations, false);
+        let code = error
+            .details
+            .as_ref()
+            .and_then(|d| d.code.clone())
+            .expect("a no-input rejection must carry a machine code");
+        assert_eq!(code, "no_input.confirm_required");
+    }
+
+    /// The machine code must encode only the violation's kind, never the
+    /// user-authored input/step/field names it carries — those are arbitrary
+    /// strings from an external workflow and must not reach telemetry.
+    #[test]
+    fn test_no_input_code_never_contains_an_input_name() {
+        let violations = vec![NoInputViolation::MissingInput {
+            name: "secret-store-name".to_string(),
+            first_seen_at: "create-store".to_string(),
+        }];
+        let error = no_input_violations_to_error(&violations, false);
+        let code = error.details.as_ref().and_then(|d| d.code.clone()).unwrap();
+        assert_eq!(code, "no_input.missing_input");
+        assert!(
+            !code.contains("secret-store-name"),
+            "the violation's input name must never reach the code"
+        );
+    }
+
     // ------------------------------------------------------------------ //
     // Test 8: optional + confirm step still blocks under no-input         //
     // ------------------------------------------------------------------ //
@@ -2404,10 +3022,12 @@ mod executor_no_input {
                 id: "optional-confirm-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: true,
                 is_optional: true,
@@ -2475,7 +3095,6 @@ mod build_final_output_tests {
             api_version: ApiVersion::new(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -2505,10 +3124,12 @@ mod build_final_output_tests {
                 id: "s1".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("TestOp"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -2539,10 +3160,12 @@ mod build_final_output_tests {
                     id: "s1".into(),
                     index: 0,
                     description: None,
-                    operation: OperationReference {
+                    kind: ags_protocol::workflow::StepKind::default(),
+                    action: None,
+                    operation: Some(OperationReference {
                         service: ServiceId::new("test-svc"),
                         operation: OperationId::new("TestOp"),
-                    },
+                    }),
                     dependencies: vec![],
                     confirm: false,
                     is_optional: false,
@@ -2557,10 +3180,12 @@ mod build_final_output_tests {
                     id: "s2".into(),
                     index: 1,
                     description: None,
-                    operation: OperationReference {
+                    kind: ags_protocol::workflow::StepKind::default(),
+                    action: None,
+                    operation: Some(OperationReference {
                         service: ServiceId::new("test-svc"),
                         operation: OperationId::new("TestOp"),
-                    },
+                    }),
                     dependencies: vec![],
                     confirm: false,
                     is_optional: false,
@@ -2589,13 +3214,15 @@ mod build_final_output_tests {
         StepDryRunPreview {
             step_id: step_id.into(),
             step_index,
-            command: ags_protocol::result::DryRunResult {
-                http_method: ags_protocol::catalogue::HttpMethod::Get,
-                url: "https://example.test/".into(),
-                headers: vec![],
-                query: vec![],
-                body: None,
-            },
+            action: ags_protocol::workflow::StepDryRunAction::Request(
+                ags_protocol::result::DryRunResult {
+                    http_method: ags_protocol::catalogue::HttpMethod::Get,
+                    url: "https://example.test/".into(),
+                    headers: vec![],
+                    query: vec![],
+                    body: None,
+                },
+            ),
             synthesised_outputs: BTreeMap::new(),
         }
     }
@@ -2813,6 +3440,7 @@ mod end_to_end {
                     location: ParameterLocation::Path,
                     required: true,
                     value_type: ValueType::String,
+                    is_file: false,
                     description: None,
                     default: None,
                 })
@@ -2824,7 +3452,6 @@ mod end_to_end {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -2926,10 +3553,12 @@ mod end_to_end {
             id: "s1".into(),
             index: 0,
             description: Some("get name".into()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: svc.clone(),
                 operation: OperationId::new("GetName"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -2947,10 +3576,12 @@ mod end_to_end {
             id: "s2".into(),
             index: 1,
             description: Some("get id".into()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: svc.clone(),
                 operation: OperationId::new("GetId"),
-            },
+            }),
             dependencies: vec!["s1".into()],
             confirm: false,
             is_optional: false,
@@ -2969,10 +3600,12 @@ mod end_to_end {
             id: "s3".into(),
             index: 2,
             description: Some("get thing".into()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: svc,
                 operation: OperationId::new("GetThing"),
-            },
+            }),
             dependencies: vec!["s1".into(), "s2".into()],
             confirm: false,
             is_optional: false,
@@ -3002,6 +3635,7 @@ mod end_to_end {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![s1, s2, s3],
@@ -3122,7 +3756,8 @@ mod end_to_end {
             matches!(
                 e,
                 WorkflowEvent::WorkflowFinished {
-                    outcome: RunOutcome::Success
+                    outcome: RunOutcome::Success,
+                    ..
                 }
             )
         });
@@ -3160,6 +3795,203 @@ mod end_to_end {
         assert_eq!(
             frontend.gather_call_count, 0,
             "gather must not be called when namespace is pre-supplied"
+        );
+    }
+
+    /// `WorkflowFinished.facts` must aggregate every step's outcome across a
+    /// multi-step run: one `steps_started` and one `steps_succeeded` per step,
+    /// and `last_step_index` pinned to the final step's index.
+    #[tokio::test]
+    async fn test_workflow_finished_counts_each_step_outcome() {
+        let compiled = make_three_step_workflow();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            output_format: OutputFormat::Json,
+            ..Default::default()
+        };
+        let mut runtime = make_runtime();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("namespace".to_string(), serde_json::json!("dev"));
+
+        let (_outcome, _final_output, _pending) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        let facts = frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::WorkflowFinished { facts, .. } => Some(facts.clone()),
+                _ => None,
+            })
+            .expect("WorkflowFinished must be emitted");
+
+        assert_eq!(facts.steps_started, 3);
+        assert_eq!(facts.steps_succeeded, 3);
+        assert_eq!(facts.steps_failed, 0);
+        assert_eq!(facts.steps_skipped, 0);
+        assert_eq!(facts.steps_cancelled, 0);
+        assert_eq!(facts.last_step_index, Some(2));
+    }
+
+    /// Build and run a two-step workflow where step "skip-me" is
+    /// `continue_on_failure` and always fails at dispatch (becoming
+    /// `Skipped`), and step "succeed-me" always succeeds. Returns the
+    /// `RunFacts` carried by the run's `WorkflowFinished` event — the fixture
+    /// behind the outcome-count sum-invariant test, which guards against
+    /// `skip_step` and `finish_step_terminal` both tallying the same skip.
+    async fn run_two_step_skip_then_success() -> ags_protocol::workflow::RunFacts {
+        let svc = "skip-svc";
+        let op_skip = "OpSkip";
+        let op_succeed = "OpSucceed";
+
+        let step_skip = CompiledStep {
+            id: "skip-me".into(),
+            index: 0,
+            description: None,
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: Some(OperationReference {
+                service: ServiceId::new(svc),
+                operation: OperationId::new(op_skip),
+            }),
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: true,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+            auto_derived: vec![],
+        };
+
+        let step_succeed = CompiledStep {
+            id: "succeed-me".into(),
+            index: 1,
+            description: None,
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: Some(OperationReference {
+                service: ServiceId::new(svc),
+                operation: OperationId::new(op_succeed),
+            }),
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+            auto_derived: vec![],
+        };
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("skip-then-success-wf"),
+            name: "skip then success workflow".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![step_skip, step_succeed],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let op_skip_schema = make_op(op_skip, "/skip", &[]);
+        let op_succeed_schema = make_op(op_succeed, "/succeed", &[]);
+        let service_schema = ServiceSchema {
+            name: svc.into(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "skip".into(),
+                description: String::new(),
+                methods: vec![
+                    MethodSchema {
+                        name: "op-skip".into(),
+                        summary: String::new(),
+                        default_scope: None,
+                        scopes: vec![ScopeEntry {
+                            scope: String::new(),
+                            default_version: ApiVersion(1),
+                            contracts: vec![op_skip_schema],
+                        }],
+                    },
+                    MethodSchema {
+                        name: "op-succeed".into(),
+                        summary: String::new(),
+                        default_scope: None,
+                        scopes: vec![ScopeEntry {
+                            scope: String::new(),
+                            default_version: ApiVersion(1),
+                            contracts: vec![op_succeed_schema],
+                        }],
+                    },
+                ],
+            }],
+        };
+
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(QueuedClient::new(vec![
+                Err(RuntimeError::internal("simulated dispatch failure")),
+                ok_json(r#"{"ok": true}"#),
+            ])),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests(svc, service_schema);
+
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (_outcome, _final_output, _pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        frontend
+            .events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::WorkflowFinished { facts, .. } => Some(facts.clone()),
+                _ => None,
+            })
+            .expect("WorkflowFinished must be emitted")
+    }
+
+    /// The four outcome counters must sum to `steps_started` and, critically,
+    /// a `continue_on_failure` skip must be tallied exactly once — proving
+    /// `skip_step` does not also tally on top of `finish_step_terminal`.
+    #[tokio::test]
+    async fn test_run_facts_outcome_counts_sum_to_steps_started() {
+        let facts = run_two_step_skip_then_success().await;
+
+        assert_eq!(facts.steps_started, 2);
+        assert_eq!(
+            facts.steps_skipped, 1,
+            "the skipped step must be tallied exactly once, not double-counted"
+        );
+        assert_eq!(facts.steps_succeeded, 1);
+        assert_eq!(facts.steps_failed, 0);
+        assert_eq!(facts.steps_cancelled, 0);
+        assert_eq!(
+            facts.steps_succeeded
+                + facts.steps_failed
+                + facts.steps_skipped
+                + facts.steps_cancelled,
+            facts.steps_started,
+            "outcome counts must sum to steps_started"
         );
     }
 
@@ -3212,6 +4044,7 @@ mod end_to_end {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             })
@@ -3222,6 +4055,7 @@ mod end_to_end {
                 location: ParameterLocation::Query,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             });
@@ -3242,7 +4076,6 @@ mod end_to_end {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -3301,10 +4134,12 @@ mod end_to_end {
             id: "create-store".into(),
             index: 0,
             description: Some("make store".into()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: svc.clone(),
                 operation: OperationId::new("MakeStore"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -3321,10 +4156,12 @@ mod end_to_end {
             id: "create-category".into(),
             index: 1,
             description: Some("make category".into()),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: svc,
                 operation: OperationId::new("MakeCategory"),
-            },
+            }),
             dependencies: vec!["create-store".into()],
             confirm: false,
             is_optional: false,
@@ -3351,6 +4188,7 @@ mod end_to_end {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![s1, s2],
@@ -3462,6 +4300,7 @@ mod executor_input_overrides {
                     location: ParameterLocation::Path,
                     required: true,
                     value_type: ValueType::String,
+                    is_file: false,
                     description: None,
                     default: None,
                 },
@@ -3470,6 +4309,7 @@ mod executor_input_overrides {
                     location: ParameterLocation::Path,
                     required: true,
                     value_type: ValueType::String,
+                    is_file: false,
                     description: None,
                     default: None,
                 },
@@ -3481,7 +4321,6 @@ mod executor_input_overrides {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "test-svc".into(),
@@ -3545,6 +4384,7 @@ mod executor_input_overrides {
                     sensitive: false,
                     options_source: None,
                     location: ags_protocol::workflow::StepFieldLocation::Body,
+                    file_picker: None,
                 },
                 WorkflowInputSpec {
                     name: "extra".into(),
@@ -3555,6 +4395,7 @@ mod executor_input_overrides {
                     sensitive: false,
                     options_source: None,
                     location: ags_protocol::workflow::StepFieldLocation::Body,
+                    file_picker: None,
                 },
             ],
             is_reviewed_by_default: true,
@@ -3562,10 +4403,12 @@ mod executor_input_overrides {
                 id: "get-items".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -3763,6 +4606,7 @@ mod executor_review {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -3773,7 +4617,6 @@ mod executor_review {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -3803,10 +4646,12 @@ mod executor_review {
             id: id.into(),
             index,
             description: Some(format!("step {index}")),
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("test-svc"),
                 operation: OperationId::new("GetItems"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -3864,6 +4709,7 @@ mod executor_review {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![
@@ -4084,6 +4930,7 @@ mod executor_review {
                     sensitive: false,
                     options_source: None,
                     location: ags_protocol::workflow::StepFieldLocation::Body,
+                    file_picker: None,
                 },
                 WorkflowInputSpec {
                     name: "fleetName".into(),
@@ -4094,6 +4941,7 @@ mod executor_review {
                     sensitive: false,
                     options_source: None,
                     location: ags_protocol::workflow::StepFieldLocation::Body,
+                    file_picker: None,
                 },
             ],
             is_reviewed_by_default: true,
@@ -4137,7 +4985,13 @@ mod executor_review {
         match final_output {
             Some(CommandOutput::DryRun(dry)) => {
                 assert!(
-                    dry.body.as_ref().and_then(|b| b.get("fleetName")).is_none(),
+                    match &dry.body {
+                        Some(ags_protocol::request::RequestBody::Json(v)) => {
+                            v.get("fleetName")
+                        }
+                        _ => None,
+                    }
+                    .is_none(),
                     "cleared optional must not appear in the request; body={:?}",
                     dry.body
                 );
@@ -4163,6 +5017,7 @@ mod executor_review {
                 sensitive: false,
                 options_source: None,
                 location: ags_protocol::workflow::StepFieldLocation::Body,
+                file_picker: None,
             }],
             is_reviewed_by_default: true,
             steps: vec![reviewable_step("only", 0)],
@@ -4201,7 +5056,10 @@ mod executor_review {
         assert_eq!(outcome, RunOutcome::Success);
         match final_output {
             Some(CommandOutput::DryRun(dry)) => {
-                let extra = dry.body.as_ref().and_then(|b| b.get("extra"));
+                let extra = match &dry.body {
+                    Some(ags_protocol::request::RequestBody::Json(v)) => v.get("extra"),
+                    _ => None,
+                };
                 assert_eq!(
                     extra,
                     Some(&serde_json::json!("added")),
@@ -4284,6 +5142,7 @@ mod executor_review {
             sensitive: false,
             options_source: options,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         };
         let picker = OptionsSource {
             operation: OperationReference {
@@ -4438,6 +5297,9 @@ mod executor_briefing {
     struct Recorder {
         calls: Vec<String>,
         step_started_count: usize,
+        /// Aggregate carried by `WorkflowFinished`, for the run-level
+        /// cancellation-stage assertions.
+        run_facts: Option<ags_protocol::workflow::RunFacts>,
     }
 
     struct RecordingFrontend {
@@ -4454,7 +5316,10 @@ mod executor_briefing {
                     "StepStarted"
                 }
                 WorkflowEvent::StepFinished { .. } => "StepFinished",
-                WorkflowEvent::WorkflowFinished { .. } => "WorkflowFinished",
+                WorkflowEvent::WorkflowFinished { facts, .. } => {
+                    self.recorder.lock().unwrap().run_facts = Some(facts.clone());
+                    "WorkflowFinished"
+                }
                 WorkflowEvent::Progress { .. } => "Progress",
             };
             self.recorder.lock().unwrap().calls.push(label.into());
@@ -4554,6 +5419,120 @@ mod executor_briefing {
         assert_eq!(outcome, RunOutcome::Cancelled);
         assert!(pending.is_none());
         assert_eq!(recorder.lock().unwrap().step_started_count, 0);
+    }
+
+    /// A declined briefing emits no step event at all, so `RunFacts.reason` is
+    /// the only place the stage can be reported — without it the run reaches
+    /// PostHog as an unexplained bare `cancelled`.
+    #[tokio::test]
+    async fn test_briefing_decline_reports_at_briefing_in_run_facts() {
+        let facts = run_facts_from(RunOptions::default(), Some(Ok(false))).await;
+        assert_eq!(
+            facts.reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::AtBriefing)
+        );
+    }
+
+    /// A briefing the user accepts leaves the run-level reason unset — the
+    /// stage vocabulary must not leak onto runs that proceeded.
+    #[tokio::test]
+    async fn test_accepted_briefing_leaves_the_run_reason_unset() {
+        let facts = run_facts_from(RunOptions::default(), Some(Ok(true))).await;
+        assert_eq!(facts.reason, None);
+    }
+
+    /// Cancelling the run-start input gather (`collect_workflow_inputs`
+    /// returning `Ok(None)`) is the second pre-step stage with no step event of
+    /// its own, and must report `at_input_gather`.
+    #[tokio::test]
+    async fn test_input_gather_cancel_reports_at_input_gather_in_run_facts() {
+        let recorder = Arc::new(Mutex::new(Recorder::default()));
+        let mut frontend = CancellingGatherFrontend {
+            recorder: Arc::clone(&recorder),
+        };
+        let compiled = compiled_with_briefing_and_no_steps();
+        let options = RunOptions {
+            review_steps: true,
+            ..Default::default()
+        };
+        let mut runtime = test_runtime();
+        let mut ctx = RunContext::new(&mut runtime, &options);
+        Executor::execute(&compiled, Default::default(), &mut frontend, &mut ctx)
+            .await
+            .expect("executor");
+
+        let facts = recorder
+            .lock()
+            .unwrap()
+            .run_facts
+            .clone()
+            .expect("WorkflowFinished must be emitted");
+        assert_eq!(
+            facts.reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::AtInputGather)
+        );
+    }
+
+    /// Run a briefed one-step workflow with the given options and briefing
+    /// reply, returning the aggregate its `WorkflowFinished` carried.
+    async fn run_facts_from(
+        options: RunOptions,
+        briefing_reply: Option<Result<bool, ProtoRuntimeError>>,
+    ) -> ags_protocol::workflow::RunFacts {
+        let recorder = Arc::new(Mutex::new(Recorder::default()));
+        let mut frontend = RecordingFrontend {
+            recorder: Arc::clone(&recorder),
+            briefing_reply,
+        };
+        let mut compiled = make_one_step_workflow();
+        compiled.briefing = Some(WorkflowBriefing {
+            overview: "x".into(),
+            prerequisites: vec![],
+            creates: vec![],
+        });
+        let mut runtime = test_runtime();
+        let mut ctx = RunContext::new(&mut runtime, &options);
+        Executor::execute(&compiled, Default::default(), &mut frontend, &mut ctx)
+            .await
+            .expect("executor");
+        let facts = recorder.lock().unwrap().run_facts.clone();
+        facts.expect("WorkflowFinished must be emitted")
+    }
+
+    /// Frontend that accepts the briefing and then cancels the run-start
+    /// gather, for the `at_input_gather` stage.
+    struct CancellingGatherFrontend {
+        recorder: Arc<Mutex<Recorder>>,
+    }
+
+    impl WorkflowFrontend for CancellingGatherFrontend {
+        fn on_event(&mut self, e: &WorkflowEvent) {
+            if let WorkflowEvent::WorkflowFinished { facts, .. } = e {
+                self.recorder.lock().unwrap().run_facts = Some(facts.clone());
+            }
+        }
+        fn gather_workflow_inputs(
+            &mut self,
+            _: &[WorkflowInputNeeded],
+            _: &CompiledStep,
+            _: &[SuppliedInputView],
+        ) -> Result<GatherResult, ProtoRuntimeError> {
+            Ok(GatherResult::default())
+        }
+        fn confirm_step(
+            &mut self,
+            _: &CompiledStep,
+            _: &StepPreview,
+        ) -> Result<ags_protocol::workflow::StepConfirmOutcome, ProtoRuntimeError> {
+            Ok(ags_protocol::workflow::StepConfirmOutcome::Proceed)
+        }
+        fn collect_workflow_inputs(
+            &mut self,
+            _: &[WorkflowInputSpec],
+            _: &std::collections::BTreeMap<String, serde_json::Value>,
+        ) -> Result<Option<ags_protocol::workflow::CollectOutcome>, ProtoRuntimeError> {
+            Ok(None)
+        }
     }
 
     #[tokio::test]
@@ -4714,10 +5693,12 @@ mod executor_optional {
             id: "a".into(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new(svc),
                 operation: OperationId::new(op_a),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -4733,10 +5714,12 @@ mod executor_optional {
             id: "b".into(),
             index: 1,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new(svc),
                 operation: OperationId::new(op_b),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -4803,7 +5786,6 @@ mod executor_optional {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let op_b_schema = OperationSchema {
             id: OperationId::new(op_b),
@@ -4821,7 +5803,6 @@ mod executor_optional {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let combined_schema = ServiceSchema {
             name: svc.into(),
@@ -4894,12 +5875,13 @@ mod executor_optional {
         assert_eq!(outcome, RunOutcome::Failed);
     }
 
-    /// A `continue_on_failure` step whose dispatch fails must be recorded as
-    /// `Skipped` with a `"{id} skipped — {reason}"` summary, and the run must
-    /// finish `Success`. Regression guard for the renamed field and the
-    /// skip-summary format.
-    #[tokio::test]
-    async fn test_continue_on_failure_step_skips_and_continues() {
+    /// Build and run a single `continue_on_failure` step whose one dispatch
+    /// answers with `response`, returning the run outcome and every event the
+    /// run emitted. Callers pass a transport error or a real HTTP failure
+    /// status depending on which error facts the case is about.
+    async fn run_continue_on_failure_workflow(
+        response: Result<HttpResponse, RuntimeError>,
+    ) -> (RunOutcome, Vec<WorkflowEvent>) {
         let svc = "cof-svc";
         let op_id = "CofOp";
 
@@ -4915,10 +5897,12 @@ mod executor_optional {
                 id: "cof-step".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new(svc),
                     operation: OperationId::new(op_id),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -4949,7 +5933,6 @@ mod executor_optional {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         let service_schema = ServiceSchema {
             name: svc.into(),
@@ -4975,7 +5958,7 @@ mod executor_optional {
                 base_url: "https://example.com".into(),
                 ..Default::default()
             },
-            Box::new(QueuedClient::new(vec![err_response()])),
+            Box::new(QueuedClient::new(vec![response])),
             reqwest::Client::new(),
         );
         runtime
@@ -4991,6 +5974,17 @@ mod executor_optional {
                 .await
                 .unwrap();
 
+        (outcome, frontend.events)
+    }
+
+    /// A `continue_on_failure` step whose dispatch fails must be recorded as
+    /// `Skipped` with a `"{id} skipped — {reason}"` summary, and the run must
+    /// finish `Success`. Regression guard for the renamed field and the
+    /// skip-summary format.
+    #[tokio::test]
+    async fn test_continue_on_failure_step_skips_and_continues() {
+        let (outcome, events) = run_continue_on_failure_workflow(err_response()).await;
+
         // The run must succeed despite the dispatch failure.
         assert_eq!(
             outcome,
@@ -4999,8 +5993,7 @@ mod executor_optional {
         );
 
         // The step must be recorded Skipped with the "{id} skipped — {reason}" summary.
-        let (step_outcome, summary) = frontend
-            .events
+        let (step_outcome, summary) = events
             .iter()
             .find_map(|e| {
                 if let WorkflowEvent::StepFinished {
@@ -5027,6 +6020,57 @@ mod executor_optional {
             summary.starts_with("cof-step skipped — "),
             "summary must follow '{{id}} skipped — {{reason}}' format, got: {summary:?}"
         );
+    }
+
+    /// A `continue_on_failure` skip must carry the typed `ToleratedFailure`
+    /// telemetry reason, distinct from the other skip causes.
+    #[tokio::test]
+    async fn test_continue_on_failure_step_emits_tolerated_failure_reason() {
+        let (_outcome, events) = run_continue_on_failure_workflow(err_response()).await;
+
+        let reason = events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Skipped,
+                    reason,
+                    ..
+                } => Some(*reason),
+                _ => None,
+            })
+            .expect("a skipped StepFinished must be emitted");
+        assert_eq!(
+            reason,
+            Some(ags_protocol::workflow::StepOutcomeReason::ToleratedFailure)
+        );
+    }
+
+    /// A skip is a response to a real failure, so it must carry the same error
+    /// triple a fatal outcome would: a `tolerated_failure` skip of an upstream
+    /// 503 reports the status and class, not an empty error slot.
+    #[tokio::test]
+    async fn test_tolerated_failure_skip_carries_the_error_triple() {
+        let (_outcome, events) = run_continue_on_failure_workflow(Ok(HttpResponse {
+            status: 503,
+            body: HttpBody::Text(r#"{"errorCode":20013,"errorMessage":"down"}"#.to_string()),
+        }))
+        .await;
+
+        let error = events
+            .iter()
+            .find_map(|e| match e {
+                WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Skipped,
+                    error,
+                    ..
+                } => Some(error.clone()),
+                _ => None,
+            })
+            .expect("a skipped StepFinished must be emitted")
+            .expect("a failure-driven skip must carry error facts");
+        assert_eq!(error.http_status, Some(503));
+        assert_eq!(error.class, "upstream");
+        assert_eq!(error.code.as_deref(), Some("20013"));
     }
 }
 
@@ -5076,7 +6120,6 @@ mod executor_per_step_review {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "test-svc".into(),
@@ -5138,10 +6181,12 @@ mod executor_per_step_review {
             id: "s0".into(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("svc"),
                 operation: OperationId::new("op"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -5170,10 +6215,12 @@ mod executor_per_step_review {
                 id: "s0".into(),
                 index: 0,
                 description: None,
-                operation: OperationReference {
+                kind: ags_protocol::workflow::StepKind::default(),
+                action: None,
+                operation: Some(OperationReference {
                     service: ServiceId::new("test-svc"),
                     operation: OperationId::new("GetItems"),
-                },
+                }),
                 dependencies: vec![],
                 confirm: false,
                 is_optional: false,
@@ -5317,7 +6364,7 @@ mod provenance_tests {
 }
 
 #[cfg(test)]
-mod builtin_workflow_e2e {
+pub(crate) mod builtin_workflow_e2e {
     //! End-to-end executor tests for built-in workflows using the full
     //! bundled-catalogue path. No production code is added by these tests.
 
@@ -5434,7 +6481,59 @@ mod builtin_workflow_e2e {
     }
 
     /// Build and run `competitive-multiplayer` against a scripted HTTP client
-    /// that returns 200 OK for all 6 steps. All required inputs are pre-supplied.
+    /// that returns 200 OK for all 6 API steps. All required inputs are pre-supplied.
+    /// Stub the AMS upload endpoints and build a directory with a valid
+    /// x86-64 ELF entrypoint, so the local upload step can run offline.
+    ///
+    /// Returned together because the temp directory must outlive the run.
+    pub(crate) async fn stub_ams_upload() -> (wiremock::MockServer, tempfile::TempDir) {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let uri = server.uri();
+        Mock::given(method("GET"))
+            .and(path("/ams/v1/upload-url"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(uri.clone()))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/upload/v1/images"))
+            .respond_with(
+                ResponseTemplate::new(201).set_body_json(serde_json::json!({ "id": "img-abc123" })),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/upload/v1/pre-sign-url"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "url": format!("{uri}/storage") })),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("PUT"))
+            .and(path("/storage"))
+            .respond_with(ResponseTemplate::new(200).insert_header("ETag", "\"etag-1\""))
+            .mount(&server)
+            .await;
+        Mock::given(method("PUT"))
+            .and(path("/upload/v1/complete"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let build = tempfile::tempdir().unwrap();
+        let mut header = vec![0u8; 20];
+        header[0..4].copy_from_slice(&[0x7f, b'E', b'L', b'F']);
+        header[4] = 2;
+        header[5] = 1;
+        header[6] = 1;
+        header[18..20].copy_from_slice(&62u16.to_le_bytes());
+        std::fs::write(build.path().join("server"), &header).unwrap();
+        (server, build)
+    }
+
     async fn run_competitive_multiplayer_mocked() -> (RunOutcome, Option<CommandOutput>) {
         use crate::runtime::workflows::builtins::competitive_multiplayer::CompetitiveMultiplayer;
         use crate::runtime::workflows::compile::compile_workflow;
@@ -5454,9 +6553,13 @@ mod builtin_workflow_e2e {
             ok_json(r#"{}"#), // 5: update-session-template
         ];
 
+        // Stub the AMS endpoints: the local upload step uses the concrete reqwest
+        // client rather than the injected `HttpClient` seam, so
+        // `QueuedClient` cannot stand in for it.
+        let (ams, build) = stub_ams_upload().await;
         let mut runtime = crate::runtime::Runtime::new(
             crate::runtime::execution::ExecutionContext {
-                base_url: "https://example.com".into(),
+                base_url: ams.uri(),
                 ..Default::default()
             },
             Box::new(QueuedClient::new(responses)),
@@ -5471,7 +6574,11 @@ mod builtin_workflow_e2e {
 
         let mut pre_supplied = BTreeMap::new();
         pre_supplied.insert("namespace".to_string(), serde_json::json!("dev"));
-        pre_supplied.insert("fleetImageId".to_string(), serde_json::json!("img-abc123"));
+        pre_supplied.insert(
+            "buildPath".to_string(),
+            serde_json::json!(build.path().to_str().unwrap()),
+        );
+        pre_supplied.insert("buildExecutable".to_string(), serde_json::json!("server"));
         pre_supplied.insert("fleetRegion".to_string(), serde_json::json!("us-west-2"));
         pre_supplied.insert("fleetInstanceId".to_string(), serde_json::json!("c3.large"));
 
@@ -5481,6 +6588,142 @@ mod builtin_workflow_e2e {
                 .unwrap();
 
         (outcome, final_output)
+    }
+
+    /// A failing local step must surface its `RuntimeError`, not a flattened
+    /// summary line. The upload pipeline puts its most useful guidance in
+    /// `details` and `hint` — the 403 permission fix and the orphaned-image
+    /// notice — and a workflow that dropped them would leave the user with
+    /// "upload-image failed" and nothing to act on.
+    #[tokio::test]
+    async fn test_local_step_failure_propagates_the_structured_error() {
+        use crate::runtime::workflows::builtins::competitive_multiplayer::CompetitiveMultiplayer;
+        use crate::runtime::workflows::compile::compile_workflow;
+
+        let wf = CompetitiveMultiplayer::new();
+        let mut catalogue = crate::catalogue::Catalogue::new();
+        let compiled = compile_workflow(wf.definition(), &mut catalogue).unwrap();
+
+        // The four steps before upload-image succeed; the upload then fails on
+        // a build directory that does not exist, before any network call.
+        let responses = vec![
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+        ];
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext::default(),
+            Box::new(QueuedClient::new(responses)),
+            reqwest::Client::new(),
+        );
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("namespace".to_string(), serde_json::json!("dev"));
+        pre_supplied.insert(
+            "buildPath".to_string(),
+            serde_json::json!("/nonexistent/build/directory"),
+        );
+        pre_supplied.insert("buildExecutable".to_string(), serde_json::json!("server"));
+        pre_supplied.insert("fleetRegion".to_string(), serde_json::json!("us-west-2"));
+        pre_supplied.insert("fleetInstanceId".to_string(), serde_json::json!("c3.large"));
+
+        let (outcome, final_output, pending) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Failed);
+        assert!(final_output.is_none());
+        let error = pending.expect("a failed local step must yield a pending error");
+        assert!(
+            error.hint.is_some() || error.details.is_some(),
+            "the structured guidance must survive: {error:?}"
+        );
+        assert!(
+            error.message.contains("/nonexistent/build/directory"),
+            "the error must name the directory: {}",
+            error.message
+        );
+    }
+
+    /// The executor's local-step `Err` branch must build `StepErrorFacts` from
+    /// the underlying `RuntimeError` and attach it to the `StepFinished` event.
+    /// This test drives the full `Executor::execute` path — not the helper — so
+    /// reverting the branch to pass `None` instead of `Some(facts)` turns it red.
+    #[tokio::test]
+    async fn test_local_step_err_branch_attaches_error_facts_to_step_finished_event() {
+        use crate::runtime::workflows::builtins::competitive_multiplayer::CompetitiveMultiplayer;
+        use crate::runtime::workflows::compile::compile_workflow;
+
+        let wf = CompetitiveMultiplayer::new();
+        let mut catalogue = crate::catalogue::Catalogue::new();
+        let compiled = compile_workflow(wf.definition(), &mut catalogue).unwrap();
+
+        // The four API steps before the local upload-image step succeed;
+        // the upload then fails because the build directory does not exist.
+        let responses = vec![
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+            ok_json(r#"{}"#),
+        ];
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext::default(),
+            Box::new(QueuedClient::new(responses)),
+            reqwest::Client::new(),
+        );
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions::default();
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("namespace".to_string(), serde_json::json!("dev"));
+        pre_supplied.insert(
+            "buildPath".to_string(),
+            serde_json::json!("/nonexistent/build/directory"),
+        );
+        pre_supplied.insert("buildExecutable".to_string(), serde_json::json!("server"));
+        pre_supplied.insert("fleetRegion".to_string(), serde_json::json!("us-west-2"));
+        pre_supplied.insert("fleetInstanceId".to_string(), serde_json::json!("c3.large"));
+
+        let (outcome, _final_output, _pending) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Failed);
+
+        // Find the StepFinished event for the failed local step (upload-image).
+        let step_finished_error = frontend
+            .events
+            .iter()
+            .find_map(|event| {
+                if let WorkflowEvent::StepFinished {
+                    outcome: StepOutcome::Failed,
+                    error,
+                    ..
+                } = event
+                {
+                    Some(error.clone())
+                } else {
+                    None
+                }
+            })
+            .expect("a StepFinished event with Failed outcome must be emitted");
+
+        let facts = step_finished_error
+            .expect("the executor must attach StepErrorFacts to a local step failure");
+
+        // DirectoryMissing maps to RuntimeErrorKind::Validation → class "usage".
+        assert_eq!(
+            facts.class, "usage",
+            "error class must reflect the underlying RuntimeError kind, got '{}'",
+            facts.class
+        );
     }
 
     /// Optional `inventory` read (step 9) returns 404: the workflow still succeeds,
@@ -5583,7 +6826,6 @@ mod executor_skip {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         };
         ServiceSchema {
             name: "skip-svc".into(),
@@ -5658,10 +6900,12 @@ mod executor_skip {
             id: id.into(),
             index,
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ServiceId::new("skip-svc"),
                 operation: OperationId::new("skip-op"),
-            },
+            }),
             dependencies: vec![],
             confirm,
             is_optional,
@@ -5910,6 +7154,996 @@ mod executor_skip {
             frontend.reviewed_step_ids.contains(&"step-0".to_string()),
             "review_step must be called for the optional non-confirm step; got {:?}",
             frontend.reviewed_step_ids
+        );
+    }
+}
+
+// =====================================================================
+// Local step type — Test Plan cases 13-17
+// =====================================================================
+
+#[cfg(test)]
+mod local_step_executor {
+    use std::collections::BTreeMap;
+
+    use async_trait::async_trait;
+
+    use super::*;
+    use crate::runtime::dispatch::http::{HttpClient, HttpRequest, HttpResponse};
+    use crate::runtime::workflows::executor::{Executor, RunContext};
+    use ags_protocol::output::CommandOutput;
+    use ags_protocol::workflow::{
+        CaptureSource, CompiledStep, CompiledWorkflow, StepOutputCapture, WorkflowId,
+        WorkflowOutputAlias,
+    };
+
+    struct NeverClient;
+
+    #[async_trait]
+    impl HttpClient for NeverClient {
+        async fn send(&self, _: HttpRequest) -> Result<HttpResponse, RuntimeError> {
+            unreachable!("local step tests must not dispatch HTTP")
+        }
+    }
+
+    /// Build a Runtime that panics on HTTP dispatch. Local steps do not use
+    /// the HTTP client, so this proves no API call was made.
+    fn make_runtime_never() -> crate::runtime::Runtime {
+        crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(NeverClient),
+            reqwest::Client::new(),
+        )
+    }
+
+    /// Build a compiled local step using the `test-echo` action (available
+    /// under `#[cfg(test)]`).
+    fn local_step(id: &str, index: usize) -> CompiledStep {
+        CompiledStep {
+            id: id.into(),
+            index,
+            description: Some("test local step".into()),
+            kind: ags_protocol::workflow::StepKind::Local,
+            action: Some("test-echo".into()),
+            operation: None,
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+            auto_derived: vec![],
+        }
+    }
+
+    fn local_step_with_outputs(
+        id: &str,
+        index: usize,
+        outputs: Vec<StepOutputCapture>,
+    ) -> CompiledStep {
+        CompiledStep {
+            outputs,
+            ..local_step(id, index)
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 13: --dry-run with a local step produces
+    // CommandOutput::WorkflowDryRun and records zero subprocess
+    // invocations (the NeverClient panics if HTTP is attempted).
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_dry_run_local_step_no_side_effect() {
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-local-dry"),
+            name: "local dry-run".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![local_step("local-s1", 0), local_step("local-s2", 1)],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (outcome, final_output, pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Success);
+        assert!(pending.is_none());
+        match &final_output {
+            Some(CommandOutput::WorkflowDryRun { step_previews, .. }) => {
+                assert_eq!(
+                    step_previews.len(),
+                    2,
+                    "expected 2 dry-run previews for 2 local steps"
+                );
+            }
+            other => panic!("expected Some(WorkflowDryRun{{..}}), got {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 14: the dry-run preview for a local step carries
+    // the action name in a `StepDryRunAction::Local` variant, and the
+    // overall output is `WorkflowDryRun`.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_dry_run_local_step_preview_contains_action_name() {
+        use ags_protocol::workflow::StepDryRunAction;
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-local-dry-2"),
+            name: "local dry-run 2".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![local_step("local-action-step", 0)],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (_outcome, final_output, _pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        match final_output {
+            Some(CommandOutput::WorkflowDryRun { step_previews, .. }) => {
+                assert_eq!(step_previews.len(), 1, "one local step => one preview");
+                match &step_previews[0].action {
+                    StepDryRunAction::Local { action, .. } => {
+                        assert_eq!(
+                            action, "test-echo",
+                            "dry-run preview must carry the action name"
+                        );
+                    }
+                    other => panic!("expected Local variant, got {other:?}"),
+                }
+            }
+            other => panic!("expected Some(WorkflowDryRun(_)), got {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 15: --format json envelope for a workflow containing
+    // a local step is the existing CommandOutput::Workflow shape with an
+    // "outputs" key.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_json_envelope_workflow_with_local_step() {
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-local-json"),
+            name: "local json envelope".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![local_step_with_outputs(
+                "local-auth",
+                0,
+                vec![StepOutputCapture {
+                    name: "token".into(),
+                    source: CaptureSource::ResponseBody {
+                        path: "$.token".into(),
+                    },
+                    default: Some(serde_json::json!("default-tok")),
+                    sensitive: false,
+                }],
+            )],
+            outputs: vec![WorkflowOutputAlias {
+                name: "token".into(),
+                from_step_id: "local-auth".into(),
+                output: "token".into(),
+                sensitive: false,
+                section: None,
+                label: None,
+                item_fields: None,
+            }],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (outcome, final_output, _) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Success);
+        match final_output {
+            Some(CommandOutput::Workflow {
+                outputs,
+                step_summaries,
+                ..
+            }) => {
+                assert!(
+                    outputs.contains_key("token"),
+                    "outputs map must contain the 'token' alias: {outputs:?}"
+                );
+                assert!(
+                    !step_summaries.is_empty(),
+                    "step_summaries must be non-empty"
+                );
+            }
+            other => panic!("expected Some(Workflow{{..}}), got {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 16: --yes --no-input with a local step completes
+    // without reading stdin. Local steps never have confirm: true
+    // (validate_step_kinds rejects it at compile time).
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_yes_flag_does_not_block_at_local_step() {
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-yes"),
+            name: "yes-flag test".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![local_step("local-no-confirm", 0)],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            no_input: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (outcome, _final, _pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(
+            outcome,
+            RunOutcome::Success,
+            "local step with --yes --no-input and confirm: false must succeed"
+        );
+    }
+
+    // =================================================================
+    // Local-step input binding tests
+    // =================================================================
+
+    /// HTTP client returning one canned JSON response per call.
+    struct QueuedClient {
+        responses: std::sync::Arc<std::sync::Mutex<Vec<Result<HttpResponse, RuntimeError>>>>,
+    }
+
+    impl QueuedClient {
+        fn with_response(body: &str) -> Self {
+            Self {
+                responses: std::sync::Arc::new(std::sync::Mutex::new(vec![Ok(HttpResponse {
+                    status: 200,
+                    body: crate::runtime::dispatch::http::HttpBody::Text(body.to_string()),
+                })])),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl crate::runtime::dispatch::http::HttpClient for QueuedClient {
+        async fn send(&self, _request: HttpRequest) -> Result<HttpResponse, RuntimeError> {
+            self.responses.lock().unwrap().remove(0)
+        }
+    }
+
+    /// Build a compiled API step with a single path parameter and captures.
+    fn api_step_with_capture(
+        id: &str,
+        index: usize,
+        captures: Vec<StepOutputCapture>,
+    ) -> CompiledStep {
+        use ags_protocol::catalogue::{OperationId, ServiceId};
+        use ags_protocol::workflow::{
+            AutoDeriveScope, AutoDerivedField, OperationReference, StepFieldLocation,
+        };
+        CompiledStep {
+            id: id.into(),
+            index,
+            description: Some("api step".into()),
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: Some(OperationReference {
+                service: ServiceId::new("svc"),
+                operation: OperationId::new("GetCred"),
+            }),
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: captures,
+            auto_derived: vec![AutoDerivedField {
+                field: "namespace".into(),
+                schema: serde_json::json!({"type": "string"}),
+                required: true,
+                sensitive: false,
+                description: None,
+                scope: AutoDeriveScope::WorkflowInput {
+                    name: "namespace".into(),
+                },
+                location: StepFieldLocation::Body,
+            }],
+        }
+    }
+
+    /// Build a minimal service schema for the api_step_with_capture helper.
+    fn api_service_schema() -> ags_protocol::catalogue::ServiceSchema {
+        use ags_protocol::catalogue::*;
+        ServiceSchema {
+            name: "svc".into(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "res".into(),
+                description: String::new(),
+                methods: vec![MethodSchema {
+                    name: "get-cred".into(),
+                    summary: String::new(),
+                    default_scope: None,
+                    scopes: vec![ScopeEntry {
+                        scope: String::new(),
+                        default_version: ApiVersion(1),
+                        contracts: vec![OperationSchema {
+                            id: OperationId::new("GetCred"),
+                            name: "get-cred".into(),
+                            summary: String::new(),
+                            description: None,
+                            mutation_class: MutationClass::ReadOnly,
+                            http_method: HttpMethod::Get,
+                            path_template: "/svc/v1/namespaces/{namespace}/cred".into(),
+                            parameters: vec![ParameterSchema {
+                                name: "namespace".into(),
+                                location: ParameterLocation::Path,
+                                required: true,
+                                value_type: ValueType::String,
+                                is_file: false,
+                                description: None,
+                                default: None,
+                            }],
+                            request_body: None,
+                            response: None,
+                            permissions: vec![],
+                            scope: String::new(),
+                            api_version: ApiVersion(1),
+                            deprecated: false,
+                            response_content_type: None,
+                        }],
+                    }],
+                }],
+            }],
+        }
+    }
+
+    /// Build a local step that binds fields from a prior step's captured outputs.
+    fn local_step_with_bindings(
+        id: &str,
+        index: usize,
+        bindings: Vec<ags_protocol::workflow::StepInputBinding>,
+    ) -> CompiledStep {
+        CompiledStep {
+            inputs: bindings,
+            ..local_step(id, index)
+        }
+    }
+
+    /// Shorthand: a step-output reference binding.
+    fn step_ref(
+        field: &str,
+        step_id: &str,
+        output: &str,
+    ) -> ags_protocol::workflow::StepInputBinding {
+        use ags_protocol::workflow::{
+            BindingSource, ReferenceBinding, ReferenceTarget, StepInputBinding,
+        };
+        StepInputBinding {
+            field: field.into(),
+            source: BindingSource::Reference(ReferenceBinding {
+                from: ReferenceTarget::Step { id: step_id.into() },
+                output: Some(output.into()),
+                transform: None,
+            }),
+            show_in_review: false,
+            description: None,
+        }
+    }
+
+    /// Shorthand: a literal binding.
+    fn literal_binding(
+        field: &str,
+        value: serde_json::Value,
+    ) -> ags_protocol::workflow::StepInputBinding {
+        use ags_protocol::workflow::{BindingSource, LiteralBinding, StepInputBinding};
+        StepInputBinding {
+            field: field.into(),
+            source: BindingSource::Literal(LiteralBinding {
+                value,
+                sensitive: false,
+            }),
+            show_in_review: false,
+            description: None,
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 1: end-to-end — a captured value from an API step reaches
+    // the local step handler through a declared binding.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_local_step_receives_captured_value_from_api_step() {
+        use ags_protocol::workflow::WorkflowInputSpec;
+
+        // Step 1: API step returning {"token": "secret-abc"}, capturing "token".
+        let api = api_step_with_capture(
+            "get-token",
+            0,
+            vec![StepOutputCapture {
+                name: "token".into(),
+                source: CaptureSource::ResponseBody {
+                    path: "$.token".into(),
+                },
+                default: None,
+                sensitive: false,
+            }],
+        );
+        // Step 2: local test-echo step with a binding `password <- step/get-token/token`.
+        // Capture the echoed password so we can verify the bound value arrived.
+        let local = CompiledStep {
+            outputs: vec![StepOutputCapture {
+                name: "echoed_password".into(),
+                source: CaptureSource::ResponseBody {
+                    path: "$.password".into(),
+                },
+                default: None,
+                sensitive: false,
+            }],
+            ..local_step_with_bindings(
+                "docker-login",
+                1,
+                vec![step_ref("password", "get-token", "token")],
+            )
+        };
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-e2e-binding"),
+            name: "binding e2e".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![WorkflowInputSpec {
+                name: "namespace".into(),
+                description: None,
+                schema: Some(serde_json::json!({"type": "string"})),
+                default: None,
+                required: true,
+                sensitive: false,
+                location: ags_protocol::workflow::StepFieldLocation::default(),
+                options_source: None,
+                file_picker: None,
+            }],
+            is_reviewed_by_default: true,
+            steps: vec![api, local],
+            outputs: vec![WorkflowOutputAlias {
+                name: "password_out".into(),
+                from_step_id: "docker-login".into(),
+                output: "echoed_password".into(),
+                sensitive: false,
+                section: None,
+                label: None,
+                item_fields: None,
+            }],
+            completion: None,
+        };
+
+        // Build a runtime with a queued HTTP client that returns the token.
+        let client = QueuedClient::with_response(r#"{"token":"secret-abc"}"#);
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(client),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests("svc", api_service_schema());
+
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("namespace".to_string(), serde_json::json!("test-ns"));
+
+        let (outcome, output, pending) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Success, "run must succeed");
+        assert!(pending.is_none(), "no pending error expected");
+
+        // The test-echo action echoes its inputs back, so the captured
+        // output must contain the password the API step returned.
+        let finished_events: Vec<_> = frontend
+            .events
+            .iter()
+            .filter(|e| matches!(e, WorkflowEvent::StepFinished { id, .. } if id == "docker-login"))
+            .collect();
+        assert_eq!(
+            finished_events.len(),
+            1,
+            "docker-login step must have a StepFinished event"
+        );
+
+        // Verify the step ran by asserting a success outcome event.
+        match &finished_events[0] {
+            WorkflowEvent::StepFinished { outcome, .. } => {
+                assert_eq!(
+                    *outcome,
+                    StepOutcome::Success,
+                    "docker-login step must succeed"
+                );
+            }
+            _ => unreachable!(),
+        }
+
+        // Verify the handler RECEIVED the captured value: the echo action
+        // echoes its inputs back, so the workflow output (captured from
+        // $.password) must equal the value the API step returned.
+        match output {
+            Some(CommandOutput::Workflow { outputs, .. }) => {
+                let password = outputs
+                    .get("password_out")
+                    .expect("password_out must be in workflow outputs");
+                assert_eq!(
+                    password,
+                    &serde_json::json!("secret-abc"),
+                    "the binding must deliver the API step's captured token to the local handler"
+                );
+            }
+            other => panic!("expected Workflow output, got {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 2: precedence — a resolved binding overrides a same-named
+    // entry in workflow_supplied.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_local_step_binding_takes_precedence_over_workflow_supplied() {
+        // The local step has a literal binding for "x" = "from-binding".
+        // workflow_supplied also carries "x" = "from-flag".
+        // The handler must receive "from-binding".
+        let local = local_step_with_bindings(
+            "echo",
+            0,
+            vec![literal_binding("x", serde_json::json!("from-binding"))],
+        );
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-precedence"),
+            name: "precedence".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            // Test-echo echoes its inputs; capture "x" to prove binding won.
+            steps: vec![CompiledStep {
+                outputs: vec![StepOutputCapture {
+                    name: "x_out".into(),
+                    source: CaptureSource::ResponseBody { path: "$.x".into() },
+                    default: None,
+                    sensitive: false,
+                }],
+                ..local
+            }],
+            outputs: vec![WorkflowOutputAlias {
+                name: "x_final".into(),
+                from_step_id: "echo".into(),
+                output: "x_out".into(),
+                sensitive: false,
+                section: None,
+                label: None,
+                item_fields: None,
+            }],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        // Same key "x" also in workflow_supplied — binding must win.
+        pre_supplied.insert("x".to_string(), serde_json::json!("from-flag"));
+
+        let (outcome, output, _) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Success);
+        match output {
+            Some(CommandOutput::Workflow { outputs, .. }) => {
+                let x = outputs.get("x_final").expect("x_final must be in outputs");
+                assert_eq!(
+                    x,
+                    &serde_json::json!("from-binding"),
+                    "binding value must take precedence over workflow_supplied"
+                );
+            }
+            other => panic!("expected Workflow output, got {other:?}"),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 3: an unresolvable binding fails at runtime with a clear
+    // error — never a silent empty value.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_unresolvable_step_reference_produces_error() {
+        use crate::runtime::workflows::resolve::resolve_local_step_bindings;
+        use crate::runtime::workflows::WorkflowContext;
+
+        let step = local_step_with_bindings(
+            "consumer",
+            0,
+            vec![step_ref("password", "producer", "token")],
+        );
+        // Empty context — no captures for "producer".
+        let ctx = WorkflowContext::new();
+        let workflow_supplied = BTreeMap::new();
+
+        let err = resolve_local_step_bindings(&step, &ctx, &workflow_supplied)
+            .expect_err("must fail when referenced step output is missing");
+        assert!(
+            err.message.contains("producer"),
+            "error must mention the referenced step id: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("token"),
+            "error must mention the referenced output name: {}",
+            err.message
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Test 4: an invalid step reference on a local step is rejected at
+    // compile time with the step id in the message.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_invalid_step_reference_on_local_step_rejected_at_compile() {
+        use ags_protocol::workflow::{StepDefinition, WorkflowDefinition};
+
+        let def = WorkflowDefinition {
+            id: WorkflowId::new("wf-bad-ref"),
+            name: "bad ref".into(),
+            workflow_protocol_version: None,
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![StepDefinition {
+                id: "local-bad".into(),
+                description: None,
+                kind: ags_protocol::workflow::StepKind::Local,
+                action: Some("test-echo".into()),
+                operation: None,
+                dependencies: vec![],
+                confirm: false,
+                is_optional: false,
+                continue_on_failure: false,
+                skip_if_exists: false,
+                is_reviewed: None,
+                inputs: vec![step_ref("password", "nonexistent-step", "token")],
+                outputs: vec![],
+            }],
+            outputs: vec![],
+            completion: None,
+        };
+        let mut cat = crate::catalogue::Catalogue::new();
+        let err = crate::runtime::workflows::compile::compile_workflow(&def, &mut cat)
+            .expect_err("compile must reject a reference to a non-existent step");
+        assert!(
+            err.message.contains("local-bad"),
+            "error must mention the local step id: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("nonexistent-step"),
+            "error must mention the non-existent referenced step: {}",
+            err.message
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Test 5: the secret value does NOT surface in the StepPreview or
+    // StepFinished captures.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_resolved_input_absent_from_preview_and_captures() {
+        use ags_protocol::workflow::WorkflowInputSpec;
+
+        let api = api_step_with_capture(
+            "get-token",
+            0,
+            vec![StepOutputCapture {
+                name: "token".into(),
+                source: CaptureSource::ResponseBody {
+                    path: "$.token".into(),
+                },
+                default: None,
+                sensitive: false,
+            }],
+        );
+        // Local step binds the captured secret. Capture the echoed
+        // password so we can first prove the value WAS delivered — without
+        // that, the non-leakage assertions below are vacuously true.
+        let local = CompiledStep {
+            outputs: vec![StepOutputCapture {
+                name: "echoed_password".into(),
+                source: CaptureSource::ResponseBody {
+                    path: "$.password".into(),
+                },
+                default: None,
+                sensitive: false,
+            }],
+            ..local_step_with_bindings(
+                "docker-login",
+                1,
+                vec![step_ref("password", "get-token", "token")],
+            )
+        };
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-secret-leak"),
+            name: "secret leak check".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![WorkflowInputSpec {
+                name: "namespace".into(),
+                description: None,
+                schema: Some(serde_json::json!({"type": "string"})),
+                default: None,
+                required: true,
+                sensitive: false,
+                location: ags_protocol::workflow::StepFieldLocation::default(),
+                options_source: None,
+                file_picker: None,
+            }],
+            is_reviewed_by_default: true,
+            steps: vec![api, local],
+            outputs: vec![WorkflowOutputAlias {
+                name: "password_check".into(),
+                from_step_id: "docker-login".into(),
+                output: "echoed_password".into(),
+                sensitive: false,
+                section: None,
+                label: None,
+                item_fields: None,
+            }],
+            completion: None,
+        };
+
+        let client = QueuedClient::with_response(r#"{"token":"SUPER-SECRET-TOKEN"}"#);
+        let mut runtime = crate::runtime::Runtime::new(
+            crate::runtime::execution::ExecutionContext {
+                base_url: "https://example.com".into(),
+                ..Default::default()
+            },
+            Box::new(client),
+            reqwest::Client::new(),
+        );
+        runtime
+            .catalogue_mut()
+            .insert_for_tests("svc", api_service_schema());
+
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let mut pre_supplied = BTreeMap::new();
+        pre_supplied.insert("namespace".to_string(), serde_json::json!("ns"));
+
+        let (outcome, output, _) =
+            Executor::execute(&compiled, pre_supplied, &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(outcome, RunOutcome::Success);
+
+        // First, verify the secret WAS delivered to the handler. Without
+        // this, the non-leakage checks below would pass vacuously if
+        // binding resolution silently returned nothing.
+        match output {
+            Some(CommandOutput::Workflow { outputs, .. }) => {
+                let password = outputs
+                    .get("password_check")
+                    .expect("password_check must be in workflow outputs");
+                assert_eq!(
+                    password,
+                    &serde_json::json!("SUPER-SECRET-TOKEN"),
+                    "the binding must deliver the secret to the local handler"
+                );
+            }
+            other => panic!("expected Workflow output, got {other:?}"),
+        }
+
+        // Assert the secret never appears in any StepFinished event's captures
+        // or summary for the local step.
+        let secret = "SUPER-SECRET-TOKEN";
+        for event in &frontend.events {
+            if let WorkflowEvent::StepFinished {
+                id,
+                summary,
+                captures,
+                ..
+            } = event
+            {
+                if id == "docker-login" {
+                    assert!(
+                        !summary.contains(secret),
+                        "step summary must not contain the secret: {summary}"
+                    );
+                    let captures_json = serde_json::to_string(captures).unwrap();
+                    assert!(
+                        !captures_json.contains(secret),
+                        "StepFinished captures must not contain the secret: {captures_json}"
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Test 6: a local step with NO declared inputs still works
+    // identically to the pre-change behaviour (regression guard).
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_local_step_no_inputs_unchanged() {
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-no-inputs"),
+            name: "no-inputs regression".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![local_step("echo-step", 0)],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            assume_yes: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (outcome, _, pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(
+            outcome,
+            RunOutcome::Success,
+            "local step with no inputs must still succeed"
+        );
+        assert!(pending.is_none());
+    }
+
+    // -----------------------------------------------------------------
+    // FIX 1: dry-run must propagate binding-resolution errors instead of
+    // silently falling back to workflow_supplied. A broken binding
+    // (bad JSONPath, missing upstream capture) that previews as success
+    // defeats --dry-run's purpose.
+    // -----------------------------------------------------------------
+    #[tokio::test]
+    async fn test_dry_run_local_step_binding_error_is_fatal() {
+        // Build a step that references a non-existent prior step output.
+        // resolve_local_step_bindings will fail because no step "ghost"
+        // ever ran and captured "token".
+        let step =
+            local_step_with_bindings("broken", 0, vec![step_ref("password", "ghost", "token")]);
+
+        let compiled = CompiledWorkflow {
+            id: WorkflowId::new("wf-dry-broken"),
+            name: "dry-run broken binding".into(),
+            intent: None,
+            description: None,
+            briefing: None,
+            inputs: vec![],
+            is_reviewed_by_default: true,
+            steps: vec![step],
+            outputs: vec![],
+            completion: None,
+        };
+
+        let mut runtime = make_runtime_never();
+        let mut frontend = MockFrontend::new();
+        let options = RunOptions {
+            dry_run: true,
+            ..Default::default()
+        };
+        let mut run_context = RunContext::new(&mut runtime, &options);
+
+        let (outcome, _final_output, pending) =
+            Executor::execute(&compiled, BTreeMap::new(), &mut frontend, &mut run_context)
+                .await
+                .unwrap();
+
+        assert_eq!(
+            outcome,
+            RunOutcome::Failed,
+            "dry-run must report failure when a binding cannot be resolved"
+        );
+        assert!(
+            pending.is_some(),
+            "dry-run must carry a pending error for the broken binding"
         );
     }
 }

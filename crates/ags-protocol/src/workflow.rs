@@ -403,6 +403,27 @@ pub struct OptionsSource {
     pub filter: Option<OptionFilter>,
 }
 
+/// Declares that this (string-typed) input's value is chosen by browsing the
+/// local filesystem in a picker, instead of the user typing a raw path.
+/// Purely an interactive affordance — never required to produce a value.
+/// Mutually exclusive with `options_source` on the same input (enforced at
+/// compile time; both are alternate value-resolution mechanisms).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FilePickerSpec {
+    /// Allowed extensions, without a leading dot (e.g. "png", "jpg"). Matched
+    /// case-insensitively at gather time. `None` or empty = any file
+    /// selectable. Never applied to directories — only to files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<Vec<String>>,
+    /// Optional starting directory. If unset, or if it doesn't exist (or
+    /// isn't a directory) at gather time, falls back to the process's
+    /// current working directory. Existence is intentionally not checked at
+    /// compile time (compilation isn't guaranteed to run on the same machine
+    /// that will eventually gather inputs).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_dir: Option<String>,
+}
+
 /// Source for an `OptionsSource` label detail (the bracketed value in a picker).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -477,6 +498,13 @@ pub struct WorkflowInputSpec {
     /// everywhere else. Additive + `serde(default)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub options_source: Option<OptionsSource>,
+    /// Declares that this (string-typed) input's value is chosen by browsing
+    /// the local filesystem. Purely an interactive affordance on the
+    /// fullscreen Phase-1 form; absent everywhere else. Mutually exclusive
+    /// with `options_source` (validated at compile time). Additive +
+    /// `serde(default)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_picker: Option<FilePickerSpec>,
     /// Where this input lives in the request (path/query/header param vs body).
     /// Drives inline form ordering. Defaults to `Body`.
     #[serde(default)]
@@ -644,6 +672,15 @@ pub struct CompletionStep {
     pub command: String,
 }
 
+/// The workflow YAML protocol version this CLI build speaks. Compared
+/// against a workflow's own declared `WorkflowDefinition::workflow_protocol_version`
+/// to produce the `ags workflow run` mismatch warning (see
+/// `runtime::workflows::version_check::is_mismatched`). Bumped by hand
+/// whenever the YAML schema changes in a way workflow authors should know
+/// about — entirely independent of this crate's own Cargo.toml version or
+/// the CLI's release cadence.
+pub const WORKFLOW_PROTOCOL_VERSION: &str = "1.0.0";
+
 /// Author-input shape. Mirrors the v1.0 YAML workflow document one-to-one
 /// (subset). Produced by Rust literals (v2) or by a future YAML loader.
 /// Returned by `Workflow::definition()`.
@@ -653,6 +690,18 @@ pub struct WorkflowDefinition {
     pub id: WorkflowId,
     /// Human-facing display name.
     pub name: String,
+    /// The workflow YAML protocol/schema version this file was authored
+    /// against (a semver string, e.g. "1.0.0") — a provenance hint, not a
+    /// compatibility claim, and deliberately unrelated to the `ags` CLI's own
+    /// release version (see `WORKFLOW_PROTOCOL_VERSION` below). `None` for a
+    /// Rust-literal builtin or bundled YAML workflow, where the concept
+    /// doesn't apply. Mandatory in practice for anything registered as
+    /// `WorkflowOrigin::External`, but that's enforced by the two places a
+    /// file actually becomes external (`Runtime::workflow_add` and
+    /// `external::load_external_workflows`), not by this type — kept
+    /// `Option` so builtins never need to set it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_protocol_version: Option<String>,
     /// Free-text intent keywords used for fuzzy matching.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intent: Option<String>,
@@ -680,6 +729,19 @@ pub struct WorkflowDefinition {
     pub completion: Option<WorkflowCompletion>,
 }
 
+/// Discriminates how a step dispatches. Defaults to `Api` when absent
+/// from workflow YAML — all existing steps omit the field and are API steps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum StepKind {
+    /// Standard API step. `operation` is required.
+    #[default]
+    Api,
+    /// Local registered action. `action` names the handler;
+    /// `operation` must be absent.
+    Local,
+}
+
 /// Author-declared step. Subset of the v1.0 spec's `Step` shape; auto-derive
 /// runs at compile time to produce the matching `CompiledStep`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -689,8 +751,16 @@ pub struct StepDefinition {
     /// Human-facing description of the step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Operation the step dispatches.
-    pub operation: OperationReference,
+    /// Step kind discriminator. Defaults to `Api` when absent from YAML.
+    #[serde(default)]
+    pub kind: StepKind,
+    /// Action name for `kind: local` steps. Must be absent for `kind: api`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    /// Operation the step dispatches. Required for `kind: api`, must be
+    /// absent for `kind: local`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<OperationReference>,
     /// Other step ids that must complete first.
     #[serde(default)]
     pub dependencies: Vec<String>,
@@ -773,8 +843,16 @@ pub struct CompiledStep {
     /// Human-facing description of the step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Operation the step dispatches.
-    pub operation: OperationReference,
+    /// Step kind discriminator.
+    #[serde(default)]
+    pub kind: StepKind,
+    /// Action name for `kind: local` steps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    /// Operation the step dispatches. Present for `kind: api`, absent for
+    /// `kind: local`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<OperationReference>,
     /// Other step ids that must complete first.
     #[serde(default)]
     pub dependencies: Vec<String>,
@@ -831,18 +909,37 @@ pub struct StepPreview {
     pub command: crate::result::CommandPreview,
 }
 
+/// What a step would do, as reported by `--dry-run`. An API step previews
+/// the HTTP request it would send; a local-action step has no request, so
+/// it reports the action name and the representative value its dry run
+/// produced.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StepDryRunAction {
+    /// A catalogued operation: the request preview, identical to the
+    /// single-command `--dry-run` shape.
+    Request(crate::result::DryRunResult),
+    /// A local action: the registered action name and what its dry run
+    /// produced.
+    Local {
+        /// Registered action name (e.g. `docker-login`, `ams/upload-image`).
+        action: String,
+        /// The value the action's dry run returned, before output binding.
+        preview: serde_json::Value,
+    },
+}
+
 /// Per-step preview emitted as part of `CommandOutput::WorkflowDryRun`.
-/// Carries the request preview (path, URL, masked auth, query, body) plus
-/// the synthesised placeholder outputs that flowed into downstream steps
-/// during the dry run.
+/// Carries what the step would do plus the placeholder outputs that flowed
+/// into downstream steps during the dry run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StepDryRunPreview {
     /// Stable id of the step.
     pub step_id: String,
     /// 0-based execution position.
     pub step_index: usize,
-    /// Existing `DryRunResult` shape, identical to single-command --dry-run.
-    pub command: crate::result::DryRunResult,
+    /// What the step would do.
+    pub action: StepDryRunAction,
     /// The typed placeholder values fed into `WorkflowContext` for downstream
     /// `from: step/X, output: Y` references during this dry run.
     pub synthesised_outputs: std::collections::BTreeMap<String, serde_json::Value>,
@@ -866,6 +963,8 @@ pub enum StepFieldLocation {
     /// Request body field.
     #[default]
     Body,
+    /// `formData` parameter (multipart/form-data), file or plain text.
+    FormData,
 }
 
 /// Provenance of a step field's resolved value (drives the source annotation).
@@ -1025,6 +1124,184 @@ pub enum StepFailureAction {
     Cancel,
 }
 
+/// Why a step reached its terminal outcome. The vocabulary is keyed off
+/// `StepOutcome`: the first five are skips, the next eight are failure stages,
+/// and the last five are cancellation points.
+///
+/// Not serialized: `WorkflowEvent` is an in-process lifecycle event, which is
+/// what lets `StepErrorFacts::class` stay a `&'static str`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepOutcomeReason {
+    /// `skip_if_exists` matched a conflict — the resource already existed.
+    AlreadyExists,
+    /// `continue_on_failure` tolerated a dispatch failure.
+    ToleratedFailure,
+    /// User chose Skip at the per-step review.
+    DeclinedAtReview,
+    /// User chose Skip at the confirm gate.
+    DeclinedAtConfirm,
+    /// User chose Skip at the interactive failure gate.
+    DeclinedAfterFailure,
+    /// Service schema load failed.
+    SchemaLoad,
+    /// Step-local input gather failed.
+    Gather,
+    /// Request assembly failed.
+    Assembly,
+    /// Preview synthesis failed — either the dry-run preview or the preview
+    /// the confirm gate renders before asking.
+    Preview,
+    /// The confirm gate itself failed as I/O; the user never got to answer.
+    /// Distinct from `AtConfirm`, which is the user *declining* at that gate.
+    Confirm,
+    /// The dispatch itself failed.
+    Dispatch,
+    /// Dispatch succeeded but output capture/binding failed.
+    Capture,
+    /// A frontend returned a response the port forbids.
+    FrontendContract,
+    /// User declined the workflow briefing.
+    AtBriefing,
+    /// User cancelled the run-start input gather.
+    AtInputGather,
+    /// User cancelled at a per-step review.
+    AtReview,
+    /// User cancelled at a confirm gate.
+    AtConfirm,
+    /// User cancelled at the failure gate.
+    AtFailureGate,
+    /// The run was rejected before it started because it needed input.
+    NoInput,
+}
+
+impl StepOutcomeReason {
+    /// Stable snake_case label for telemetry. A closed vocabulary — safe to
+    /// transmit.
+    pub fn as_label(&self) -> &'static str {
+        match self {
+            StepOutcomeReason::AlreadyExists => "already_exists",
+            StepOutcomeReason::ToleratedFailure => "tolerated_failure",
+            StepOutcomeReason::DeclinedAtReview => "declined_at_review",
+            StepOutcomeReason::DeclinedAtConfirm => "declined_at_confirm",
+            StepOutcomeReason::DeclinedAfterFailure => "declined_after_failure",
+            StepOutcomeReason::SchemaLoad => "schema_load",
+            StepOutcomeReason::Gather => "gather",
+            StepOutcomeReason::Assembly => "assembly",
+            StepOutcomeReason::Preview => "preview",
+            StepOutcomeReason::Confirm => "confirm",
+            StepOutcomeReason::Dispatch => "dispatch",
+            StepOutcomeReason::Capture => "capture",
+            StepOutcomeReason::FrontendContract => "frontend_contract",
+            StepOutcomeReason::AtBriefing => "at_briefing",
+            StepOutcomeReason::AtInputGather => "at_input_gather",
+            StepOutcomeReason::AtReview => "at_review",
+            StepOutcomeReason::AtConfirm => "at_confirm",
+            StepOutcomeReason::AtFailureGate => "at_failure_gate",
+            StepOutcomeReason::NoInput => "no_input",
+        }
+    }
+}
+
+/// Machine-readable facts about a failure, safe to transmit. Deliberately
+/// carries no free text — see the spec's redaction boundary.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepErrorFacts {
+    /// `RuntimeErrorKind::telemetry_class`.
+    pub class: &'static str,
+    /// HTTP status, when the failure came from an upstream response.
+    pub http_status: Option<u16>,
+    /// AccelByte error code, or a client-side `<domain>.<kind>` constant.
+    pub code: Option<String>,
+    /// The failed step's resolved input fields, redacted per the §4.1
+    /// amendment. Only ever populated for a failed step — this field's
+    /// placement on `StepErrorFacts` (which only exists for a failure) is
+    /// what enforces "failures only" at the type level. Empty when the
+    /// field plan could not be resolved (degrades silently; telemetry must
+    /// never affect the run).
+    pub input_fields: Vec<StepInputField>,
+}
+
+impl StepErrorFacts {
+    /// Project a `RuntimeError` down to the transmittable facts only.
+    /// `input_fields` starts empty — callers that have a resolved field plan
+    /// in hand (the executor, once a step has failed) fill it in afterward.
+    pub fn from_error(error: &crate::error::RuntimeError) -> Self {
+        let (http_status, kind_code) = match &error.kind {
+            crate::error::RuntimeErrorKind::Upstream { status, code } => {
+                (Some(*status), code.clone())
+            }
+            _ => (None, None),
+        };
+        Self {
+            class: error.kind.telemetry_class(),
+            http_status,
+            code: kind_code.or_else(|| error.details.as_ref().and_then(|d| d.code.clone())),
+            input_fields: Vec::new(),
+        }
+    }
+}
+
+/// One of a failed step's resolved input fields, reported for telemetry
+/// under the §4.1 redaction rules. Not serialized — mirrors `StepErrorFacts`
+/// and `StepOutcomeReason`; `WorkflowEvent` is never serialized, which is
+/// what lets `source` stay a `&'static str`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepInputField {
+    /// API parameter name (e.g. `storeName`), post-body-flattening.
+    pub field: String,
+    /// Where this field lands in the request (path/query/header/body/formData).
+    pub location: StepFieldLocation,
+    /// Closed provenance vocabulary: `flag`, `prompt`, `default`,
+    /// `prior_output`, `literal`, `derived`, or `unset`.
+    pub source: &'static str,
+    /// Whether the operation requires this field.
+    pub required: bool,
+    /// The resolved value, redacted and size-capped; `None` when the value
+    /// is withheld — either because the field name/schema is sensitive, or
+    /// because the workflow is external (user-authored), whose schemas
+    /// AccelByte does not control.
+    pub value: Option<serde_json::Value>,
+}
+
+/// Aggregate facts about a whole workflow run, known only to the executor.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RunFacts {
+    /// Stop-mode the user chose at the run-start gather; `None` if the run
+    /// never reached Phase 1.
+    pub run_mode: Option<RunMode>,
+    /// Why the *run* ended where it did, for the pre-step stages no step event
+    /// can describe: `AtBriefing` for a declined briefing and `AtInputGather`
+    /// for a cancelled run-start gather. `None` for every run that reached the
+    /// step loop — a per-step reason lives on `StepFinished` instead, and the
+    /// `--no-input` precheck rejects before this struct is ever emitted.
+    pub reason: Option<StepOutcomeReason>,
+    /// Steps that emitted `StepStarted`.
+    pub steps_started: usize,
+    /// Steps that completed with `StepOutcome::Success`.
+    pub steps_succeeded: usize,
+    /// Steps that completed with `StepOutcome::Failed`.
+    pub steps_failed: usize,
+    /// Steps that completed with `StepOutcome::Skipped`.
+    pub steps_skipped: usize,
+    /// Steps that completed with `StepOutcome::Cancelled`.
+    pub steps_cancelled: usize,
+    /// Index of the last step that started; `None` if none did.
+    pub last_step_index: Option<usize>,
+    /// Wall-clock time inside `Executor::execute`.
+    pub duration_ms: u64,
+    /// Declared inputs supplied by flag.
+    pub inputs_from_flag: usize,
+    /// Declared inputs the user typed at a prompt.
+    pub inputs_from_prompt: usize,
+    /// Declared inputs taken from a declared default.
+    pub inputs_from_default: usize,
+    /// Declared inputs whose value changed during the run-start gather. An
+    /// input that went from *unset* to set counts as edited too — the
+    /// comparison is against the pre-gather value, and "absent" is one of the
+    /// values it can differ from, not an exemption.
+    pub inputs_edited_in_form: usize,
+}
+
 /// Lifecycle events the executor pushes to the frontend. Cloned per emit so
 /// the frontend's `on_event` impl can stash a copy without lifetime concerns.
 // `WorkflowStarted` carries a whole `CompiledWorkflow`, so it is much larger
@@ -1064,11 +1341,25 @@ pub enum WorkflowEvent {
         captures: Vec<(String, String)>,
         /// Per-step outcome.
         outcome: StepOutcome,
+        /// Why the step reached `outcome`; `None` for a plain success.
+        reason: Option<StepOutcomeReason>,
+        /// Dispatch attempts, 1 for a step that was never retried. `0` means
+        /// the step never reached dispatch at all (it ended at schema load,
+        /// gather, assembly, review, or the confirm gate); a `--dry-run` step
+        /// reports `1` without dispatching, so counting attempts as API calls
+        /// needs an `is_dry_run == false` filter.
+        attempts: u32,
+        /// Wall-clock time for this step, prompts included.
+        duration_ms: u64,
+        /// Transmittable failure facts, when the step failed.
+        error: Option<StepErrorFacts>,
     },
     /// Emitted exactly once per invocation, at the end of finalisation.
     WorkflowFinished {
         /// Final run outcome.
         outcome: RunOutcome,
+        /// Aggregate run facts.
+        facts: RunFacts,
     },
     /// Forwarded progress event from a dispatch in flight.
     Progress {
@@ -1454,6 +1745,7 @@ mod tests {
             default: None,
             sensitive: false,
             options_source: None,
+            file_picker: None,
             location: StepFieldLocation::Body,
         });
     }
@@ -1468,6 +1760,7 @@ mod tests {
             default: None,
             sensitive: true,
             options_source: None,
+            file_picker: None,
             location: StepFieldLocation::Body,
         });
     }
@@ -1524,10 +1817,12 @@ mod tests {
         round_trip(&StepDefinition {
             id: "create-stat".to_string(),
             description: None,
-            operation: OperationReference {
+            kind: StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: crate::catalogue::ServiceId::new("social"),
                 operation: crate::catalogue::OperationId::new("createStat"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1544,10 +1839,12 @@ mod tests {
         round_trip(&StepDefinition {
             id: "create-ruleset".to_string(),
             description: Some("Create match ruleset".to_string()),
-            operation: OperationReference {
+            kind: StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: crate::catalogue::ServiceId::new("match2"),
                 operation: crate::catalogue::OperationId::new("CreateRuleSet"),
-            },
+            }),
             dependencies: vec!["create-stat".to_string()],
             confirm: true,
             is_optional: false,
@@ -1582,6 +1879,7 @@ mod tests {
         round_trip(&WorkflowDefinition {
             id: WorkflowId::new("competitive-multiplayer"),
             name: "Set up competitive multiplayer".to_string(),
+            workflow_protocol_version: Some("1.0.0".to_string()),
             intent: Some("matchmaking, ranked, configure pool".to_string()),
             description: None,
             briefing: None,
@@ -1593,6 +1891,7 @@ mod tests {
                 default: None,
                 sensitive: false,
                 options_source: None,
+                file_picker: None,
                 location: StepFieldLocation::Body,
             }],
             is_reviewed_by_default: true,
@@ -1608,10 +1907,12 @@ mod tests {
             id: "create-stat".to_string(),
             index: 0,
             description: None,
-            operation: OperationReference {
+            kind: StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: crate::catalogue::ServiceId::new("social"),
                 operation: crate::catalogue::OperationId::new("createStat"),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -1715,14 +2016,29 @@ mod tests {
         round_trip(&StepDryRunPreview {
             step_id: "create-stat".to_string(),
             step_index: 0,
-            command: crate::result::DryRunResult {
+            action: StepDryRunAction::Request(crate::result::DryRunResult {
                 http_method: crate::catalogue::HttpMethod::Post,
                 url: "https://example.test/social/v1/admin/namespaces/dev/stats".to_string(),
                 headers: vec![("Authorization".to_string(), "Bearer <redacted>".to_string())],
                 query: vec![],
-                body: Some(serde_json::json!({"statCode": "mmr"})),
-            },
+                body: Some(crate::request::RequestBody::Json(
+                    serde_json::json!({"statCode": "mmr"}),
+                )),
+            }),
             synthesised_outputs: synthesised,
+        });
+    }
+
+    #[test]
+    fn test_local_step_dry_run_preview_round_trip() {
+        round_trip(&StepDryRunPreview {
+            step_id: "upload-image".to_string(),
+            step_index: 4,
+            action: StepDryRunAction::Local {
+                action: "ams/upload-image".to_string(),
+                preview: serde_json::json!({"image_id": "<image-id>"}),
+            },
+            synthesised_outputs: std::collections::BTreeMap::new(),
         });
     }
 
@@ -2081,5 +2397,148 @@ mod tests {
         let yaml = r#"{ "id": "s", "operation": { "service": "platform", "operation": "platform/admin/stores/v1/create" } }"#;
         let step: StepDefinition = serde_json::from_str(yaml).unwrap();
         assert!(!step.skip_if_exists);
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 1: a YAML containing `kind: local, action: docker-login`
+    // deserialises to a StepDefinition with StepKind::Local and the action.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_parse_local_step_from_yaml() {
+        let json = r#"{
+            "id": "authenticate-docker",
+            "kind": "local",
+            "action": "docker-login",
+            "description": "Authenticate the Docker client"
+        }"#;
+        let step: StepDefinition = serde_json::from_str(json).unwrap();
+        assert_eq!(step.id, "authenticate-docker");
+        assert_eq!(step.kind, StepKind::Local);
+        assert_eq!(step.action.as_deref(), Some("docker-login"));
+        assert!(
+            step.operation.is_none(),
+            "local steps must not have an operation"
+        );
+        assert_eq!(
+            step.description.as_deref(),
+            Some("Authenticate the Docker client")
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Test Plan case 3: an existing API step YAML with no `kind:` field
+    // still parses identically — the discriminator is additive.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_parse_api_step_unchanged_without_kind_field() {
+        // A step YAML that omits `kind:` entirely (the pre-feature shape).
+        let json_without_kind = r#"{
+            "id": "create-stat",
+            "operation": { "service": "social", "operation": "createStat" },
+            "confirm": true,
+            "inputs": []
+        }"#;
+        let step: StepDefinition = serde_json::from_str(json_without_kind).unwrap();
+        assert_eq!(
+            step.kind,
+            StepKind::Api,
+            "missing `kind` must default to Api"
+        );
+        assert_eq!(step.id, "create-stat");
+        assert!(
+            step.operation.is_some(),
+            "API step must retain its operation"
+        );
+        assert!(step.action.is_none(), "API step must not gain an action");
+        assert!(step.confirm, "confirm field must be preserved");
+
+        // Explicitly providing `kind: api` must parse identically.
+        let json_with_kind = r#"{
+            "id": "create-stat",
+            "kind": "api",
+            "operation": { "service": "social", "operation": "createStat" },
+            "confirm": true,
+            "inputs": []
+        }"#;
+        let step_explicit: StepDefinition = serde_json::from_str(json_with_kind).unwrap();
+        assert_eq!(step, step_explicit, "explicit kind: api must equal omitted");
+    }
+
+    // -----------------------------------------------------------------
+    // StepKind round-trip: serialise and deserialise are lossless.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_step_kind_round_trips() {
+        round_trip(&StepKind::Api);
+        round_trip(&StepKind::Local);
+    }
+
+    // -----------------------------------------------------------------
+    // StepKind default is Api.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_step_kind_default_is_api() {
+        assert_eq!(StepKind::default(), StepKind::Api);
+    }
+
+    // -----------------------------------------------------------------
+    // Local step round-trip through serde.
+    // -----------------------------------------------------------------
+    #[test]
+    fn test_local_step_definition_round_trip() {
+        round_trip(&StepDefinition {
+            id: "authenticate-docker".to_string(),
+            description: Some("Login to Docker".to_string()),
+            kind: StepKind::Local,
+            action: Some("docker-login".to_string()),
+            operation: None,
+            dependencies: vec!["fetch-token".to_string()],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+        });
+    }
+
+    #[test]
+    fn test_file_picker_spec_round_trip() {
+        let spec = FilePickerSpec {
+            extensions: Some(vec!["png".to_string(), "jpg".to_string()]),
+            start_dir: Some("/tmp/assets".to_string()),
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        let round_tripped: FilePickerSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(spec, round_tripped);
+    }
+
+    #[test]
+    fn test_file_picker_spec_defaults_round_trip() {
+        let spec = FilePickerSpec {
+            extensions: None,
+            start_dir: None,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        let round_tripped: FilePickerSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(spec, round_tripped);
+    }
+
+    #[test]
+    fn test_workflow_input_spec_with_file_picker_parses_from_yaml() {
+        let yaml = r#"
+name: iconFile
+required: true
+schema: {type: string}
+file_picker:
+  extensions: [png, jpg]
+"#;
+        let input: WorkflowInputSpec = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(input.file_picker.is_some());
+        assert_eq!(
+            input.file_picker.unwrap().extensions,
+            Some(vec!["png".to_string(), "jpg".to_string()])
+        );
     }
 }

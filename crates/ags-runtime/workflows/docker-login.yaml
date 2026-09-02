@@ -1,0 +1,44 @@
+id: docker-login
+name: Docker registry login
+description: >-
+  Fetch registry credentials from the Extend Helper Service and pass them
+  to `docker login --password-stdin`, authenticating the local Docker CLI
+  against the app's container registry.
+
+inputs:
+  - name: namespace
+    description: Game namespace
+    required: true
+    schema: {type: string}
+  - name: app
+    description: Extend app name
+    required: true
+    schema: {type: string}
+
+steps:
+  - id: fetch-token
+    description: >-
+      Fetches short-lived registry credentials (URL, username, token) from
+      the Extend Helper Service for the given namespace and app.
+    operation:
+      service: ehs
+      operation: ehs/admin/repository-credentials/v1/get
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: app, source: {from: "workflow/app"}}
+    outputs:
+      - {name: registry, source: responseBody, path: "$.repositoryBaseUrl"}
+      - {name: username, source: responseBody, path: "$.username"}
+      - {name: token, source: responseBody, path: "$.token"}
+
+  - id: docker-login
+    description: >-
+      Passes the fetched credentials to `docker login --password-stdin` so
+      the local Docker CLI can pull and push images for this app.
+    kind: local
+    action: "docker-login"
+    dependencies: [fetch-token]
+    inputs:
+      - {field: registry, source: {from: "step/fetch-token", output: registry}}
+      - {field: username, source: {from: "step/fetch-token", output: username}}
+      - {field: password, source: {from: "step/fetch-token", output: token}}

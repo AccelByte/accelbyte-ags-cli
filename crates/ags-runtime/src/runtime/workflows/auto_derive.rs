@@ -179,11 +179,14 @@ pub fn auto_derive_step(
     service_schema: &ServiceSchema,
     workflow_inputs: &[WorkflowInputSpec],
 ) -> Result<Vec<AutoDerivedField>, RuntimeError> {
-    let operation = find_operation_or_error(
-        service_schema,
-        &step.operation,
-        &format!("step '{}'", step.id),
-    )?;
+    let op_ref = step.operation.as_ref().ok_or_else(|| {
+        RuntimeError::internal(format!(
+            "step '{}': API step reached auto_derive_step without an operation",
+            step.id
+        ))
+    })?;
+    let operation =
+        find_operation_or_error(service_schema, op_ref, &format!("step '{}'", step.id))?;
 
     // A binding covers its field by exact name, and a nested binding
     // (e.g. `requestedRegions[0]` or `data.region`) also covers its root
@@ -222,7 +225,8 @@ pub fn auto_derive_step(
             ParameterLocation::Path => StepFieldLocation::Path,
             ParameterLocation::Query => StepFieldLocation::Query,
             ParameterLocation::Header => StepFieldLocation::Header,
-            ParameterLocation::Body | ParameterLocation::FormData => StepFieldLocation::Body,
+            ParameterLocation::FormData => StepFieldLocation::FormData,
+            ParameterLocation::Body => StepFieldLocation::Body,
         };
         out.push(AutoDerivedField {
             field: param.name.clone(),
@@ -316,7 +320,6 @@ mod tests {
             api_version: ApiVersion(1),
             deprecated: false,
             response_content_type: None,
-            has_file_upload: false,
         }
     }
 
@@ -329,10 +332,12 @@ mod tests {
         StepDefinition {
             id: id.into(),
             description: None,
-            operation: OperationReference {
+            kind: ags_protocol::workflow::StepKind::default(),
+            action: None,
+            operation: Some(OperationReference {
                 service: ags_protocol::catalogue::ServiceId::new("svc"),
                 operation: OperationId::new(op_id),
-            },
+            }),
             dependencies: vec![],
             confirm: false,
             is_optional: false,
@@ -353,6 +358,7 @@ mod tests {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -376,6 +382,7 @@ mod tests {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -390,6 +397,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
         let result = auto_derive_step(&step("s1", "Op", vec![]), &schema, &inputs).unwrap();
         assert!(matches!(
@@ -485,6 +493,7 @@ mod tests {
                 location: ParameterLocation::Path,
                 required: true,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -509,6 +518,7 @@ mod tests {
             sensitive: false,
             options_source: None,
             location: ags_protocol::workflow::StepFieldLocation::Body,
+            file_picker: None,
         }];
         let result = auto_derive_step(&step("s1", "Op", vec![binding]), &schema, &inputs).unwrap();
         assert!(result.is_empty());
@@ -523,6 +533,7 @@ mod tests {
                 location: ParameterLocation::Query,
                 required: false,
                 value_type: ValueType::String,
+                is_file: false,
                 description: None,
                 default: None,
             }],
@@ -537,6 +548,72 @@ mod tests {
         let schema = service_schema_with(operation("Op", vec![], None));
         let result = auto_derive_step(&step("s1", "Missing", vec![]), &schema, &[]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_api_step_without_operation_returns_internal_error() {
+        let schema = service_schema_with(operation("Op", vec![], None));
+        let malformed = StepDefinition {
+            id: "bad".into(),
+            description: None,
+            kind: ags_protocol::workflow::StepKind::Api,
+            action: None,
+            operation: None,
+            dependencies: vec![],
+            confirm: false,
+            is_optional: false,
+            continue_on_failure: false,
+            skip_if_exists: false,
+            is_reviewed: None,
+            inputs: vec![],
+            outputs: vec![],
+        };
+        let err = auto_derive_step(&malformed, &schema, &[]).unwrap_err();
+        assert_eq!(err.kind, ags_protocol::error::RuntimeErrorKind::Internal);
+        assert!(
+            err.message.contains("without an operation"),
+            "error must explain the missing operation: {err}"
+        );
+    }
+
+    /// Build a `ServiceSchema` fixture exposing one operation with a
+    /// required `formData`, `type: file` parameter named `name`
+    /// (`is_file: true`).
+    fn service_schema_with_required_formdata_file_param(name: &str) -> ServiceSchema {
+        service_schema_with(operation(
+            "Op",
+            vec![ParameterSchema {
+                name: name.into(),
+                location: ParameterLocation::FormData,
+                required: true,
+                value_type: ValueType::String,
+                is_file: true,
+                description: None,
+                default: None,
+            }],
+            None,
+        ))
+    }
+
+    /// Build an unbound `StepDefinition` referencing operation `"Op"`, with
+    /// no input bindings, so `auto_derive_step` must derive every required
+    /// field itself.
+    fn step_definition_with_no_inputs() -> StepDefinition {
+        step("s1", "Op", vec![])
+    }
+
+    /// A required file-typed formData parameter, when auto-derived because
+    /// no step binding supplies it, is labeled `StepFieldLocation::FormData`
+    /// — not `Body` — so the interactive gather form groups it correctly.
+    #[test]
+    fn test_auto_derive_required_formdata_param_location_is_formdata() {
+        let step = step_definition_with_no_inputs();
+        let service_schema = service_schema_with_required_formdata_file_param("file");
+
+        let derived = auto_derive_step(&step, &service_schema, &[]).unwrap();
+
+        let file_field = derived.iter().find(|f| f.field == "file").unwrap();
+        assert_eq!(file_field.location, StepFieldLocation::FormData);
     }
 
     /// Build a `BodyField` fixture.

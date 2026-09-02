@@ -17,9 +17,9 @@ use ags_protocol::catalogue::{OperationId, ServiceId};
 use ags_protocol::workflow::{
     BindingSource, CaptureSource, CompletionResource, CompletionStep, LiteralBinding,
     OperationReference, OptionFilter, OptionParameterBinding, OptionsSource, ReferenceBinding,
-    ReferenceTarget, StepDefinition, StepFieldLocation, StepInputBinding, StepOutputCapture,
-    WorkflowBriefing, WorkflowCompletion, WorkflowDefinition, WorkflowId, WorkflowInputSpec,
-    WorkflowOutputAlias,
+    ReferenceTarget, StepDefinition, StepFieldLocation, StepInputBinding, StepKind,
+    StepOutputCapture, WorkflowBriefing, WorkflowCompletion, WorkflowDefinition, WorkflowId,
+    WorkflowInputSpec, WorkflowOutputAlias,
 };
 use serde_json::{json, Value};
 
@@ -116,10 +116,12 @@ fn step(
     StepDefinition {
         id: id.to_string(),
         description: Some(description.to_string()),
-        operation: OperationReference {
+        kind: StepKind::default(),
+        action: None,
+        operation: Some(OperationReference {
             service: ServiceId::new(service),
             operation: OperationId::new(operation),
-        },
+        }),
         dependencies,
         confirm,
         is_optional: false,
@@ -158,6 +160,7 @@ fn input(
         sensitive: false,
         options_source: None,
         location: StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -177,6 +180,7 @@ fn input_with_options(
         sensitive: false,
         options_source: Some(options_source),
         location: StepFieldLocation::Body,
+        file_picker: None,
     }
 }
 
@@ -367,6 +371,7 @@ fn build_definition() -> WorkflowDefinition {
     WorkflowDefinition {
         id: WorkflowId::new("season-pass"),
         name: "Create a season pass".to_string(),
+        workflow_protocol_version: None,
         intent: Some(
             "season pass battle pass tier reward premium free progression seasonpass store publish live"
                 .to_string(),

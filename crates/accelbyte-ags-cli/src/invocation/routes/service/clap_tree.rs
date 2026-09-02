@@ -10,6 +10,10 @@ use ags_protocol::catalogue::{
 use ags_runtime::catalogue::{former_method_names, Catalogue};
 use ags_runtime::support::strings::{to_kebab_case, truncate_summary};
 
+/// Internal name of the service that carries the hand-written `upload`
+/// resource.
+pub(crate) const AMS_SERVICE_NAME: &str = "ams";
+
 /// Build a service command with resource subcommands.
 pub(crate) fn build_service_command_tree(
     schema: &ServiceSchema,
@@ -139,7 +143,13 @@ pub(crate) fn build_service_command_tree(
                 // stdin in human mode) or errors (json mode). Clap must not
                 // reject the invocation. The "Required." prefix keeps `--help`
                 // honest about which args the operation needs.
-                let help_text = if parameter.required {
+                let help_text = if parameter.is_file {
+                    if parameter.required {
+                        "Required. Path to local file to upload.".to_string()
+                    } else {
+                        "Path to local file to upload.".to_string()
+                    }
+                } else if parameter.required {
                     format!("Required. {description}").trim_end().to_string()
                 } else {
                     description
@@ -230,6 +240,11 @@ pub(crate) fn build_service_command_tree(
         }
 
         service_command = service_command.subcommand(resource_command);
+    }
+
+    if schema.name == AMS_SERVICE_NAME {
+        service_command =
+            service_command.subcommand(crate::invocation::builder::build_ams_upload_command());
     }
 
     service_command

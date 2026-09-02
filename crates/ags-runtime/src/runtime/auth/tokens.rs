@@ -215,6 +215,7 @@ pub(crate) fn token_result_to_token_data(
     result: &TokenResult,
     grant_type: ags_protocol::request::GrantType,
     now: u64,
+    client_id: &str,
 ) -> store::TokenData {
     store::TokenData {
         access_token: result.access_token.clone(),
@@ -222,6 +223,7 @@ pub(crate) fn token_result_to_token_data(
         refresh_token: result.refresh_token.clone(),
         refresh_expires_at: result.refresh_expires_in.map(|exp| now.saturating_add(exp)),
         grant_type: Some(grant_type),
+        client_id: Some(client_id.to_string()),
     }
 }
 
@@ -259,6 +261,7 @@ mod tests {
             &result,
             ags_protocol::request::GrantType::ClientCredentials,
             now,
+            "client-123",
         );
 
         assert_eq!(data.access_token, "tok");
@@ -269,6 +272,7 @@ mod tests {
             data.grant_type,
             Some(ags_protocol::request::GrantType::ClientCredentials)
         );
+        assert_eq!(data.client_id.as_deref(), Some("client-123"));
     }
 
     /// Absent refresh token fields must map to None rather than zero or empty values.
@@ -285,6 +289,7 @@ mod tests {
             &result,
             ags_protocol::request::GrantType::AuthorizationCode,
             500_000,
+            "client-123",
         );
 
         assert_eq!(data.refresh_token, None);
@@ -309,6 +314,7 @@ mod tests {
             &result,
             ags_protocol::request::GrantType::ClientCredentials,
             0,
+            "client-123",
         );
         assert_eq!(result.access_token, "tok3");
     }

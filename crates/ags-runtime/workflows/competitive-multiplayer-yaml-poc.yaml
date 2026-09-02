@@ -1,0 +1,330 @@
+id: competitive-multiplayer-yaml-poc
+name: Set up competitive multiplayer
+intent: matchmaking ranked competitive dedicated servers AMS match pool
+description: >-
+  Stand up competitive matchmaking with dedicated servers: a skill stat,
+  a match ruleset, a session template, a match pool, an AMS fleet, and
+  the session template wired to the fleet. Matches start only when teams
+  are exactly full (no under-filled sessions) — appropriate for ranked play.
+
+briefing:
+  overview: >-
+    This workflow sets up **skill-based matchmaking** using **dedicated
+    servers** hosted by **AccelByte Multiplayer Servers (AMS)**. Skill-based
+    matchmaking pairs players using a **rating stat** (often called
+    **Matchmaking Rating** or **MMR**) so the matchmaker prefers opponents
+    of similar skill instead of pairing players at random. Dedicated servers
+    mean each game session runs on a separate server build managed by AMS
+    rather than being hosted by one of the players.
+
+
+    Configuring this by hand involves quite a few steps across multiple
+    AccelByte services. This workflow simplifies the process by creating
+    the required resources and connecting them for you.
+  prerequisites:
+    - >-
+      **An AMS server image** already available in the namespace you want
+      to use. This is the dedicated server build AMS will launch when
+      matches need hosting. If you already have images uploaded, you can
+      list them with `ags ams images list --namespace <namespace>`. If you
+      do not have one yet, upload your server image first using the AMS
+      CLI, note the image id, then come back and run this workflow.
+    - >-
+      **A namespace** already created. Everything this workflow creates
+      lives inside that namespace.
+    - >-
+      **Admin credentials** with permission to create or update resources
+      in `iam`, `matchmaking`, `session` and `ams`. The workflow uses your
+      current `ags` login session.
+  creates:
+    - "**A player-rating stat.** This represents each player's matchmaking skill."
+    - "**A matchmaking ruleset.** This uses that stat together with your team and player-count settings."
+    - "**A session template.** This defines how match sessions are created."
+    - "**A match pool.** This is the queue players join when searching for a match."
+    - "**A dedicated server fleet.** This is created from your AMS image in the region you choose."
+    - "**The final session-to-fleet wiring.** This makes sure matched players are hosted on that fleet."
+
+is_reviewed_by_default: true
+
+inputs:
+  - name: namespace
+    description: >-
+      Your game's AccelByte namespace. This is the same value used by the
+      global --namespace flag.
+    required: true
+    schema: {type: string}
+
+  - name: playersPerTeam
+    description: >-
+      How many players make up one team. Teams are symmetric, so with the
+      default teamCount of 2, setting this to 4 produces 4v4 matches. The
+      matchmaker only starts a match when every team is exactly full.
+    required: false
+    default: 4
+    schema: {type: integer, minimum: 1}
+
+  - name: teamCount
+    description: >-
+      How many teams compete in each match. Defaults to 2 for the classic
+      X v X format. Increase this value for free-for-all formats. For
+      example, 4 teams of 3 makes a 12-player free-for-all.
+    required: false
+    default: 2
+    schema: {type: integer, minimum: 2}
+
+  - name: buildPath
+    description: >-
+      Path to the directory holding your built dedicated server. The whole
+      directory is archived and uploaded to AMS as an image, so it should
+      contain everything the server needs to run.
+    required: true
+    schema: {type: string}
+
+  - name: buildExecutable
+    description: >-
+      The server executable to run, as a path relative to the build
+      directory. Must be a 64-bit little-endian ELF binary, or a shell
+      script — in which case set --target-architecture too.
+    required: true
+    schema: {type: string}
+
+  # Empty means "detect it": a step-bound input with no value is treated as
+  # needing to be gathered regardless of `required`, so a genuinely optional
+  # input has to carry a default to stay optional under --no-input. The
+  # upload step reads empty as unset.
+  - name: targetArchitecture
+    description: >-
+      Architecture the server was built for. Detected automatically from an
+      ELF binary; required only when the entrypoint is a shell script.
+    required: false
+    default: ""
+    schema: {type: string, enum: [linux-x86_64, linux-arm_64]}
+
+  - name: fleetRegion
+    description: >-
+      The region the AMS fleet will run in. Run `ags ams info list-regions`
+      to see the regions configured for your account.
+    required: true
+    schema: {type: string}
+    options_source:
+      operation: {service: ams, operation: ams/admin/info/v1/list-regions}
+      parameters:
+        namespace: !from_input namespace
+      items_path: "$.regions"
+      value: "$"
+
+  - name: fleetInstanceId
+    description: >-
+      The UUID of an AMS instance type. The instance type determines the
+      per-server VM size. Run `ags ams info list-supported-instances` to
+      see the instance types configured for your account.
+    required: true
+    schema: {type: string}
+    options_source:
+      operation: {service: ams, operation: ams/admin/info/v1/list-supported-instances}
+      parameters:
+        namespace: !from_input namespace
+      items_path: "$.availableInstanceTypes"
+      value: "$.id"
+      label: "$.name"
+
+  - name: statCode
+    description: >-
+      The identifier of the skill stat the matchmaker groups players by.
+      AGS matchmaking defaults to using distance-based Matchmaking Rating
+      (MMR).
+    required: false
+    default: mmr
+    schema: {type: string}
+
+  - name: resourcePrefix
+    description: >-
+      Prefixes the names of every resource this workflow creates (ruleset,
+      session template, match pool, fleet, and claim key). With the default
+      value `ranked`, you get names like `ranked-ruleset`, `ranked-fleet`,
+      and so on.
+    required: false
+    default: ranked
+    schema: {type: string}
+
+steps:
+  - id: create-stat
+    description: Creates the player skill statistic the matchmaker reads when grouping players.
+    operation: {service: social, operation: social/admin/stat-definitions/v1/create}
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: statCode, source: {from: "workflow/statCode"}}
+      - {field: name, source: {const: "MMR"}, show_in_review: true}
+      - {field: defaultValue, source: {const: 1000}, show_in_review: true}
+      - {field: setBy, source: {const: "SERVER"}}
+
+  - id: create-ruleset
+    description: >-
+      Defines the matchmaking rules: how the stat is compared and the
+      tolerances the matchmaker may relax over time.
+    operation: {service: match2, operation: matchmaking/admin/rule-sets/v1/create}
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: name, source: {format: "{resourcePrefix}-ruleset"}}
+      - {field: enable_custom_match_function, source: {const: false}}
+      - {field: data, source: {const: {matching_rule: [{criteria: distance}]}}}
+      - field: "data.matching_rule[0].reference"
+        source: {const: 200}
+        show_in_review: true
+        description: "MMR distance tolerance — how far apart two players' MMR can be and still match"
+      - field: "data.auto_backfill"
+        source: {const: true}
+        show_in_review: true
+        description: "Whether the matchmaker should backfill empty slots in an active match"
+      - {field: "data.matching_rule[0].attribute", source: {from: "workflow/statCode"}}
+      - {field: "data.alliance.min_number", source: {from: "workflow/teamCount"}}
+      - {field: "data.alliance.max_number", source: {from: "workflow/teamCount"}}
+      - {field: "data.alliance.player_min_number", source: {from: "workflow/playersPerTeam"}}
+      - {field: "data.alliance.player_max_number", source: {from: "workflow/playersPerTeam"}}
+
+  - id: create-session-template
+    description: >-
+      Creates the session template the matchmaker hands successful matches
+      to. It carries the player slot configuration, joinability, and
+      reconnect policy.
+    operation: {service: session, operation: session/admin/templates/v1/create}
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: name, source: {format: "{resourcePrefix}-session"}}
+      - {field: type, source: {const: "DS"}}
+      - {field: dsSource, source: {const: "AMS"}}
+      - {field: joinability, source: {const: "OPEN"}, show_in_review: true}
+      - {field: clientVersion, source: {const: "1.0.0"}}
+      - {field: deployment, source: {const: ""}}
+      - field: minPlayers
+        source:
+          from: "workflow/playersPerTeam"
+          transform: {kind: arithmetic, op: mul, operand: {kind: workflow_input, value: teamCount}}
+      - field: maxPlayers
+        source:
+          from: "workflow/playersPerTeam"
+          transform: {kind: arithmetic, op: mul, operand: {kind: workflow_input, value: teamCount}}
+      - {field: inviteTimeout, source: {const: 60}}
+      - {field: inactiveTimeout, source: {const: 60}, show_in_review: true}
+      - {field: persistent, source: {const: false}}
+      - {field: textChat, source: {const: true}}
+      - {field: "requestedRegions[0]", source: {from: "workflow/fleetRegion"}}
+    # Captures the joinability and inactiveTimeout this step actually created
+    # (which may be the user's step-review edits, not their OPEN/60 defaults)
+    # so update-session-template can carry the same values forward instead of
+    # re-declaring its own stale defaults.
+    outputs:
+      - {name: sessionJoinability, source: responseBody, path: "$.joinability", default: "OPEN"}
+      - {name: sessionInactiveTimeout, source: responseBody, path: "$.inactiveTimeout", default: 60}
+
+  - id: create-match-pool
+    description: >-
+      Creates the match pool that ties the ruleset and session template
+      together. Players queue into this pool and the matchmaker forms
+      parties from it.
+    operation: {service: match2, operation: matchmaking/admin/match-pools/v1/create}
+    dependencies: [create-ruleset, create-session-template]
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: name, source: {format: "{resourcePrefix}-pool"}}
+      - {field: rule_set, source: {format: "{resourcePrefix}-ruleset"}}
+      - {field: session_template, source: {format: "{resourcePrefix}-session"}}
+      - {field: match_function, source: {const: "default"}}
+      - {field: match_function_override, source: {const: {}}}
+      - {field: ticket_expiration_seconds, source: {const: 300}, show_in_review: true}
+      - {field: backfill_ticket_expiration_seconds, source: {const: 300}, show_in_review: true}
+      - {field: backfill_proposal_expiration_seconds, source: {const: 60}, show_in_review: true}
+      - {field: auto_accept_backfill_proposal, source: {const: true}, show_in_review: true}
+
+  # A local step: archiving a directory and shipping it through pre-signed
+  # URLs is not a catalogued operation, so the workflow cannot express it as
+  # an ordinary API call.
+  - id: upload-image
+    description: >-
+      Archives the dedicated-server build and uploads it to AMS as an image,
+      which the fleet below then runs.
+    kind: local
+    action: ams/upload-image
+    inputs:
+      - {field: path, source: {from: "workflow/buildPath"}}
+      - {field: executable, source: {from: "workflow/buildExecutable"}}
+      - {field: imageName, source: {format: "{resourcePrefix}-image"}}
+      - {field: targetArchitecture, source: {from: "workflow/targetArchitecture"}}
+    outputs:
+      - {name: imageId, source: responseBody, path: "$.image_id"}
+
+  - id: create-ams-fleet
+    description: >-
+      Spins up the dedicated server fleet that hosts matches, attaching the
+      image and instance type, and registering a claim key for the session
+      template.
+    operation: {service: ams, operation: ams/admin/fleets/v1/create}
+    dependencies: [upload-image]
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: name, source: {format: "{resourcePrefix}-fleet"}}
+      - {field: active, source: {const: false}, show_in_review: true}
+      - {field: onDemand, source: {const: false}}
+      - field: regions
+        source: {const: [{minServerCount: 0, maxServerCount: 2, bufferSize: 1, dynamicBuffer: true}]}
+      - {field: "regions[0].region", source: {from: "workflow/fleetRegion"}}
+      - {field: dsHostConfiguration, source: {const: {serversPerVm: 1}}}
+      - {field: "dsHostConfiguration.instanceId", source: {from: "workflow/fleetInstanceId"}}
+      - field: imageDeploymentProfile
+        source:
+          const:
+            portConfigurations: [{name: default, protocol: UDP}]
+            timeout: {creation: 120, session: 3600, drain: 60, unresponsive: 60}
+      - field: "imageDeploymentProfile.commandLine"
+        source: {const: "-dsid=${dsid} -port=${default_port}"}
+        show_in_review: true
+      - {field: "imageDeploymentProfile.imageId", source: {from: "step/upload-image", output: imageId}}
+      - {field: "claimKeys[0]", source: {format: "{resourcePrefix}-claim-key"}}
+
+  - id: update-session-template
+    description: >-
+      Wires the session template to the fleet's claim key so successful
+      matches reserve a server from the fleet you just created.
+    operation: {service: session, operation: session/admin/templates/v1/update}
+    dependencies: [create-session-template, create-ams-fleet]
+    inputs:
+      - {field: namespace, source: {from: "workflow/namespace"}}
+      - {field: name, source: {format: "{resourcePrefix}-session"}}
+      - {field: type, source: {const: "DS"}}
+      - {field: dsSource, source: {const: "AMS"}}
+      # Carries forward whatever create-session-template actually created (its
+      # own default, or the user's step-review edit) — this step's PUT is the
+      # last write to the template, so a hardcoded literal here would silently
+      # clobber that edit.
+      - {field: joinability, source: {from: "step/create-session-template", output: sessionJoinability}}
+      - {field: clientVersion, source: {const: "1.0.0"}}
+      - {field: deployment, source: {const: ""}}
+      - field: minPlayers
+        source:
+          from: "workflow/playersPerTeam"
+          transform: {kind: arithmetic, op: mul, operand: {kind: workflow_input, value: teamCount}}
+      - field: maxPlayers
+        source:
+          from: "workflow/playersPerTeam"
+          transform: {kind: arithmetic, op: mul, operand: {kind: workflow_input, value: teamCount}}
+      - {field: inviteTimeout, source: {const: 60}}
+      # Carries forward whatever create-session-template actually created —
+      # same reasoning as joinability above.
+      - {field: inactiveTimeout, source: {from: "step/create-session-template", output: sessionInactiveTimeout}}
+      - {field: persistent, source: {const: false}}
+      - {field: textChat, source: {const: true}}
+      - {field: "requestedRegions[0]", source: {from: "workflow/fleetRegion"}}
+      - {field: "preferredClaimKeys[0]", source: {format: "{resourcePrefix}-claim-key"}}
+
+completion:
+  created:
+    - {label: "Skill stat", value: "{statCode}"}
+    - {label: "Match ruleset", value: "{resourcePrefix}-ruleset"}
+    - {label: "Session template", value: "{resourcePrefix}-session"}
+    - {label: "Match pool", value: "{resourcePrefix}-pool"}
+    - {label: "AMS fleet", value: "{resourcePrefix}-fleet"}
+  next_steps:
+    - {description: "Inspect the match pool you'll matchmake against", command: "ags matchmaking match-pools get --namespace {namespace} --pool {resourcePrefix}-pool"}
+    - {description: "Check your fleet", command: "ags ams fleets list --namespace {namespace} --name {resourcePrefix}-fleet"}
+    - {description: "Review the session template", command: "ags session templates get --namespace {namespace} --name {resourcePrefix}-session"}
+    - {description: "List your matchmaking rulesets", command: "ags matchmaking rule-sets list --namespace {namespace}"}
