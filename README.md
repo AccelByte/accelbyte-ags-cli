@@ -269,7 +269,7 @@ Most interactive users don't need these. They let you override config without to
 | `AGS_NO_KEYCHAIN` | Disable OS keychain, use file-based token storage |
 | `AGS_NO_UPDATE_CHECK` | Set to `1` to disable the background check for new releases |
 | `AGS_UPDATE_CHECK_URL` | Test hook: override the update-check endpoint URL (not for end-user use) |
-| `DO_NOT_TRACK` | Set to any non-empty value to disable telemetry ([consoledonottrack.com](https://consoledonottrack.com)) |
+| `DO_NOT_TRACK` | Set to any non-empty value to disable telemetry ([donottrack.sh](https://donottrack.sh/)) |
 | `AGS_TELEMETRY_NO_INPUT_VALUES` | Set to any non-empty value to suppress input field values in telemetry (field names and metadata still transmit) |
 
 ## Profiles
@@ -476,7 +476,7 @@ AGS CLI collects anonymous usage telemetry to help the team understand which com
 
 ### Opting out
 
-Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://consoledonottrack.com) standard). This is the recommended opt-out: official release builds ship with a PostHog key already compiled in, so unsetting `AGS_TELEMETRY_POSTHOG_KEY` does not disable telemetry on its own — it only stops `AGS_TELEMETRY_POSTHOG_KEY` from overriding the built-in key.
+Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://donottrack.sh/) standard). This is the recommended opt-out: official release builds ship with a PostHog key already compiled in, so unsetting `AGS_TELEMETRY_POSTHOG_KEY` does not disable telemetry on its own — it only stops `AGS_TELEMETRY_POSTHOG_KEY` from overriding the built-in key.
 
 ### What is collected
 
