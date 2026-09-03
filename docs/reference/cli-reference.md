@@ -1839,7 +1839,7 @@ The CLI MUST collect anonymous usage telemetry in official release builds. Telem
 
 ### 21.2 Opt-out
 
-The CLI MUST respect the `DO_NOT_TRACK` environment variable ([consoledonottrack.com](https://consoledonottrack.com)). Any non-empty value MUST disable telemetry regardless of the API key.
+The CLI MUST respect the `DO_NOT_TRACK` environment variable ([donottrack.sh](https://donottrack.sh/)). Any non-empty value MUST disable telemetry regardless of the API key.
 
 The `AGS_TELEMETRY_NO_INPUT_VALUES` environment variable, when set to any non-empty value, MUST suppress input field values in workflow step telemetry while still transmitting field names, locations, sources, and required-ness.
 

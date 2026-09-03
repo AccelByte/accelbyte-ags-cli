@@ -65,7 +65,7 @@ fn resolve_api_key_with(baked: Option<&str>) -> Option<String> {
 /// ([`DEFAULT_POSTHOG_HOST`]).
 pub const ENV_POSTHOG_HOST: &str = "AGS_TELEMETRY_POSTHOG_HOST";
 
-/// Env var: universal telemetry opt-out (<https://consoledonottrack.com>). Any
+/// Env var: universal telemetry opt-out (<https://donottrack.sh/>). Any
 /// non-empty value disables telemetry regardless of where a key came from —
 /// [`ENV_POSTHOG_KEY`] at run time or [`BAKED_POSTHOG_KEY`] compiled into the
 /// build. It is checked before any key is resolved, so it is the only opt-out
