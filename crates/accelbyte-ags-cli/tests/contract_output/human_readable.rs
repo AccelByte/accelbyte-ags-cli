@@ -21,6 +21,7 @@ fn render_response(
         success: None,
         trace: None,
         raw_body: None,
+        has_alternate_versions: false,
     }));
     let rendered = render(&output, options)?;
     Ok(rendered.stdout.unwrap_or_default())

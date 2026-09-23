@@ -348,12 +348,44 @@ Success messages MUST NOT be used for passive inspection or state-report command
 ### 12.2 Canonical format
 
 ```text
-✔<action result>.
+✔ <action result>. (<api-version>)
     <Field>: <value>
     <Field>: <value>
 ```
 
+The API version suffix `(<api-version>)` is the operation's contract version
+formatted as `v<N>` (e.g. `v1`, `v3`). It appears only when the command has more
+than one API version, which is the same condition that decides whether
+`--api-version` is offered on that command. When the command has a single version,
+the suffix is omitted.
+
+> **Code deviation.** Service command summaries do not currently carry the
+> trailing full stop this section specifies. In
+> `crates/ags-runtime/src/runtime/dispatch/execute.rs` at line 67 the summary
+> is built as `format!("{} {}", verb, noun)` — a bare verb-noun pair with no
+> punctuation. The comment directly above it (lines 65-66) states: *"No trailing
+> full stop: this is a status line, not a sentence, matching the other success
+> lines ("Token refreshed", etc.)."* Reconciling the code with this specification
+> is out of scope here.
+
+- **Channel:** stderr.
+- **Suppressed:** in quiet mode (`--quiet`). The runtime omits the entire
+  `ApiSuccess` when quiet mode is active, so neither the summary nor the version
+  suffix is emitted.
+
 ### 12.3 Examples
+
+Command with a version choice (`leaderboard leaderboards create`, versions v1
+and v3, default v3): the suffix appears.
+
+```text
+✔ Leaderboard "weekly-score" created. (v3)
+    ID: lb-weekly-score
+    Status: ACTIVE
+```
+
+Command without a version choice (`basic namespaces create`, version v1 only):
+the suffix is omitted.
 
 ```text
 ✔ Namespace "live" created.
@@ -361,9 +393,8 @@ Success messages MUST NOT be used for passive inspection or state-report command
     Status: ACTIVE
 ```
 
-```text
-✔ User "player123" banned.
-```
+The examples above follow the specified format. The code deviation note in 12.2
+describes what the code prints today.
 
 ## 13. Info and inspect formatting
 
@@ -602,12 +633,22 @@ For create/update/delete/mutation commands:
 For get/show/status commands:
 
 ```text
-› Session
-    ID: gs-12345
+› Leaderboard
+    ID: lb-weekly-score
     Namespace: studio-live
     Status: ACTIVE
-    Region: ap-southeast-1
+    Statistic: weekly-score
+API v3
 ```
+
+Read operations (inspect and list) do not carry an `ApiSuccess`, so they emit a
+standalone API version label instead. The label is formatted as `API v<N>` and
+rendered dim. It appears only when the command has more than one API version,
+following the same rule that governs the success-line suffix and the
+`--api-version` flag.
+
+- **Channel:** stderr.
+- **Suppressed:** in quiet mode (`--quiet`).
 
 #### List commands
 

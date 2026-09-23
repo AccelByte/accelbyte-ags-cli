@@ -1,4 +1,4 @@
-//! Auth facade — `Runtime` methods for login, logout, and status.
+//! Auth facade — `Runtime` methods for login, logout, status, token, and refresh.
 //!
 //! Stateless credential lookups live as free functions on
 //! [`crate::runtime::auth::credentials`].
@@ -15,6 +15,25 @@ impl crate::runtime::Runtime {
 
         let snapshot = operations::auth_snapshot(profile)?;
         Ok(auth_snapshot_to_view(snapshot))
+    }
+
+    /// Resolve the access token for `profile` the way an API call would, and
+    /// render it as an `AuthView::Token` for `ags auth token` to print.
+    ///
+    /// Resolution is [`crate::runtime::auth::session::resolve_access_token`]
+    /// itself — not a parallel implementation — so a token this command prints
+    /// is the same one the next request would send, refresh included.
+    pub async fn auth_token(
+        &self,
+        profile: &str,
+    ) -> Result<ags_protocol::output::AuthView, RuntimeError> {
+        use crate::runtime::auth::session;
+
+        let resolution = session::resolve_access_token(&self.reqwest_client, profile).await?;
+        Ok(token_resolution_to_view(
+            resolution,
+            crate::support::unix_now(),
+        ))
     }
 
     /// Clear stored credentials for `profile` and report which artefacts were removed.
@@ -143,6 +162,36 @@ impl crate::runtime::Runtime {
 
         Ok(login_outcome_to_view(outcome))
     }
+}
+
+/// Render a resolved access token as the `AuthView::Token` payload printed by
+/// `ags auth token`.
+///
+/// `now` is passed in rather than read here so the relative `expires_in_secs`
+/// the session layer reports converts against a single instant the caller can
+/// pin in a test.
+fn token_resolution_to_view(
+    resolution: crate::runtime::auth::session::TokenResolution,
+    now: u64,
+) -> ags_protocol::output::AuthView {
+    use crate::runtime::auth::session::TokenSource;
+    use ags_protocol::output::{AuthTokenData, AuthTokenSource, AuthView};
+
+    let source = match resolution.source {
+        TokenSource::Environment => AuthTokenSource::Environment,
+        TokenSource::Stored => AuthTokenSource::Stored,
+        TokenSource::Refreshed => AuthTokenSource::Refreshed,
+        TokenSource::ClientCredentials => AuthTokenSource::ClientCredentials,
+    };
+
+    AuthView::Token(AuthTokenData {
+        access_token: resolution.token,
+        expires_at: resolution
+            .expires_in_secs
+            .map(|expires_in_secs| now.saturating_add(expires_in_secs)),
+        source,
+        warnings: resolution.warnings,
+    })
 }
 
 /// Render a successful refresh as an `AuthView::RefreshSuccess` payload.

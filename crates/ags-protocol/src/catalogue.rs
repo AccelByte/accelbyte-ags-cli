@@ -130,6 +130,17 @@ pub struct ScopeEntry {
     pub contracts: Vec<OperationSchema>,
 }
 
+impl ScopeEntry {
+    /// Whether this scope entry holds more than one API version.
+    ///
+    /// This single predicate decides both whether `--api-version` is offered
+    /// on the command and whether the API version is shown in output, so the
+    /// two cannot drift apart.
+    pub fn has_alternate_versions(&self) -> bool {
+        self.contracts.len() > 1
+    }
+}
+
 /// One CLI-callable operation, keyed on stable `x-operationId`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OperationSchema {
@@ -670,5 +681,48 @@ mod tests {
             response_content_type: None,
         };
         round_trip(&op);
+    }
+
+    /// Build a minimal operation with the given id and version, for predicate tests.
+    fn stub_operation(id: &str, version: u32) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new(id),
+            name: id.to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: String::new(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: "admin".to_string(),
+            api_version: ApiVersion(version),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// A scope entry with a single contract reports no alternate versions.
+    #[test]
+    fn test_has_alternate_versions_false_for_one_contract() {
+        let entry = ScopeEntry {
+            scope: "admin".to_string(),
+            default_version: ApiVersion(1),
+            contracts: vec![stub_operation("op-v1", 1)],
+        };
+        assert!(!entry.has_alternate_versions());
+    }
+
+    /// A scope entry with two contracts reports alternate versions.
+    #[test]
+    fn test_has_alternate_versions_true_for_two_contracts() {
+        let entry = ScopeEntry {
+            scope: "admin".to_string(),
+            default_version: ApiVersion(2),
+            contracts: vec![stub_operation("op-v1", 1), stub_operation("op-v2", 2)],
+        };
+        assert!(entry.has_alternate_versions());
     }
 }

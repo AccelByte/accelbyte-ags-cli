@@ -29,6 +29,7 @@ fn render_response(
         success: None,
         trace: None,
         raw_body: None,
+        has_alternate_versions: false,
     }));
     let rendered = if is_json {
         ags::frontend::output::json::render(&output, options)?

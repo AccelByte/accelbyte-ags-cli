@@ -292,7 +292,25 @@ struct DriveRunContext<'a> {
     resolution_trace: Option<ags_protocol::output::ResolutionTrace>,
 }
 
+/// The raw JSON response body of a final service output, when the run produced
+/// one. Lets a wait-capable caller (e.g. `deploy-app --wait`) read a field out
+/// of the command's own response — the new `deploymentId` it must then match on
+/// while polling. `None` for any non-service output or an empty/non-JSON body.
+fn final_service_raw_body(
+    output: Option<&ags_protocol::output::CommandOutput>,
+) -> Option<serde_json::Value> {
+    match output? {
+        ags_protocol::output::CommandOutput::Service(api) => api.raw_body.clone(),
+        _ => None,
+    }
+}
+
 /// Own the post-prologue execution lifecycle and preserve CLI exit codes.
+///
+/// The third tuple element is the final service call's raw response body, when
+/// the run produced one — threaded out for callers that must chain on a field
+/// of it (`deploy-app --wait` reads the new `deploymentId`). Every other caller
+/// ignores it.
 pub(crate) async fn run_phase_owned_execution(
     surfaces: crate::frontend::ExecutionPhaseSurfaces,
     compiled: &CompiledWorkflow,
@@ -305,6 +323,7 @@ pub(crate) async fn run_phase_owned_execution(
     (
         InvocationOutcome,
         Option<ags_runtime::runtime::telemetry::TelemetryClient>,
+        Option<serde_json::Value>,
     ),
     CliError,
 > {
@@ -327,6 +346,7 @@ pub(crate) async fn run_phase_owned_execution(
                 },
             )
             .await;
+            let final_raw_body = final_service_raw_body(final_output.as_ref());
 
             // Tear down the progress surface before final rendering restores stdout/stderr order.
             let mut outcome = match outcome {
@@ -361,7 +381,7 @@ pub(crate) async fn run_phase_owned_execution(
                 }
             }
             let _ = final_frontend.finish();
-            Ok((outcome, telemetry_client))
+            Ok((outcome, telemetry_client, final_raw_body))
         }
         crate::frontend::ExecutionPhaseSurfaces::Unified {
             mut surface,
@@ -380,6 +400,7 @@ pub(crate) async fn run_phase_owned_execution(
                 },
             )
             .await;
+            let final_raw_body = final_service_raw_body(final_output.as_ref());
 
             // No finish() between progress and final render — the same surface
             // handles both without intermediate teardown.
@@ -414,11 +435,15 @@ pub(crate) async fn run_phase_owned_execution(
                         flush_step_telemetry(telemetry_client).await;
                         return Err(err);
                     }
-                    Ok((InvocationOutcome::Complete, telemetry_client))
+                    Ok((
+                        InvocationOutcome::Complete,
+                        telemetry_client,
+                        final_raw_body,
+                    ))
                 }
                 other => {
                     let _ = surface.finish();
-                    Ok((other, telemetry_client))
+                    Ok((other, telemetry_client, final_raw_body))
                 }
             }
         }
@@ -781,7 +806,7 @@ mod tests {
             ..Default::default()
         };
 
-        let (outcome, _telemetry_client) = run_phase_owned_execution(
+        let (outcome, _telemetry_client, _final_raw_body) = run_phase_owned_execution(
             surfaces,
             &compiled,
             BTreeMap::new(),
@@ -973,7 +998,7 @@ mod tests {
             ..Default::default()
         };
 
-        let (outcome, _telemetry_client) = run_phase_owned_execution(
+        let (outcome, _telemetry_client, _final_raw_body) = run_phase_owned_execution(
             surfaces,
             &compiled,
             BTreeMap::new(),

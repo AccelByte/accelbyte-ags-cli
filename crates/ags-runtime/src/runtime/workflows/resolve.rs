@@ -306,6 +306,17 @@ fn resolve_non_body_params(
     Ok((path_params, query_params, header_params))
 }
 
+/// The one operation the `{}`-default in `assemble_body` exists for. A POST
+/// "list" filter body with four optional fields and no required ones —
+/// without this, no `--json` meant no body and no `Content-Type` header,
+/// and CSM's go-restful router 406'd before any handler ran. Deliberately
+/// scoped to this exact operation, not generalized: a blanket "any
+/// all-optional object body" rule was reviewed and found to touch 184
+/// operations across the bundled specs, mostly mutating (PUT/PATCH/DELETE),
+/// where `{}` could plausibly mean "clear every optional field" rather than
+/// "no filter" — never verified against a live server.
+const EMPTY_BODY_DEFAULT_OPERATION: &str = "csm/admin/apps/v2/list";
+
 /// Reconstruct the request body for the step. An explicit `--json` body is used
 /// verbatim. Otherwise the body is assembled in two passes: pass 1 fills
 /// single-segment (schema) fields from their bindings; pass 2 merges
@@ -406,7 +417,20 @@ fn assemble_body(
     // `Some`) have no named fields to gather, so `body_obj` is always empty here
     // and they fall through to `None` — supplied wholesale via `--json`.
     if body_obj.is_empty() {
-        Ok(None)
+        if operation.request_body.is_some()
+            && !is_array_body
+            && operation.id.as_str() == EMPTY_BODY_DEFAULT_OPERATION
+        {
+            // The spec declares an object body but every field is optional
+            // and none were supplied. Send `{}` rather than no body at all:
+            // this specific operation's server content-type-negotiates on
+            // the presence of a JSON body and 406s when neither a body nor
+            // a `Content-Type` header is sent. See `EMPTY_BODY_DEFAULT_OPERATION`
+            // for why this isn't generalized to every operation with this shape.
+            Ok(Some(serde_json::Value::Object(body_obj)))
+        } else {
+            Ok(None)
+        }
     } else if is_array_body {
         Ok(Some(serde_json::Value::Array(vec![
             serde_json::Value::Object(body_obj),
@@ -2874,6 +2898,130 @@ mod tests {
             req.body,
             Some(RequestBody::Json(serde_json::json!({"other": "value"})))
         );
+    }
+
+    /// A declared object body whose fields are all optional, with no
+    /// `--json` and no bindings supplying any of them, must assemble to `{}`
+    /// rather than no body at all — some servers 406 on a request with
+    /// neither a body nor a `Content-Type` header.
+    #[test]
+    fn test_assemble_command_request_empty_optional_body_defaults_to_empty_object() {
+        let mut op = op_with_namespace_path();
+        op.id = OperationId::new("csm/admin/apps/v2/list");
+        op.request_body = Some(BodySchema {
+            item_type: None,
+            is_array: false,
+            definition_name: "Body".into(),
+            fields: vec![BodyField {
+                name: "filter".into(),
+                field_type: BodyFieldType::String,
+                required: false,
+                description: None,
+                children: vec![],
+                default: None,
+            }],
+        });
+        let schema = service_with(op);
+        let mut step = compiled_step_with_auto(vec![]);
+        step.operation = Some(OperationReference {
+            service: ServiceId::new("svc"),
+            operation: OperationId::new("csm/admin/apps/v2/list"),
+        });
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            None,
+            &RunOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            req.body,
+            Some(RequestBody::Json(serde_json::json!({}))),
+            "an all-optional, unfilled object body on the allowlisted operation should default \
+             to {{}}, not no body at all"
+        );
+    }
+
+    /// The same all-optional, unfilled object body shape on any operation
+    /// OTHER than `csm/admin/apps/v2/list` must NOT default to `{}` — this
+    /// is the regression test for the reverted blanket fix, which touched
+    /// 184 operations across the bundled specs (see
+    /// `EMPTY_BODY_DEFAULT_OPERATION`'s doc comment).
+    #[test]
+    fn test_assemble_command_request_empty_optional_body_on_other_operation_stays_none() {
+        let mut op = op_with_namespace_path();
+        op.request_body = Some(BodySchema {
+            item_type: None,
+            is_array: false,
+            definition_name: "Body".into(),
+            fields: vec![BodyField {
+                name: "filter".into(),
+                field_type: BodyFieldType::String,
+                required: false,
+                description: None,
+                children: vec![],
+                default: None,
+            }],
+        });
+        let schema = service_with(op);
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            None,
+            &RunOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            req.body, None,
+            "an all-optional, unfilled object body on a non-allowlisted operation must stay \
+             None, not default to {{}}"
+        );
+    }
+
+    /// An array body (object-array or scalar-array) that assembles empty
+    /// still relies on `None` to mean "the caller must supply `--json`
+    /// wholesale" — the `{}`-default fix must not apply to it.
+    #[test]
+    fn test_assemble_command_request_empty_array_body_stays_none() {
+        let mut op = op_with_namespace_path();
+        op.request_body = Some(BodySchema {
+            item_type: Some(BodyFieldType::String),
+            is_array: true,
+            definition_name: "Body".into(),
+            fields: vec![],
+        });
+        let schema = service_with(op);
+        let step = compiled_step_with_auto(vec![]);
+        let mut local = BTreeMap::new();
+        local.insert("namespace".into(), serde_json::json!("dev"));
+
+        let req = assemble_command_request(
+            &step,
+            &WorkflowContext::new(),
+            &BTreeMap::new(),
+            &local,
+            &[],
+            &schema,
+            None,
+            &RunOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(req.body, None);
     }
 
     #[test]

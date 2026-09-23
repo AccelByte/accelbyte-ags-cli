@@ -1,0 +1,34 @@
+---
+source: crates/accelbyte-ags-cli/tests/snapshot/help_text.rs
+expression: stdout
+---
+Check for a newer release and show how to install it
+
+  Asks GitHub for the latest release, compares it with this build,
+  and prints the upgrade instruction for the way this copy was
+  installed. It does not download or modify anything.
+
+  With --install, downloads the newest release's installer script
+  and runs it for this copy, after asking for confirmation. Never
+  runs unless typed. When an update is available, refuses for a copy
+  installed with Homebrew; run brew upgrade instead.
+
+  Exit code 0 in both outcomes; 4 when GitHub cannot be reached,
+  answers with an error status, or answers with a tag that is not a release version.
+
+  With --install: exit 0 when installed or already current; 1 when
+  --no-input is given without --yes or the copy was installed with
+  Homebrew; 2 when the confirmation is declined or the upgrade is
+  interrupted; 4 when the installer script cannot be downloaded;
+  5 when it cannot be saved, the installer fails, the new binary
+  does not verify, or the previous binary could not be restored.
+
+Usage:
+  update [OPTIONS]
+
+Options:
+      --install
+          Download the newest release's installer script and run it for this copy, after asking for confirmation
+
+  -h, --help
+          Print help (see a summary with '-h')

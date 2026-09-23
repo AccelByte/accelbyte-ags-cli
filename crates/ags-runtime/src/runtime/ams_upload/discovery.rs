@@ -75,7 +75,7 @@ fn extract_url(body: &str) -> Option<String> {
 }
 
 /// Validate an upload host and strip any trailing slash.
-fn normalise_upload_url(url: &str) -> Result<String, AmsUploadError> {
+pub(super) fn normalise_upload_url(url: &str) -> Result<String, AmsUploadError> {
     let trimmed = url.trim().trim_end_matches('/');
     let parsed = url::Url::parse(trimmed)
         .map_err(|_| AmsUploadError::UploadHostInvalid(url.trim().to_string()))?;

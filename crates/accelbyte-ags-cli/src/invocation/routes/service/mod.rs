@@ -30,17 +30,25 @@ use crate::invocation::InvocationOutcome;
 /// service command uses the same split as workflow runs: interaction/progress
 /// may use an inline surface, while final output stays on the plain-terminal
 /// path.
+/// Returns the invocation outcome plus the final call's raw JSON response body
+/// (when the run produced one), which wait-capable callers chain on — see
+/// [`run_phase_owned_execution`].
 pub(crate) async fn route_service(
     service_arg: &str,
     service_args: &[String],
     flags: &flags::GlobalFlags,
     render_options: crate::frontend::RenderOptions,
     frontend_context: &crate::invocation::context::FrontendContext,
-) -> Result<InvocationOutcome, CliError> {
+    shim_presentation: Option<
+        &crate::invocation::handlers::extend::service_shims::ShimPresentation,
+    >,
+) -> Result<(InvocationOutcome, Option<serde_json::Value>), CliError> {
     // `ams upload` is a hand-written resource, not a catalogued operation, so
     // it branches off before spec loading and workflow synthesis. Everything
     // downstream of here assumes an `OperationSchema` exists.
     if is_ams_service(service_arg) && super::ams_upload::is_ams_upload(service_args) {
+        // `ams upload` is not a catalogued service call and produces no
+        // chainable response body — no wait consumer, so `None`.
         return super::ams_upload::route_ams_upload(
             service_args,
             flags,
@@ -48,7 +56,8 @@ pub(crate) async fn route_service(
             render_options,
             frontend_context,
         )
-        .await;
+        .await
+        .map(|outcome| (outcome, None));
     }
 
     let (selectors, stripped_args) = flags::pre_scan_leaf_selectors(service_args)?;
@@ -61,10 +70,13 @@ pub(crate) async fn route_service(
         flags,
         frontend_context,
         render_options.clone(),
+        shim_presentation,
     )? {
         parser::ParseServiceOutcome::Continue(parsed) => parsed,
-        parser::ParseServiceOutcome::Exit(code) => return Ok(InvocationOutcome::Exit(code)),
-        parser::ParseServiceOutcome::Complete => return Ok(InvocationOutcome::Complete),
+        parser::ParseServiceOutcome::Exit(code) => {
+            return Ok((InvocationOutcome::Exit(code), None))
+        }
+        parser::ParseServiceOutcome::Complete => return Ok((InvocationOutcome::Complete, None)),
     };
 
     // Runtime prologue (shared with `route_workflow_run`): resolves auth/base
@@ -252,7 +264,7 @@ pub(crate) async fn route_service(
     //
     // `SuppressedLifecycle` never carries step telemetry, so the reclaimed
     // `TelemetryClient` here is always `None` — nothing to flush.
-    let (outcome, _telemetry_client) = run_phase_owned_execution(
+    let (outcome, _telemetry_client, final_raw_body) = run_phase_owned_execution(
         surfaces,
         &compiled,
         pre_supplied,
@@ -262,7 +274,7 @@ pub(crate) async fn route_service(
         resolution_trace,
     )
     .await?;
-    Ok(outcome)
+    Ok((outcome, final_raw_body))
 }
 
 /// Reject a service command up front when the run cannot gather missing required

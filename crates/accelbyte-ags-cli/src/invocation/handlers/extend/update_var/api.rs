@@ -8,8 +8,8 @@
 use crate::errors::CliError;
 use crate::invocation::handlers::extend::csm_error::extract_csm_error_detail;
 
-/// A CSM app configuration variable, as returned by `GetListOfVariablesV2`,
-/// `SaveVariableV2`, and `UpdateVariableV2`.
+/// A CSM app configuration variable, as returned by `GetListOfVariablesV5`,
+/// `SaveVariableV5`, and `UpdateVariableV5`.
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub(crate) struct VariableRecord {
     #[serde(rename = "configId")]
@@ -28,14 +28,14 @@ struct ListVariablesResponse {
     data: Vec<VariableRecord>,
 }
 
-/// Page size used when walking `GetListOfVariablesV2`.
+/// Page size used when walking `GetListOfVariablesV5`.
 const PAGE_LIMIT: u64 = 100;
 
 /// Maximum number of pages to walk before giving up. Prevents infinite
 /// loops when a misbehaving server always returns a full page.
 const MAX_PAGES: u64 = 50;
 
-/// `GetListOfVariablesV2` — page through variables looking for `target_key`.
+/// `GetListOfVariablesV5` — page through variables looking for `target_key`.
 ///
 /// Stops early as soon as the page containing `target_key` is fetched.
 /// If the key is genuinely absent (a short page was seen), returns all
@@ -85,7 +85,7 @@ async fn list_variables_paged(
         .map_err(CliError::from)?;
 
     let url = format!(
-        "{}/csm/v2/admin/namespaces/{}/apps/{}/variables",
+        "{}/csm/v5/admin/namespaces/{}/apps/{}/variables",
         base_url.trim_end_matches('/'),
         encoded_ns,
         encoded_app
@@ -118,7 +118,7 @@ async fn list_variables_paged(
             let detail = extract_csm_error_detail(&body);
             return Err(CliError::Api {
                 message: format!(
-                    "CSM GetListOfVariablesV2 returned HTTP {status} for namespace '{namespace}' app '{app}'{detail}"
+                    "CSM GetListOfVariablesV5 returned HTTP {status} for namespace '{namespace}' app '{app}'{detail}"
                 ),
                 metadata: Some(Box::new(crate::errors::ErrorMetadata::with_suggestion(
                     "Check the namespace, app name, and your permissions",
@@ -175,7 +175,7 @@ struct SaveVariableRequest<'a> {
     #[serde(rename = "applyMask")]
     apply_mask: bool,
     description: Option<&'a str>,
-    /// Required by `apimodel.SaveConfigurationV2Request`. The legacy Go CLI
+    /// Required by `apimodel.SaveAppConfigV5Request`. The legacy Go CLI
     /// hardcodes this to `"plaintext"` on create and never sends it on
     /// update (see `extend-helper-cli/internal/cmd/update_var.go`).
     source: &'a str,
@@ -189,7 +189,7 @@ struct UpdateVariableRequest<'a> {
     description: Option<&'a str>,
 }
 
-/// `SaveVariableV2` — create a new config variable.
+/// `SaveVariableV5` — create a new config variable.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn create_variable(
     client: &reqwest::Client,
@@ -208,7 +208,7 @@ pub(crate) async fn create_variable(
         .map_err(CliError::from)?;
 
     let url = format!(
-        "{}/csm/v2/admin/namespaces/{}/apps/{}/variables",
+        "{}/csm/v5/admin/namespaces/{}/apps/{}/variables",
         base_url.trim_end_matches('/'),
         encoded_ns,
         encoded_app
@@ -238,7 +238,7 @@ pub(crate) async fn create_variable(
         let detail = extract_csm_error_detail(&body);
         return Err(CliError::Api {
             message: format!(
-                "CSM SaveVariableV2 returned HTTP {status} for variable '{key}' in namespace '{namespace}'{detail}"
+                "CSM SaveVariableV5 returned HTTP {status} for variable '{key}' in namespace '{namespace}'{detail}"
             ),
             metadata: Some(Box::new(crate::errors::ErrorMetadata::with_suggestion(
                 "Check the namespace, app name, and your permissions",
@@ -248,13 +248,13 @@ pub(crate) async fn create_variable(
     }
 
     response.json().await.map_err(|e| CliError::Api {
-        message: format!("failed to parse CSM SaveVariableV2 response: {e}"),
+        message: format!("failed to parse CSM SaveVariableV5 response: {e}"),
         metadata: None,
         category: crate::errors::ApiErrorCategory::Upstream,
     })
 }
 
-/// `UpdateVariableV2` — update an existing config variable by `configId`.
+/// `UpdateVariableV5` — update an existing config variable by `configId`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_variable(
     client: &reqwest::Client,
@@ -275,7 +275,7 @@ pub(crate) async fn update_variable(
         .map_err(CliError::from)?;
 
     let url = format!(
-        "{}/csm/v2/admin/namespaces/{}/apps/{}/variables/{}",
+        "{}/csm/v5/admin/namespaces/{}/apps/{}/variables/{}",
         base_url.trim_end_matches('/'),
         encoded_ns,
         encoded_app,
@@ -304,7 +304,7 @@ pub(crate) async fn update_variable(
         let detail = extract_csm_error_detail(&body);
         return Err(CliError::Api {
             message: format!(
-                "CSM UpdateVariableV2 returned HTTP {status} for variable '{config_id}' in namespace '{namespace}'{detail}"
+                "CSM UpdateVariableV5 returned HTTP {status} for variable '{config_id}' in namespace '{namespace}'{detail}"
             ),
             metadata: Some(Box::new(crate::errors::ErrorMetadata::with_suggestion(
                 "Check the namespace, app name, and your permissions",
@@ -314,7 +314,7 @@ pub(crate) async fn update_variable(
     }
 
     response.json().await.map_err(|e| CliError::Api {
-        message: format!("failed to parse CSM UpdateVariableV2 response: {e}"),
+        message: format!("failed to parse CSM UpdateVariableV5 response: {e}"),
         metadata: None,
         category: crate::errors::ApiErrorCategory::Upstream,
     })
@@ -330,7 +330,7 @@ mod tests {
     async fn test_list_variables_returns_data() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [
                     {"configId": "id-1", "configName": "MY_KEY", "applyMask": false, "description": "old desc"}
@@ -366,7 +366,7 @@ mod tests {
         // Page 1: full page (page_limit records), none matching the target key.
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(query_param("limit", "2"))
             .and(query_param("offset", "0"))
@@ -381,7 +381,7 @@ mod tests {
         // Page 2: short page containing the target key.
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(query_param("limit", "2"))
             .and(query_param("offset", "2"))
@@ -421,7 +421,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(403))
             .mount(&server)
@@ -448,7 +448,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(body_json(serde_json::json!({
                 "configName": "MY_KEY",
@@ -489,7 +489,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .and(body_json(serde_json::json!({
                 "value": "updated-value",
@@ -528,7 +528,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(409))
             .mount(&server)
@@ -558,7 +558,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .respond_with(ResponseTemplate::new(500))
             .mount(&server)
@@ -594,7 +594,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(403).set_body_json(serde_json::json!({
                 "errorCode": 20003,
@@ -629,7 +629,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(409).set_body_json(serde_json::json!({
                 "errorCode": 20004,
@@ -667,7 +667,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .respond_with(ResponseTemplate::new(500).set_body_json(serde_json::json!({
                 "errorCode": 20005,
@@ -714,7 +714,7 @@ mod tests {
         // Page 1: full page (2 records), one matching the target key.
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(query_param("limit", "2"))
             .and(query_param("offset", "0"))
@@ -730,7 +730,7 @@ mod tests {
         // Page 2: if reached, fails the test with a 500 error.
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(query_param("offset", "2"))
             .respond_with(ResponseTemplate::new(500))
@@ -775,7 +775,7 @@ mod tests {
             let offset = page * page_limit;
             Mock::given(method("GET"))
                 .and(path(
-                    "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                    "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
                 ))
                 .and(query_param("limit", page_limit.to_string()))
                 .and(query_param("offset", offset.to_string()))
@@ -826,7 +826,7 @@ mod tests {
         // Namespace with a slash: must appear as `ns%2Fevil` in the path.
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/ns%2Fevil/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/ns%2Fevil/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [
@@ -860,7 +860,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/app%2Fslash/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/app%2Fslash/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "new-id",
@@ -896,7 +896,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id%2Fslash",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id%2Fslash",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id/slash",

@@ -193,6 +193,7 @@ fn test_release_render_list_100_items_under_50ms() {
         success: None,
         trace: None,
         raw_body: None,
+        has_alternate_versions: false,
     }));
     let result = render(&output, &options).unwrap();
     let elapsed = start.elapsed();
@@ -254,6 +255,7 @@ fn test_release_render_list_1000_items_under_200ms() {
         success: None,
         trace: None,
         raw_body: None,
+        has_alternate_versions: false,
     }));
     let result = render(&output, &options).unwrap();
     let elapsed = start.elapsed();

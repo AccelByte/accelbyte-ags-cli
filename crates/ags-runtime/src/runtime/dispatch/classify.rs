@@ -217,6 +217,15 @@ fn classify_by_http_status(
                 ..Default::default()
             }),
         ),
+        406 => (
+            "This operation requires a JSON request body".to_string(),
+            Some(ErrorMetadata {
+                reason: clean_message,
+                detail,
+                suggestion: Some("Pass --json '{}' (or a filter body) and retry.".to_string()),
+                ..Default::default()
+            }),
+        ),
         400 | 422 => {
             let raw_unsanitized = body
                 .get("errorMessage")
@@ -486,6 +495,24 @@ mod tests {
         let body = json!({ "errorCode": 0, "errorMessage": "" });
         let error = classify_to_runtime_error(400, &body, "iam", "users", "get");
         assert_eq!(error.message, "Validation error");
+    }
+
+    /// 406 responses must carry an actionable hint pointing at `--json '{}'`,
+    /// not the generic "HTTP 406 error" fallback — this is the case an agent
+    /// hits when a "list"-style endpoint requires a JSON body and none was
+    /// resolved (see the `assemble_body` fix in `runtime/workflows/resolve.rs`
+    /// that should make this rare, but the message still needs to be useful
+    /// for whatever slips through).
+    #[test]
+    fn test_406_has_actionable_hint() {
+        let body = json!({});
+        let error = classify_to_runtime_error(406, &body, "csm", "apps", "list");
+        assert!(
+            error.message.contains("JSON"),
+            "expected a JSON-body hint in the message, got: {}",
+            error.message
+        );
+        assert!(error.hint.as_deref().unwrap().contains("--json"));
     }
 
     /// 404 responses must include the singularized resource name and a "next step" suggestion

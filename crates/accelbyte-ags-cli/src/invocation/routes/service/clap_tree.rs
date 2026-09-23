@@ -119,7 +119,7 @@ pub(crate) fn build_service_command_tree(
                 .find(|scope_entry| scope_entry.scope == resolved_scope_name);
             let multi_scope = method.scopes.len() > 1;
             let multi_version = resolved_scope_entry
-                .map(|scope_entry| scope_entry.contracts.len() > 1)
+                .map(|scope_entry| scope_entry.has_alternate_versions())
                 .unwrap_or(false);
 
             let contract_block = format!(
@@ -264,10 +264,13 @@ fn extract_value_type(value_type: &ValueType) -> (&'static str, Option<&[String]
 }
 
 /// Derive the default contract for a method without running the resolver.
-/// Used as a best-effort fallback when the explicit selectors don't match the
-/// method's matrix: we still want to expose some leaf so `--help` works and
-/// the downstream resolve call can produce the real error message.
-fn fallback_default_contract(
+///
+/// Used as a best-effort fallback when selector-aware resolution fails or is
+/// unavailable: `build_service_command_tree` falls back here when `resolve()`
+/// rejects an explicit `--api-scope`/`--api-version`, and
+/// `resolve_operation_for_help` (in `help.rs`) falls back here when the
+/// selectors are invalid so the Example block always renders.
+pub(super) fn fallback_default_contract(
     method: &MethodSchema,
 ) -> Option<(
     &OperationSchema,
@@ -757,11 +760,31 @@ fn stable_example_hash(name: &str) -> u64 {
     hash_value
 }
 
-/// Build the synthesised `Example:` block shown in long help, populating each parameter with a sensible value.
+/// Build the synthesised `Example:` block shown in long help, populating each
+/// parameter with a sensible value. Delegates to
+/// [`build_operation_example_with_prefix`] with the canonical `ags <service>
+/// <resource> <method>` prefix.
 fn build_operation_example(
     service_name: &str,
     resource_name: &str,
     method_name: &str,
+    parameters: &[ParameterSchema],
+    has_request_body: bool,
+) -> String {
+    build_operation_example_with_prefix(
+        &format!("ags {service_name} {resource_name} {method_name}"),
+        parameters,
+        has_request_body,
+    )
+}
+
+/// Build the synthesised `Example:` block with an explicit command prefix.
+///
+/// `command_prefix` is the leading portion of the example line, e.g.
+/// `"ags csm deployments create"` or `"ags extend deploy-app"`. The
+/// generated flags and values are appended after it.
+pub(super) fn build_operation_example_with_prefix(
+    command_prefix: &str,
     parameters: &[ParameterSchema],
     has_request_body: bool,
 ) -> String {
@@ -787,10 +810,7 @@ fn build_operation_example(
     }
 
     let args = parts.join(" ");
-    let example_line = format!(
-        "  ags {} {} {} {}",
-        service_name, resource_name, method_name, args
-    );
+    let example_line = format!("  {command_prefix} {args}");
     format!("{}:\n{}", style::styled_header("Example"), example_line)
 }
 
@@ -951,5 +971,155 @@ mod sentence_splitting_tests {
             output.contains("\"my-item\""),
             "example should be an array of one scalar placeholder:\n{output}"
         );
+    }
+}
+
+#[cfg(test)]
+mod api_version_agreement_tests {
+    use super::*;
+    use ags_runtime::catalogue::Catalogue;
+    use ags_runtime::runtime::facade::lookup_operation;
+    use std::collections::BTreeSet;
+
+    /// The `--api-version` flag is registered on a command exactly when the
+    /// runtime `lookup_operation` reports `has_alternate_versions` for the
+    /// operation that command dispatches.
+    ///
+    /// This walks every command in the real bundled catalogue, checking every
+    /// selectable scope for multi-scope commands. A mismatch means the flag
+    /// and the version label can disagree, which is a contract violation.
+    #[test]
+    fn test_api_version_flag_agrees_with_lookup_operation() {
+        let mut both_true = 0usize;
+        let mut both_false = 0usize;
+        let mut mismatches: Vec<String> = Vec::new();
+        let mut skipped: Vec<String> = Vec::new();
+
+        for service_id in Catalogue::service_ids() {
+            let schema = Catalogue::load_bundled(service_id)
+                .unwrap_or_else(|e| panic!("failed to load {service_id}: {e}"));
+            let service_name = Catalogue::display_name(&schema.name).unwrap_or(&schema.name);
+
+            // Collect every scope name that appears in any method of this service.
+            let mut unique_scopes: BTreeSet<String> = BTreeSet::new();
+            for resource in &schema.resources {
+                for method in &resource.methods {
+                    for scope_entry in &method.scopes {
+                        unique_scopes.insert(scope_entry.scope.clone());
+                    }
+                }
+            }
+
+            // Build one clap tree per unique scope selector so each method is
+            // resolved under that scope (or falls back to its default).
+            let trees: Vec<(String, Command)> = unique_scopes
+                .iter()
+                .map(|scope| {
+                    let selectors = LeafSelectors {
+                        api_scope: Some(scope.clone()),
+                        api_version: None,
+                    };
+                    (
+                        scope.clone(),
+                        build_service_command_tree(&schema, &selectors),
+                    )
+                })
+                .collect();
+
+            for resource in &schema.resources {
+                for method in &resource.methods {
+                    // Check each selectable scope for this method.
+                    for scope_entry in &method.scopes {
+                        let (_, tree) = trees
+                            .iter()
+                            .find(|(s, _)| s == &scope_entry.scope)
+                            .expect("tree must exist for every scope in this service");
+
+                        let command_path =
+                            format!("ags {service_name} {} {}", resource.name, method.name);
+                        let resolved =
+                            match resolve(&command_path, method, Some(&scope_entry.scope), None) {
+                                Ok(rc) => rc,
+                                Err(e) => {
+                                    skipped.push(format!(
+                                        "{command_path} (scope {}): resolve failed: {e}",
+                                        scope_entry.scope
+                                    ));
+                                    continue;
+                                }
+                            };
+
+                        let op_name = &resolved.operation.name;
+                        let op_id = &resolved.operation.id;
+
+                        // Navigate the clap tree to this method's command.
+                        let method_cmd = tree
+                            .find_subcommand(&resource.name)
+                            .and_then(|rc| rc.find_subcommand(op_name.as_str()));
+                        let Some(method_cmd) = method_cmd else {
+                            skipped.push(format!(
+                                "{command_path} (scope {}): command not found in clap tree \
+                                 (resource={}, op_name={op_name})",
+                                scope_entry.scope, resource.name
+                            ));
+                            continue;
+                        };
+
+                        // Clap side: is --api-version registered on this command?
+                        let clap_has_api_version = method_cmd
+                            .get_arguments()
+                            .any(|arg| arg.get_id() == "api-version");
+
+                        // Runtime side: does lookup_operation report alternate versions?
+                        let (_, _, lookup_has_alt) = lookup_operation(&schema, op_id)
+                            .unwrap_or_else(|| {
+                                panic!("lookup_operation returned None for {op_id}")
+                            });
+
+                        if clap_has_api_version == lookup_has_alt {
+                            if clap_has_api_version {
+                                both_true += 1;
+                            } else {
+                                both_false += 1;
+                            }
+                        } else {
+                            mismatches.push(format!(
+                                "{service_name} {} {op_name} (scope {}): \
+                                 clap has --api-version = {clap_has_api_version}, \
+                                 lookup has_alternate_versions = {lookup_has_alt}",
+                                resource.name, scope_entry.scope
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            mismatches.is_empty(),
+            "flag/lookup disagreements found:\n{}",
+            mismatches.join("\n")
+        );
+        assert!(
+            both_true >= 1,
+            "expected at least one command where both paths report alternate versions; \
+             saw {both_true} true, {both_false} false"
+        );
+        assert!(
+            both_false >= 1,
+            "expected at least one command where both paths report no alternate versions; \
+             saw {both_true} true, {both_false} false"
+        );
+
+        assert!(
+            skipped.is_empty(),
+            "expected zero skipped commands, but {} were skipped:\n{}",
+            skipped.len(),
+            skipped.join("\n")
+        );
+
+        // Counts are visible in --nocapture output via the assert messages
+        // above. The architecture guard forbids eprintln! in src/ files, so
+        // this test reports counts only on failure.
     }
 }

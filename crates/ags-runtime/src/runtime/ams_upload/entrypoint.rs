@@ -7,7 +7,7 @@
 //! machine, and a launch script saved with Windows line endings.
 
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use ags_protocol::output::AmsEntrypointKind;
 
@@ -82,13 +82,13 @@ pub fn resolve_entrypoint(
     // `./bin/server` — on Linux the raw form is one filename containing a
     // backslash.
     let executable_path = directory.join(command.trim_start_matches("./"));
-    check_filename_case(&executable_path)?;
+    check_filename_case(&executable_path, executable)?;
 
     if has_shell_script_extension(&executable_path) {
         let architecture =
             declared_architecture.ok_or(AmsUploadError::ShellScriptNeedsTargetArchitecture)?;
         if !skip_script_validation {
-            validate_shell_script(&executable_path)?;
+            validate_shell_script(&executable_path, executable)?;
         }
         return Ok(ResolvedEntrypoint {
             kind: AmsEntrypointKind::ShellScript,
@@ -119,10 +119,10 @@ pub fn resolve_entrypoint(
 ///
 /// The shebang may sit on any line, not only the first — armada-cli accepts a
 /// script with leading comment lines, and its fixtures pin that behaviour.
-pub fn validate_shell_script(path: &Path) -> Result<(), AmsUploadError> {
+pub fn validate_shell_script(path: &Path, typed: &str) -> Result<(), AmsUploadError> {
     if !has_shell_script_extension(path) {
         return Err(AmsUploadError::ShellScriptInvalid {
-            path: path.to_path_buf(),
+            path: typed.to_string(),
             reason: "file extension is not .sh".to_string(),
         });
     }
@@ -148,7 +148,7 @@ pub fn validate_shell_script(path: &Path) -> Result<(), AmsUploadError> {
             column += 1;
             if byte == b'\r' {
                 return Err(AmsUploadError::ShellScriptInvalid {
-                    path: path.to_path_buf(),
+                    path: typed.to_string(),
                     reason: format!(
                         "CR or CRLF line ending at line {line}, column {column}; expected LF"
                     ),
@@ -168,7 +168,7 @@ pub fn validate_shell_script(path: &Path) -> Result<(), AmsUploadError> {
 
     if !has_shebang {
         return Err(AmsUploadError::ShellScriptInvalid {
-            path: path.to_path_buf(),
+            path: typed.to_string(),
             reason: "no shebang (#!) line found".to_string(),
         });
     }
@@ -181,16 +181,16 @@ pub fn validate_shell_script(path: &Path) -> Result<(), AmsUploadError> {
 /// Stat alone is not enough: Windows and macOS filesystems are case-insensitive
 /// and happily resolve `Server` to `server`, which then fails on the
 /// case-sensitive Linux host that runs the image (ref JA-645).
-fn check_filename_case(path: &Path) -> Result<(), AmsUploadError> {
+fn check_filename_case(path: &Path, typed: &str) -> Result<(), AmsUploadError> {
     let metadata = std::fs::metadata(path)
-        .map_err(|_| AmsUploadError::ExecutableMissing(path.to_path_buf()))?;
+        .map_err(|_| AmsUploadError::ExecutableMissing(typed.to_string()))?;
     if metadata.is_dir() {
-        return Err(AmsUploadError::ExecutableIsDirectory(path.to_path_buf()));
+        return Err(AmsUploadError::ExecutableIsDirectory(typed.to_string()));
     }
 
     let file_name = path
         .file_name()
-        .ok_or_else(|| AmsUploadError::ExecutableMissing(path.to_path_buf()))?;
+        .ok_or_else(|| AmsUploadError::ExecutableMissing(typed.to_string()))?;
     let parent = path.parent().filter(|p| !p.as_os_str().is_empty());
     let parent = parent.unwrap_or_else(|| Path::new("."));
     let entries = std::fs::read_dir(parent)
@@ -201,7 +201,7 @@ fn check_filename_case(path: &Path) -> Result<(), AmsUploadError> {
             return Ok(());
         }
     }
-    Err(AmsUploadError::ExecutableWrongCase(path.to_path_buf()))
+    Err(AmsUploadError::ExecutableWrongCase(typed.to_string()))
 }
 
 /// Read just enough of the file to run the ELF accept matrix over it.
@@ -228,7 +228,7 @@ fn detect_binary_architecture(path: &Path) -> Result<Option<TargetArchitecture>,
 fn relative_launch_command(executable: &str) -> Result<String, AmsUploadError> {
     let normalised = executable.replace('\\', "/");
     if normalised.trim().is_empty() {
-        return Err(AmsUploadError::ExecutableMissing(PathBuf::from(executable)));
+        return Err(AmsUploadError::ExecutableMissing(executable.to_string()));
     }
     if normalised.starts_with('/') {
         return Err(AmsUploadError::ExecutableOutsideDirectory(
@@ -251,7 +251,7 @@ fn relative_launch_command(executable: &str) -> Result<String, AmsUploadError> {
         }
     }
     if segments.is_empty() {
-        return Err(AmsUploadError::ExecutableMissing(PathBuf::from(executable)));
+        return Err(AmsUploadError::ExecutableMissing(executable.to_string()));
     }
     Ok(format!("./{}", segments.join("/")))
 }
@@ -265,6 +265,7 @@ fn has_shell_script_extension(path: &Path) -> bool {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::path::PathBuf;
 
     /// Write `contents` to `name` inside `directory` and return its path.
     fn write_file(directory: &Path, name: &str, contents: &[u8]) -> PathBuf {
@@ -439,7 +440,7 @@ mod tests {
         for (name, contents, is_valid) in cases {
             let path = write_file(temp.path(), name, contents);
             assert_eq!(
-                validate_shell_script(&path).is_ok(),
+                validate_shell_script(&path, name).is_ok(),
                 *is_valid,
                 "{name} should be {}",
                 if *is_valid { "accepted" } else { "rejected" }
@@ -448,7 +449,7 @@ mod tests {
 
         let readme = write_file(temp.path(), "README.md", b"#!/bin/bash\n");
         assert!(
-            validate_shell_script(&readme).is_err(),
+            validate_shell_script(&readme, "README.md").is_err(),
             "a non-.sh file is rejected regardless of contents"
         );
     }
@@ -510,5 +511,66 @@ mod tests {
             ),
             "unexpected error: {error:?}"
         );
+    }
+
+    /// Every executable-validation error must quote what the user typed for
+    /// `--executable`, not the joined `--path`/`--executable` path — a long
+    /// absolute `--path` otherwise buries the value the user needs to fix.
+    #[test]
+    fn test_executable_errors_quote_the_typed_value_not_the_resolved_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let long_dir_name = "a-very-long-directory-name-that-would-bury-the-executable";
+        let deep = temp.path().join(long_dir_name);
+        std::fs::create_dir_all(&deep).unwrap();
+
+        // Missing.
+        let error = resolve_entrypoint(&deep, "missing-binary", None, false).unwrap_err();
+        match &error {
+            AmsUploadError::ExecutableMissing(typed) => assert_eq!(typed, "missing-binary"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert!(!error.to_string().contains(long_dir_name));
+
+        // Is a directory.
+        std::fs::create_dir(deep.join("subdir")).unwrap();
+        let error = resolve_entrypoint(&deep, "subdir", None, false).unwrap_err();
+        match &error {
+            AmsUploadError::ExecutableIsDirectory(typed) => assert_eq!(typed, "subdir"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert!(!error.to_string().contains(long_dir_name));
+
+        // Wrong case. On a case-sensitive filesystem the stat fails first
+        // (ExecutableMissing) instead of the on-disk scan (ExecutableWrongCase)
+        // — the same refusal by a different route, per
+        // `test_wrong_case_entrypoint_is_rejected` above.
+        write_file(&deep, "server", &elf_bytes(62));
+        let error = resolve_entrypoint(&deep, "SERVER", None, false).unwrap_err();
+        match &error {
+            AmsUploadError::ExecutableWrongCase(typed)
+            | AmsUploadError::ExecutableMissing(typed) => {
+                assert_eq!(typed, "SERVER")
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert!(!error.to_string().contains(long_dir_name));
+
+        // Invalid shell script.
+        write_file(&deep, "start.sh", b"echo no shebang\n");
+        let error = resolve_entrypoint(
+            &deep,
+            "start.sh",
+            Some(TargetArchitecture::LinuxX86_64),
+            false,
+        )
+        .unwrap_err();
+        match &error {
+            AmsUploadError::ShellScriptInvalid { path, reason } => {
+                assert_eq!(path, "start.sh");
+                assert_eq!(reason, "no shebang (#!) line found");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+        assert!(!error.to_string().contains(long_dir_name));
     }
 }

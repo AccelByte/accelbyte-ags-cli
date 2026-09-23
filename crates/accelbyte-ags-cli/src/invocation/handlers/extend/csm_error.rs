@@ -51,6 +51,24 @@ pub(crate) fn extract_csm_error_detail(body: &str) -> String {
     }
 }
 
+/// Extract the CSM `errorCode` (integer) from an error response body.
+///
+/// Returns `None` when the body is not JSON or carries no `errorCode` — e.g. a
+/// gateway/proxy error page. Callers that key on a specific domain error (such
+/// as the app-lifecycle `--wait` poll distinguishing a real "app gone" 404 from
+/// an unrelated one) use this rather than trusting the HTTP status alone.
+pub(crate) fn csm_error_code(body: &str) -> Option<i64> {
+    #[derive(serde::Deserialize)]
+    struct CsmError {
+        #[serde(rename = "errorCode")]
+        error_code: Option<i64>,
+    }
+
+    serde_json::from_str::<CsmError>(body)
+        .ok()
+        .and_then(|csm| csm.error_code)
+}
+
 /// Minimum length for a submitted value to be redacted as a bare
 /// (unquoted) substring. Values shorter than this are only redacted
 /// when they appear in the delimited form CSM echoes (`'value'`).
@@ -316,5 +334,20 @@ mod tests {
             }
             other => panic!("expected CliError::Api, got: {other:?}"),
         }
+    }
+
+    #[test]
+    fn csm_error_code_extracts_integer_code() {
+        assert_eq!(
+            csm_error_code(r#"{"errorCode": 13102, "errorMessage": "app not found"}"#),
+            Some(13102)
+        );
+    }
+
+    #[test]
+    fn csm_error_code_none_without_code_or_body() {
+        assert_eq!(csm_error_code(r#"{"errorMessage": "no code here"}"#), None);
+        assert_eq!(csm_error_code("not json at all"), None);
+        assert_eq!(csm_error_code(""), None);
     }
 }

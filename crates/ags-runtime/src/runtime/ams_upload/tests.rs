@@ -872,3 +872,34 @@ async fn test_https_upload_host_does_not_emit_plaintext_warning() {
         sink.messages
     );
 }
+
+#[test]
+fn test_plan_upload_rejects_an_invalid_upload_url_override() {
+    let build = build_directory(64);
+    let mut request = upload_request(build.path());
+    request.upload_url_override = Some("not-a-url".to_string());
+
+    let error = pipeline::plan_upload(&request).unwrap_err();
+
+    assert!(
+        matches!(error, super::AmsUploadError::UploadHostInvalid(ref value) if value == "not-a-url"),
+        "expected UploadHostInvalid(\"not-a-url\"), got: {error:?}"
+    );
+}
+
+#[test]
+fn test_plan_upload_normalises_a_trailing_slash_in_the_upload_url_override() {
+    let build = build_directory(64);
+    let mut request = upload_request(build.path());
+    request.upload_url_override = Some("https://prod.ams.accelbyte.io/".to_string());
+
+    let view = pipeline::plan_upload(&request).unwrap();
+
+    let AmsUploadView::Planned(plan) = view else {
+        panic!("expected a Planned view, got: {view:?}");
+    };
+    assert_eq!(
+        plan.upload_base_url.as_deref(),
+        Some("https://prod.ams.accelbyte.io")
+    );
+}

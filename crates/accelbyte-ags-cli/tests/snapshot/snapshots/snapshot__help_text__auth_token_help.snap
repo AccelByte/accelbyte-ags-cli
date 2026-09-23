@@ -1,0 +1,33 @@
+---
+source: crates/accelbyte-ags-cli/tests/snapshot/help_text.rs
+expression: stdout
+---
+Print the current access token to stdout
+
+  Prints a secret. The token is written to stdout on its own, with
+  nothing else, so a script can reuse this session instead of running
+  its own login:
+
+    curl -H "Authorization: Bearer $(ags auth token)" ...
+
+  The token is resolved exactly as an API call resolves it:
+  AGS_ACCESS_TOKEN first, then the stored token, refreshing it when
+  it has expired. Exits 2 with login guidance when authentication
+  fails, or 4 when the identity service cannot be reached. Stdout is
+  empty in both cases.
+
+  --dry-run is refused because the command's only output would be a
+  live credential.
+
+  Redirect stdout with care: anything that captures it captures a
+  live credential.
+
+  With --format json, outputs the token alongside its expiry and
+  source.
+
+Usage:
+  auth token
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

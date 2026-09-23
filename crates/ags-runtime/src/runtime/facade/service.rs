@@ -1,11 +1,40 @@
 //! Service facade — `Runtime` methods for executing API calls:
 //! `run_command`, `dry_run_command`, and the preview/confirmation pipeline.
 
-use ags_protocol::catalogue::OperationSchema;
+use ags_protocol::catalogue::{OperationId, OperationSchema, ServiceSchema};
 use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
 use ags_protocol::event::ProgressSink;
 use ags_protocol::output::CommandOutput;
 use ags_protocol::request::CommandRequest;
+
+/// Walk a service schema to find the operation with the given id, returning
+/// the resource name, the matched operation, and whether the scope entry
+/// that contains it has more than one API version.
+///
+/// This is a pure function over the loaded schema — no `&mut self`, no I/O —
+/// so it can be tested against synthetic schemas and reused by catalogue-level
+/// tests that walk the real bundled specs.
+pub fn lookup_operation(
+    schema: &ServiceSchema,
+    operation_id: &OperationId,
+) -> Option<(String, OperationSchema, bool)> {
+    for resource in &schema.resources {
+        for method in &resource.methods {
+            for scope_entry in &method.scopes {
+                for contract in &scope_entry.contracts {
+                    if contract.id == *operation_id {
+                        return Some((
+                            resource.name.clone(),
+                            contract.clone(),
+                            scope_entry.has_alternate_versions(),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
 
 impl crate::runtime::Runtime {
     /// Execute a command through the runtime dispatch pipeline.
@@ -14,7 +43,7 @@ impl crate::runtime::Runtime {
         request: &CommandRequest,
         sink: &mut dyn ProgressSink,
     ) -> Result<CommandOutput, RuntimeError> {
-        let (resource_name, operation) = self.find_operation(request)?;
+        let (resource_name, operation, has_alternate_versions) = self.find_operation(request)?;
 
         // Derive display service_name from registry
         let service_name = crate::catalogue::Catalogue::display_name(request.service.as_str())
@@ -59,6 +88,7 @@ impl crate::runtime::Runtime {
             service_name: &service_name,
             resource_name: &resource_name,
             resolution_trace,
+            has_alternate_versions,
         };
         crate::runtime::dispatch::execute_operation(&dispatch, &operation, request, sink).await
     }
@@ -72,7 +102,7 @@ impl crate::runtime::Runtime {
         use crate::runtime::dispatch::requires_confirmation;
         use ags_protocol::result::CommandPreview;
 
-        let (_resource_name, operation) = self.find_operation(request)?;
+        let (_resource_name, operation, _) = self.find_operation(request)?;
 
         // Substitute known path parameters to produce the display URL.
         // Unreplaced `{tokens}` are left as-is — execute_operation validates them.
@@ -111,7 +141,7 @@ impl crate::runtime::Runtime {
     ) -> Result<ags_protocol::result::DryRunResult, RuntimeError> {
         use ags_protocol::result::DryRunResult;
 
-        let (_resource_name, operation) = self.find_operation(request)?;
+        let (_resource_name, operation, _) = self.find_operation(request)?;
 
         // Substitute path parameters with sanitized values. Shares the helper
         // with `execute_operation` so dry-run rejects the same malicious
@@ -141,37 +171,28 @@ impl crate::runtime::Runtime {
         })
     }
 
-    /// Look up the dispatched contract by `operation_id` and return the resource it lives in.
+    /// Look up the dispatched contract by `operation_id` and return the resource
+    /// it lives in, along with whether the containing scope has alternate API
+    /// versions.
     ///
-    /// `operation_id` is unique across every scope/version, so a flat scan over
-    /// all contracts correctly returns the specific contract the user dispatched.
-    /// The returned `OperationSchema` is owned (cloned) so callers can release
-    /// the catalogue borrow.
+    /// Delegates to the pure [`lookup_operation`] function so the walk logic is
+    /// testable against synthetic schemas without I/O.
     fn find_operation(
         &mut self,
         request: &CommandRequest,
-    ) -> Result<(String, OperationSchema), RuntimeError> {
+    ) -> Result<(String, OperationSchema, bool), RuntimeError> {
         let schema = self.catalogue.get_or_load(request.service.as_str())?;
 
-        schema
-            .resources
-            .iter()
-            .find_map(|resource| {
-                resource
-                    .operations()
-                    .find(|operation| operation.id == request.operation_id)
-                    .map(|operation| (resource.name.clone(), operation.clone()))
-            })
-            .ok_or_else(|| RuntimeError {
-                kind: RuntimeErrorKind::Validation,
-                message: format!(
-                    "Operation '{}' not found in service '{}'",
-                    request.operation_id, request.service
-                ),
-                details: None,
-                hint: None,
-                trace: None,
-            })
+        lookup_operation(schema, &request.operation_id).ok_or_else(|| RuntimeError {
+            kind: RuntimeErrorKind::Validation,
+            message: format!(
+                "Operation '{}' not found in service '{}'",
+                request.operation_id, request.service
+            ),
+            details: None,
+            hint: None,
+            trace: None,
+        })
     }
 
     /// Dispatch a read operation and return its **raw** aggregated response body
@@ -188,7 +209,7 @@ impl crate::runtime::Runtime {
         // dynamic-enum option resolver, so the held sink must be `Send`.
         sink: &mut (dyn ProgressSink + Send),
     ) -> Result<serde_json::Value, RuntimeError> {
-        let (resource_name, operation) = self.find_operation(&request)?;
+        let (resource_name, operation, has_alternate_versions) = self.find_operation(&request)?;
         let service_name = crate::catalogue::Catalogue::display_name(request.service.as_str())
             .unwrap_or(request.service.as_str())
             .to_string();
@@ -199,6 +220,7 @@ impl crate::runtime::Runtime {
             service_name: &service_name,
             resource_name: &resource_name,
             resolution_trace: None,
+            has_alternate_versions,
         };
         crate::runtime::dispatch::fetch_raw_body(&dispatch, &operation, &request, items_path, sink)
             .await
@@ -252,6 +274,143 @@ mod tests {
 
         let result = runtime.dry_run_command(&request).unwrap();
         assert!(matches!(result.body, Some(RequestBody::Multipart(_))));
+    }
+}
+
+#[cfg(test)]
+mod lookup_operation_tests {
+    use ags_protocol::catalogue::{
+        ApiVersion, HttpMethod, MethodSchema, MutationClass, OperationId, OperationSchema,
+        ResourceSchema, ScopeEntry, ServiceSchema,
+    };
+
+    use super::lookup_operation;
+
+    /// Build a minimal operation with the given id and version.
+    fn stub_op(id: &str, version: u32, scope: &str) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new(id),
+            name: id.to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: String::new(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: scope.to_string(),
+            api_version: ApiVersion(version),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// The lookup reports `has_alternate_versions = true` when the scope entry
+    /// holding the matched operation has more than one contract.
+    #[test]
+    fn test_lookup_returns_true_for_multi_version_scope() {
+        let schema = ServiceSchema {
+            name: "test-svc".to_string(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "things".to_string(),
+                description: String::new(),
+                methods: vec![MethodSchema {
+                    name: "get".to_string(),
+                    summary: String::new(),
+                    default_scope: Some("admin".to_string()),
+                    scopes: vec![ScopeEntry {
+                        scope: "admin".to_string(),
+                        default_version: ApiVersion(2),
+                        contracts: vec![stub_op("op-v1", 1, "admin"), stub_op("op-v2", 2, "admin")],
+                    }],
+                }],
+            }],
+        };
+        let (resource, _op, has_alt) =
+            lookup_operation(&schema, &OperationId::new("op-v2")).unwrap();
+        assert_eq!(resource, "things");
+        assert!(
+            has_alt,
+            "scope with two contracts should report alternate versions"
+        );
+    }
+
+    /// The lookup reports `has_alternate_versions = false` when the scope entry
+    /// holding the matched operation has exactly one contract.
+    #[test]
+    fn test_lookup_returns_false_for_single_version_scope() {
+        let schema = ServiceSchema {
+            name: "test-svc".to_string(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "things".to_string(),
+                description: String::new(),
+                methods: vec![MethodSchema {
+                    name: "get".to_string(),
+                    summary: String::new(),
+                    default_scope: Some("admin".to_string()),
+                    scopes: vec![ScopeEntry {
+                        scope: "admin".to_string(),
+                        default_version: ApiVersion(1),
+                        contracts: vec![stub_op("only-op", 1, "admin")],
+                    }],
+                }],
+            }],
+        };
+        let (_resource, _op, has_alt) =
+            lookup_operation(&schema, &OperationId::new("only-op")).unwrap();
+        assert!(
+            !has_alt,
+            "scope with one contract should not report alternate versions"
+        );
+    }
+
+    /// When a method has two scopes and only one of them has multiple versions,
+    /// the lookup returns the correct flag for each scope. This proves the
+    /// lookup reads the *containing* scope entry, not the method's first scope.
+    #[test]
+    fn test_lookup_reads_containing_scope_not_method() {
+        let schema = ServiceSchema {
+            name: "test-svc".to_string(),
+            description: String::new(),
+            resources: vec![ResourceSchema {
+                name: "things".to_string(),
+                description: String::new(),
+                methods: vec![MethodSchema {
+                    name: "get".to_string(),
+                    summary: String::new(),
+                    default_scope: Some("admin".to_string()),
+                    scopes: vec![
+                        // admin scope: two versions
+                        ScopeEntry {
+                            scope: "admin".to_string(),
+                            default_version: ApiVersion(2),
+                            contracts: vec![
+                                stub_op("admin-v1", 1, "admin"),
+                                stub_op("admin-v2", 2, "admin"),
+                            ],
+                        },
+                        // public scope: one version
+                        ScopeEntry {
+                            scope: "public".to_string(),
+                            default_version: ApiVersion(1),
+                            contracts: vec![stub_op("public-v1", 1, "public")],
+                        },
+                    ],
+                }],
+            }],
+        };
+
+        // Operation in the multi-version scope
+        let (_, _, has_alt) = lookup_operation(&schema, &OperationId::new("admin-v1")).unwrap();
+        assert!(has_alt, "admin scope has two versions");
+
+        // Operation in the single-version scope
+        let (_, _, has_alt) = lookup_operation(&schema, &OperationId::new("public-v1")).unwrap();
+        assert!(!has_alt, "public scope has one version");
     }
 }
 

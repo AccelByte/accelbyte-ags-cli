@@ -21,6 +21,9 @@ mod completions_enum_permissive;
 mod completions_full_tree;
 #[path = "functional/config/mod.rs"]
 mod config;
+
+#[path = "functional/app_lifecycle_wait.rs"]
+mod app_lifecycle_wait;
 #[path = "functional/describe/mod.rs"]
 mod describe;
 #[path = "functional/docker_login.rs"]
@@ -51,10 +54,16 @@ mod profile;
 mod root;
 #[path = "functional/season_pass.rs"]
 mod season_pass;
+#[path = "functional/security_assessment_render.rs"]
+mod security_assessment_render;
 #[path = "functional/skeleton/mod.rs"]
 mod skeleton;
 #[path = "functional/update_check.rs"]
 mod update_check;
+#[path = "functional/update_command.rs"]
+mod update_command;
+#[path = "functional/update_install.rs"]
+mod update_install;
 #[path = "functional/workflow_add_template.rs"]
 mod workflow_add_template;
 #[path = "functional/workflow_list.rs"]

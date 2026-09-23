@@ -414,6 +414,10 @@ pub fn shape_response(
     resource_name: &str,
     is_verbose: bool,
 ) -> CommandResult {
+    if let Some(result) = super::shape_overrides::find(operation.id.as_str(), body) {
+        return result;
+    }
+
     let intent = CommandIntent::from_operation(operation);
 
     match detect_shape(body) {
@@ -494,6 +498,7 @@ fn shape_collection(
         columns,
         rows,
         page_info,
+        notes: vec![],
     })
 }
 
@@ -836,6 +841,161 @@ mod tests {
         assert_eq!(
             collection.rows[0].cells,
             vec![FieldValue::Text("us-east-1".to_string())]
+        );
+    }
+
+    /// `shape_response` routes `csm/admin/security-assessment/v1/list` through
+    /// the `shape_overrides` mechanism instead of the generic field-priority
+    /// ranker — the wiring the generic-path tests above can't exercise, since
+    /// they never match a `shape_overrides::find` operation id.
+    #[test]
+    fn test_shape_response_routes_security_assessment_list_to_shape_override() {
+        use ags_protocol::catalogue::{ApiVersion, HttpMethod, MutationClass, OperationId};
+        let body = json!({
+            "pentestings": [{
+                "engagementId": 42,
+                "targetApp": "my-service",
+                "createdAt": "2026-08-10T10:17:56Z",
+                "endpoints": [{"path": "/a"}],
+                "targetAppVersion": "v1.0.0",
+                "status": "COMPLETED"
+            }]
+        });
+        let operation = OperationSchema {
+            id: OperationId::new("csm/admin/security-assessment/v1/list"),
+            name: "list".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: "/pentestings".to_string(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        };
+        let result = shape_response(&body, &operation, "security-assessment", false);
+        let CommandResult::Collection(collection) = result else {
+            panic!("expected Collection, got {result:?}");
+        };
+        let labels: Vec<&str> = collection
+            .columns
+            .iter()
+            .map(|c| c.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "ID",
+                "App Name",
+                "Requested At",
+                "Endpoints",
+                "Image Tag",
+                "Status"
+            ],
+            "the shape override should win over the generic 4-column limit"
+        );
+        assert_eq!(
+            collection.rows[0].cells[2],
+            FieldValue::Text("Aug 10, 2026, 10:17:56 UTC".to_string())
+        );
+    }
+
+    /// `shape_response` strips terminal control sequences from the
+    /// `createdAt` field when it passes through the override path via
+    /// `requested_at` (which falls back to the raw string on parse failure).
+    #[test]
+    fn test_shape_response_strips_control_sequences_from_security_assessment_list() {
+        use ags_protocol::catalogue::{ApiVersion, HttpMethod, MutationClass, OperationId};
+        let body = json!({
+            "pentestings": [{
+                "engagementId": 1,
+                "targetApp": "svc",
+                "createdAt": "\u{1b}]0;PWNED\u{7}not-a-date",
+                "endpoints": [],
+                "targetAppVersion": "v1",
+                "status": "OK"
+            }]
+        });
+        let operation = OperationSchema {
+            id: OperationId::new("csm/admin/security-assessment/v1/list"),
+            name: "list".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: "/pentestings".to_string(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        };
+        let result = shape_response(&body, &operation, "security-assessment", false);
+        let CommandResult::Collection(collection) = result else {
+            panic!("expected Collection, got {result:?}");
+        };
+        assert_eq!(
+            collection.rows[0].cells[2],
+            FieldValue::Text("not-a-date".to_string()),
+            "the Requested At cell must not contain terminal control sequences"
+        );
+    }
+
+    /// `shape_response` strips terminal control sequences from the
+    /// permission cell when it passes through the override path via
+    /// `permission_cell`, which formats `resource` and `action` directly.
+    #[test]
+    fn test_shape_response_strips_control_sequences_from_security_assessment_endpoints() {
+        use ags_protocol::catalogue::{ApiVersion, HttpMethod, MutationClass, OperationId};
+        let body = json!({
+            "endpoints": [{
+                "method": "GET",
+                "path": "/test",
+                "operationId": "op1",
+                "requireAuthentication": true,
+                "permission": {
+                    "resource": "\u{1b}]0;PWNED\u{7}NAMESPACE:ns:APP",
+                    "action": "\u{1b}[31mREAD\u{1b}[0m"
+                }
+            }],
+            "hasAPISpec": true,
+            "hasGRPCReflection": false,
+            "isAppRunning": true,
+            "maximumSelectableEndpoints": 20
+        });
+        let operation = OperationSchema {
+            id: OperationId::new("csm/admin/security-assessment/v1/get-app-endpoints"),
+            name: "get-app-endpoints".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: "/endpoints".to_string(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(1),
+            deprecated: false,
+            response_content_type: None,
+        };
+        let result = shape_response(&body, &operation, "security-assessment", false);
+        let CommandResult::Collection(collection) = result else {
+            panic!("expected Collection, got {result:?}");
+        };
+        assert_eq!(
+            collection.rows[0].cells[3],
+            FieldValue::Text("NAMESPACE:ns:APP [READ]".to_string()),
+            "the Permission cell must not contain terminal control sequences"
         );
     }
 }

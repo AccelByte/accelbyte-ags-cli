@@ -107,9 +107,12 @@ async fn test_upload_end_to_end_renders_the_created_image() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("uploaded"), "{stdout}");
-    assert!(stderr.contains("img-e2e"), "{stderr}");
-    assert!(stderr.contains("linux-x86_64"), "{stderr}");
+    // The result rows are read from stdout, the banner from stderr.
+    assert!(stdout.contains("img-e2e"), "{stdout}");
+    assert!(stdout.contains("linux-x86_64"), "{stdout}");
+    assert!(stderr.contains("uploaded"), "{stderr}");
+    // The first progress line is a normal stderr line, so a captured run keeps it.
+    assert!(stderr.contains("Validating"), "{stderr}");
 
     let complete = server
         .received_requests()

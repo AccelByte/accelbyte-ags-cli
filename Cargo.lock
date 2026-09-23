@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "accelbyte-ags-cli"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ags-protocol",
  "ags-runtime",
@@ -29,6 +29,7 @@ dependencies = [
  "reqwest 0.12.28",
  "rpassword",
  "rustls",
+ "semver",
  "serde",
  "serde_json",
  "serial_test",
@@ -54,7 +55,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "ags-protocol"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -64,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "ags-runtime"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ags-protocol",
  "anyhow",
@@ -822,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "extend-proxy-client"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "base64",
  "futures-util",
@@ -2481,9 +2482,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.43"
+version = "0.23.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0283386ce02abc0151e1761d08802dfe86c173b0b494af5cbc086574e453da06"
+checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -2978,7 +2979,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.4",
  "windows-sys 0.61.2",

@@ -81,8 +81,8 @@ pub struct HttpResponse {
 /// Maximum response body size (10 MB). Prevents memory exhaustion from oversized responses.
 const MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
 
-/// Default overall request timeout when the caller configures none.
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+/// Default request timeout in seconds when --timeout is not given.
+pub const DEFAULT_TIMEOUT_SECS: u64 = 60;
 
 /// Connection-establishment timeout.
 const CONNECT_TIMEOUT_SECS: u64 = 30;

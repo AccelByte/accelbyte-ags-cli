@@ -14,14 +14,16 @@
 pub use super::output_views::{
     AmsEntrypointKind, AmsUploadOutput, AmsUploadPlan, AmsUploadResult, AmsUploadView, ApiBody,
     ApiOutput, ApiSuccess, AppUiUploadOutput, AuthActionData, AuthActionStatus, AuthOutput,
-    AuthSource, AuthStatusData, AuthView, BinaryWrittenDestination, BinaryWrittenOutput,
-    CloneTemplateOutput, CommandIntent, CompletionsOutput, ConfigOutput, ConfigView,
-    DescribeOutput, ExecutionTrace, FieldEntry, LogoutAllData, LogoutData, OperationWarning,
-    Presence, ProfileOutput, ProfileShowData, ProfileSummary, ProfileView, RefreshMode,
-    RefreshSpecsOutput, RequestTrace, ResolutionTrace, ResponseTrace, Section, SetupEnvOutput,
-    SetupEnvStatus, SkeletonOutput, TokenState, UpdateSecretOutput, UpdateVarOutput, VersionOutput,
-    WorkflowAddOutput, WorkflowCompletionView, WorkflowOutputItem, WorkflowOutputProvenance,
-    WorkflowOutputView, WorkflowRemoveOutput, WorkflowTemplateOutput,
+    AuthSource, AuthStatusData, AuthTokenData, AuthTokenSource, AuthView, BinaryWrittenDestination,
+    BinaryWrittenOutput, CloneTemplateOutput, CommandIntent, CompletionsOutput, ConfigOutput,
+    ConfigView, DescribeOutput, ExecutionTrace, FieldEntry, InstallMethod, LogoutAllData,
+    LogoutData, OperationWarning, Presence, ProfileOutput, ProfileShowData, ProfileSummary,
+    ProfileView, RefreshMode, RefreshSpecsOutput, RequestTrace, ResolutionTrace, ResponseTrace,
+    Section, SecurityAssessmentRequestOutput, SecurityAssessmentResultOutput, SetupEnvOutput,
+    SetupEnvStatus, SkeletonOutput, TokenState, UpdateInstallAction, UpdateInstallOutput,
+    UpdateOutput, UpdateSecretOutput, UpdateVarOutput, VersionOutput, WorkflowAddOutput,
+    WorkflowCompletionView, WorkflowOutputItem, WorkflowOutputProvenance, WorkflowOutputView,
+    WorkflowRemoveOutput, WorkflowTemplateOutput,
 };
 
 /// Top-level output produced by any command before rendering.
@@ -99,6 +101,10 @@ pub enum CommandOutput {
     AppUiUpload(AppUiUploadOutput),
     /// Output from `ags extend update-var`
     UpdateVar(UpdateVarOutput),
+    /// Output from `ags extend security-assessment request`
+    SecurityAssessmentRequest(SecurityAssessmentRequestOutput),
+    /// Output from `ags extend security-assessment result`
+    SecurityAssessmentResult(SecurityAssessmentResultOutput),
     /// Outcome of `ags workflow add <path>`
     WorkflowAdd(WorkflowAddOutput),
     /// Outcome of `ags workflow template`
@@ -112,4 +118,9 @@ pub enum CommandOutput {
     BinaryWritten(BinaryWrittenOutput),
     /// Output from `ags extend update-secret`
     UpdateSecret(UpdateSecretOutput),
+    /// Output from `ags update`: version comparison, install method, and
+    /// upgrade instruction.
+    Update(UpdateOutput),
+    /// Output from `ags update --install`: upgrade outcome or dry-run preview.
+    UpdateInstall(UpdateInstallOutput),
 }

@@ -104,7 +104,7 @@ fn write_stdout(text: &str, options: &RenderOptions) -> Result<(), crate::errors
 }
 
 /// Convert an output-sink error into the CLI's top-level error type.
-fn map_output_sink_error_to_cli_error(
+pub(crate) fn map_output_sink_error_to_cli_error(
     err: ags_runtime::support::output_sink::OutputSinkError,
 ) -> crate::errors::CliError {
     use ags_runtime::support::output_sink::OutputSinkError;

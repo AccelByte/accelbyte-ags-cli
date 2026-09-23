@@ -16,7 +16,7 @@ pub(crate) fn is_builtin_command(first: &str) -> bool {
         || matches!(
             first,
             "help" | "completions" | "config" | "extend" | "profile" | "describe"
-                | "doctor" | "refresh-specs" | "version" | "workflow"
+                | "doctor" | "refresh-specs" | "update" | "version" | "workflow"
         )
 }
 
@@ -185,6 +185,11 @@ async fn route(
         return handlers::refresh_specs::handle_refresh_specs(&remaining[1..], flags, frontend);
     }
 
+    if first == "update" {
+        return handlers::update::handle_update(&remaining[1..], flags, frontend, frontend_context)
+            .await;
+    }
+
     if first == "version" {
         handlers::version::handle_version(flags, frontend)?;
         return Ok(InvocationOutcome::Complete);
@@ -319,6 +324,7 @@ mod run_contract_tests {
             "describe",
             "doctor",
             "refresh-specs",
+            "update",
             "version",
             "workflow",
         ] {

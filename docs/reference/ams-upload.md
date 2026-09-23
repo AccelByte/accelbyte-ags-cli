@@ -81,6 +81,7 @@ reach an existing token: see the refresh row in the table below.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `403 token is missing required permissions` while creating the image | The identity lacks `AMS:UPLOAD` | Grant `AMS:UPLOAD` with `Create` + `Update`, **un-prefixed**, then re-authenticate |
+| `403 token is missing required permissions` while finalizing or completing the upload | The identity has `Create` but not `Update` on `AMS:UPLOAD` — everything uploads, then the last call fails | Add the `Update` action to `AMS:UPLOAD`, then re-authenticate |
 | Upload succeeds, but `ags ams images list` returns `20013 You do not have permission` | Has `AMS:UPLOAD` but not `AMS:IMAGE` | Add `ADMIN:NAMESPACE:{namespace}:AMS:IMAGE` with `Read` |
 | `404 no account associated with namespace <ns>` | The client's namespace has no AMS account | Use a client in a namespace with AMS enabled |
 | Permission change appears to have no effect | The token predates the change | `ags auth refresh` after a client-credentials login. After a **browser** login a full `ags auth login` is required — refresh does not recompute role grants |

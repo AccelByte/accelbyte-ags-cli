@@ -3107,6 +3107,7 @@ mod build_final_output_tests {
             success: None,
             trace: None,
             raw_body: None,
+            has_alternate_versions: false,
         }
     }
 

@@ -97,6 +97,7 @@ fn build_root_shell() -> Command {
     root = root.subcommand(build_describe_command());
     root = root.subcommand(build_doctor_command());
     root = root.subcommand(build_refresh_specs_command());
+    root = root.subcommand(build_update_command());
     root = root.subcommand(build_extend_command());
 
     root
@@ -213,6 +214,29 @@ pub fn build_auth_command() -> Command {
                      \x20 or stored credentials), base URL, client ID, token expiry time,\n\
                      \x20 and whether a refresh token is available.\n\n\
                      \x20 With --format json, outputs full auth state as machine-readable JSON.",
+                ),
+        )
+        .subcommand(
+            Command::new("token")
+                .help_template(auth_help_template.clone())
+                .about("Print the current access token to stdout")
+                .long_about(
+                    "Print the current access token to stdout\n\n\
+                     \x20 Prints a secret. The token is written to stdout on its own, with\n\
+                     \x20 nothing else, so a script can reuse this session instead of running\n\
+                     \x20 its own login:\n\n\
+                     \x20   curl -H \"Authorization: Bearer $(ags auth token)\" ...\n\n\
+                     \x20 The token is resolved exactly as an API call resolves it:\n\
+                     \x20 AGS_ACCESS_TOKEN first, then the stored token, refreshing it when\n\
+                     \x20 it has expired. Exits 2 with login guidance when authentication\n\
+                     \x20 fails, or 4 when the identity service cannot be reached. Stdout is\n\
+                     \x20 empty in both cases.\n\n\
+                     \x20 --dry-run is refused because the command's only output would be a\n\
+                     \x20 live credential.\n\n\
+                     \x20 Redirect stdout with care: anything that captures it captures a\n\
+                     \x20 live credential.\n\n\
+                     \x20 With --format json, outputs the token alongside its expiry and\n\
+                     \x20 source.",
                 ),
         )
         .subcommand(
@@ -483,6 +507,46 @@ pub fn build_refresh_specs_command() -> Command {
         )
 }
 
+/// Build the `ags update` command.
+pub fn build_update_command() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("update")
+        .help_template(template)
+        .about("Check for a newer release and show how to install it")
+        .long_about(
+            "Check for a newer release and show how to install it\n\n\
+             \x20 Asks GitHub for the latest release, compares it with this build,\n\
+             \x20 and prints the upgrade instruction for the way this copy was\n\
+             \x20 installed. It does not download or modify anything.\n\n\
+             \x20 With --install, downloads the newest release's installer script\n\
+             \x20 and runs it for this copy, after asking for confirmation. Never\n\
+             \x20 runs unless typed. When an update is available, refuses for a copy\n\
+             \x20 installed with Homebrew; run brew upgrade instead.\n\n\
+             \x20 Exit code 0 in both outcomes; 4 when GitHub cannot be reached,\n\
+             \x20 answers with an error status, or answers with a tag that is not a release version.\n\n\
+             \x20 With --install: exit 0 when installed or already current; 1 when\n\
+             \x20 --no-input is given without --yes or the copy was installed with\n\
+             \x20 Homebrew; 2 when the confirmation is declined or the upgrade is\n\
+             \x20 interrupted; 4 when the installer script cannot be downloaded;\n\
+             \x20 5 when it cannot be saved, the installer fails, the new binary\n\
+             \x20 does not verify, or the previous binary could not be restored.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("install")
+                .long("install")
+                .action(clap::ArgAction::SetTrue)
+                .help(
+                    "Download the newest release's installer script and run it \
+                     for this copy, after asking for confirmation",
+                ),
+        )
+}
+
 /// Build the `ags extend` command tree: Extend-platform tooling and
 /// migration shortcuts.
 ///
@@ -515,14 +579,21 @@ pub fn build_extend_command() -> Command {
         .subcommand(build_update_var_subcommand());
 
     // The shim layer creates hidden parent groups (e.g. `app-ui` for the
-    // `create` migration shortcut). After shim registration, promote
-    // `app-ui` to visible and add the native `setup-env` subcommand.
+    // `create` migration shortcut, `security-assessment` for `list` /
+    // `list-endpoints`). After shim registration, promote each to visible
+    // and add its native (non-shimmed) subcommands.
     let cmd = service_shims::add_shim_subcommands(cmd);
     let cmd = cmd.mut_subcommand("app-ui", |sub| {
         sub.hide(false)
             .about("App UI commands")
             .subcommand(build_setup_env_subcommand())
             .subcommand(build_upload_subcommand())
+    });
+    let cmd = cmd.mut_subcommand("security-assessment", |sub| {
+        sub.hide(false)
+            .about("Pen-testing engagement requests and reports for Extend apps")
+            .subcommand(build_security_assessment_result_subcommand())
+            .subcommand(build_security_assessment_request_subcommand())
     });
 
     // Build the `remote-debug` group natively with all three subcommands.
@@ -729,6 +800,142 @@ fn build_docker_login_subcommand() -> Command {
         )
         .arg(crate::invocation::compat_flags::DOCKER_LOGIN_LOGIN.to_arg())
         .arg(crate::invocation::compat_flags::DOCKER_LOGIN_VERBOSITY.to_arg())
+}
+
+/// Build the `security-assessment` subcommand under `extend`, with its
+/// `list`, `list-endpoints`, `result`, and `request` actions.
+///
+/// `list` and `list-endpoints` are registered as `service_shims` entries
+/// instead, rewriting straight to `ags csm security-assessment
+/// {list,get-app-endpoints}`. `result` and `request` are native.
+///
+/// Build the `result` subcommand under `security-assessment`.
+fn build_security_assessment_result_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("result")
+        .help_template(template)
+        .about("Download a completed security-assessment engagement's report")
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("report-format")
+                .long("report-format")
+                .help("Report file format")
+                .value_name("pdf|md")
+                .default_value("pdf"),
+        )
+        .arg(
+            // Named `--report-output`, not `--output` — the latter is
+            // already a reserved global flag (writes a response body to a
+            // file), pre-scanned out of argv before any subcommand flag is
+            // parsed. Same naming-collision fix as `--report-format` above.
+            Arg::new("report-output")
+                .long("report-output")
+                .short('o')
+                .help("Local file path to write the report to (default: <app>-<engagementId>-report.<ext>)")
+                .value_name("path"),
+        )
+        .arg(
+            Arg::new("engagement-id")
+                .long("engagement-id")
+                .help("Engagement id to fetch the report for, skipping the interactive picker")
+                .value_name("id"),
+        )
+}
+
+/// Build the `request` subcommand under `security-assessment`.
+///
+/// Without `--all-endpoints`/`--operation-ids`, prompts interactively through
+/// a single-screen endpoint checklist (requires a real terminal). `--permission`
+/// is repeatable, one per endpoint needing a permission override.
+fn build_security_assessment_request_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("request")
+        .help_template(template)
+        .about("Request a security assessment (pen-testing engagement) for an Extend app")
+        .long_about(
+            "Request a security assessment (pen-testing engagement) for an Extend app.\n\n\
+             Discovers the app's testable endpoints and, without --all-endpoints or\n\
+             --operation-ids, prompts interactively through a checklist to choose which\n\
+             to include and to supply permissions where none was auto-discovered.\n\n\
+             Warns before submitting if any selected endpoint can modify or delete data.\n\n\
+             With --wait, blocks after submitting until the engagement reaches a terminal\n\
+             state (COMPLETED or FAILED), polling every 10s up to --wait-limit seconds\n\
+             (default 1800) and printing the current status each poll (suppressed by\n\
+             --quiet). A Ctrl-C during the wait only stops the local wait — the engagement\n\
+             keeps running; check its status later with\n\
+             'ags extend security-assessment list --namespace <namespace>'.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n      \
+             --yes                        Skip the mutating-endpoint confirmation\n      \
+             --dry-run                    Preview without requesting an assessment\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("all-endpoints")
+                .long("all-endpoints")
+                .help("Select every discovered endpoint (non-interactive)")
+                .action(clap::ArgAction::SetTrue)
+                .conflicts_with("operation-ids"),
+        )
+        .arg(
+            Arg::new("operation-ids")
+                .long("operation-ids")
+                .help("Select exactly these endpoints by operation id (non-interactive)")
+                .value_name("id1,id2,..."),
+        )
+        .arg(
+            Arg::new("permission")
+                .long("permission")
+                .help("Permission override for one endpoint, repeatable")
+                .value_name("operationId=RESOURCE [ACTION]")
+                .action(clap::ArgAction::Append),
+        )
+        .arg(
+            Arg::new("wait")
+                .long("wait")
+                .help("Block until the engagement reaches a terminal state (COMPLETED or FAILED)")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("wait-limit")
+                .long("wait-limit")
+                .help("Maximum seconds to wait before giving up (default 1800)")
+                .value_name("SECONDS")
+                .value_parser(clap::value_parser!(u64))
+                .requires("wait"),
+        )
 }
 
 /// Build the `update-var` subcommand under `extend`.

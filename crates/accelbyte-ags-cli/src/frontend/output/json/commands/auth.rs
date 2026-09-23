@@ -14,13 +14,25 @@ use ags_protocol::output::{
 /// Render auth command output as JSON
 pub(crate) fn render_auth_output(
     output: &AuthOutput,
-    _options: &RenderOptions,
+    options: &RenderOptions,
 ) -> Result<RenderedOutput, CliError> {
     Ok(RenderedOutput {
         stdout: Some(render_auth_view_json(&output.view)?),
-        stderr: None,
+        stderr: render_auth_stderr(&output.view, options),
         is_stdout_first: true,
     })
+}
+
+/// Render the stderr half of an auth view: today only `auth token`'s
+/// resolution warnings, which must not land on the stdout a caller is capturing.
+fn render_auth_stderr(view: &AuthView, options: &RenderOptions) -> Option<String> {
+    let AuthView::Token(data) = view else {
+        return None;
+    };
+    if options.verbosity.is_quiet() || data.warnings.is_empty() {
+        return None;
+    }
+    Some(data.warnings.join("\n"))
 }
 
 /// Serialize an auth view to pretty-printed JSON
@@ -73,6 +85,25 @@ fn render_auth_view_json(view: &AuthView) -> Result<String, CliError> {
             if let Some(tip) = &data.tip {
                 object.insert("tip".to_string(), Value::String(tip.clone()));
             }
+            Value::Object(object)
+        }
+        AuthView::Token(data) => {
+            let mut object = serde_json::Map::new();
+            object.insert(
+                "access_token".to_string(),
+                Value::String(data.access_token.clone()),
+            );
+            object.insert(
+                "expires_at".to_string(),
+                match data.expires_at {
+                    Some(expires_at) => Value::Number(expires_at.into()),
+                    None => Value::Null,
+                },
+            );
+            object.insert(
+                "source".to_string(),
+                Value::String(auth_presenter::token_source_label(data.source).to_string()),
+            );
             Value::Object(object)
         }
         AuthView::LogoutSuccess(_) => {
@@ -183,6 +214,85 @@ mod tests {
             json.get("tip").is_none(),
             "absent optional fields must be omitted"
         );
+    }
+
+    #[test]
+    fn test_token_json_carries_token_expiry_and_source() {
+        use ags_protocol::output::{AuthTokenData, AuthTokenSource, AuthView};
+        let view = AuthView::Token(AuthTokenData {
+            access_token: "secret-token".to_string(),
+            expires_at: Some(1_800_000_000),
+            source: AuthTokenSource::Refreshed,
+            warnings: vec![],
+        });
+        let rendered = render_auth_view_json(&view).expect("json render");
+        let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(json["access_token"], "secret-token");
+        assert_eq!(json["expires_at"], 1_800_000_000u64);
+        assert_eq!(json["source"], "refreshed");
+    }
+
+    #[test]
+    fn test_token_json_states_an_absent_expiry_as_null() {
+        use ags_protocol::output::{AuthTokenData, AuthTokenSource, AuthView};
+        let view = AuthView::Token(AuthTokenData {
+            access_token: "secret-token".to_string(),
+            expires_at: None,
+            source: AuthTokenSource::Environment,
+            warnings: vec![],
+        });
+        let rendered = render_auth_view_json(&view).expect("json render");
+        let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        // Null rather than omitted: a caller reading `expires_at` must be able
+        // to tell "no expiry is known" from "this build does not report one".
+        assert!(json.get("expires_at").is_some(), "field must be present");
+        assert!(json["expires_at"].is_null());
+        assert_eq!(json["source"], "env");
+    }
+
+    #[test]
+    fn test_token_warnings_go_to_stderr_and_never_to_stdout() {
+        use ags_protocol::output::{AuthOutput, AuthTokenData, AuthTokenSource, AuthView};
+        let output = AuthOutput {
+            view: AuthView::Token(AuthTokenData {
+                access_token: "secret-token".to_string(),
+                expires_at: None,
+                source: AuthTokenSource::Stored,
+                warnings: vec!["keychain unavailable; using file storage".to_string()],
+            }),
+        };
+        let rendered = render_auth_output(&output, &RenderOptions::default()).unwrap();
+        let stdout = rendered.stdout.expect("token JSON on stdout");
+        assert!(
+            !stdout.contains("keychain unavailable"),
+            "a warning on stdout would corrupt the JSON a caller parses: {stdout}"
+        );
+        assert_eq!(
+            rendered.stderr.as_deref(),
+            Some("keychain unavailable; using file storage")
+        );
+    }
+
+    #[test]
+    fn test_token_quiet_drops_warnings_but_keeps_the_payload() {
+        use ags_protocol::output::{AuthOutput, AuthTokenData, AuthTokenSource, AuthView};
+        let output = AuthOutput {
+            view: AuthView::Token(AuthTokenData {
+                access_token: "secret-token".to_string(),
+                expires_at: None,
+                source: AuthTokenSource::Stored,
+                warnings: vec!["keychain unavailable; using file storage".to_string()],
+            }),
+        };
+        let options = RenderOptions {
+            verbosity: ags_protocol::request::Verbosity::Quiet,
+            ..RenderOptions::default()
+        };
+        let rendered = render_auth_output(&output, &options).unwrap();
+        assert!(rendered.stderr.is_none(), "--quiet drops the warning");
+        // The token is the command's payload, not chrome: --quiet must not
+        // silence it, or `ags --quiet auth token` returns nothing at all.
+        assert!(rendered.stdout.unwrap().contains("secret-token"));
     }
 
     #[test]

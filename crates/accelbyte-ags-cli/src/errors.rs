@@ -14,6 +14,13 @@ pub enum ApiErrorCategory {
     NotFound,
     /// 400/422 — the server rejected the request shape.
     Rejected,
+    /// A client-side `--wait` limit elapsed before the operation reached a
+    /// terminal state. Distinct from `Upstream` so a CI caller can tell "the
+    /// rollout failed, do not retry" (a failed terminal state → `Upstream`,
+    /// exit 3) apart from "the wait timed out, the operation may still land"
+    /// (this → its own exit code). The server returned no error here; the CLI
+    /// simply stopped waiting.
+    Timeout,
     /// Any other upstream HTTP status (5xx, or an unmapped 4xx).
     Upstream,
 }
@@ -79,11 +86,22 @@ pub struct ErrorView {
 }
 
 impl CliError {
-    /// Return the numeric exit code for this error category
+    /// Return the numeric exit code for this error category.
+    ///
+    /// Each `CliError` variant maps to a distinct code; the one place a
+    /// sub-category refines the code is `ApiErrorCategory::Timeout`, which
+    /// exits 6 rather than the generic Api 3. A `--wait` that timed out is not
+    /// the same as a rollout the server actively failed — a CI caller keys
+    /// "may still land, safe to re-check" (6) apart from "failed, do not blindly
+    /// retry" (3) on the exit code alone, without string-matching messages.
     pub fn exit_code(&self) -> i32 {
         match self {
             CliError::Usage { .. } => 1,
             CliError::Auth { .. } => 2,
+            CliError::Api {
+                category: ApiErrorCategory::Timeout,
+                ..
+            } => 6,
             CliError::Api { .. } => 3,
             CliError::Network { .. } => 4,
             CliError::Internal(_) => 5,
@@ -101,6 +119,7 @@ impl CliError {
                 ApiErrorCategory::Permission => "permission",
                 ApiErrorCategory::NotFound => "not_found",
                 ApiErrorCategory::Rejected => "rejected",
+                ApiErrorCategory::Timeout => "timeout",
                 ApiErrorCategory::Upstream => "upstream",
             },
             CliError::Network { .. } => "network",
@@ -344,6 +363,38 @@ mod tests {
             .exit_code(),
             3
         );
+    }
+
+    /// A `--wait` timeout returns exit code 6 — distinct from a server-failed
+    /// rollout (Api/Upstream, exit 3) so a CI caller can tell "timed out, may
+    /// still land" from "failed, do not retry" on the exit code alone.
+    #[test]
+    fn test_exit_code_api_timeout_is_distinct_from_upstream() {
+        let timeout = CliError::Api {
+            message: "timeout waiting for deployment".into(),
+            metadata: None,
+            category: ApiErrorCategory::Timeout,
+        };
+        let upstream = CliError::Api {
+            message: "deployment failed".into(),
+            metadata: None,
+            category: ApiErrorCategory::Upstream,
+        };
+        assert_eq!(timeout.exit_code(), 6);
+        assert_eq!(upstream.exit_code(), 3);
+        assert_ne!(timeout.exit_code(), upstream.exit_code());
+    }
+
+    /// The timeout category has its own telemetry class, so a timed-out wait is
+    /// not collapsed into the generic `upstream` bucket.
+    #[test]
+    fn test_timeout_telemetry_class_is_timeout() {
+        let err = CliError::Api {
+            message: "timeout".into(),
+            metadata: None,
+            category: ApiErrorCategory::Timeout,
+        };
+        assert_eq!(err.telemetry_class(), "timeout");
     }
 
     /// Internal errors return exit code 5 to signal an unexpected bug rather than a user mistake

@@ -19,6 +19,10 @@ pub(crate) struct ApiCallContext<'a> {
     pub service_name: &'a str,
     pub resource_name: &'a str,
     pub resolution_trace: Option<ags_protocol::output::ResolutionTrace>,
+    /// Whether the scope entry that resolved this operation has more than one
+    /// API version. Threaded from the catalogue lookup to `ApiOutput` so the
+    /// human renderer can decide whether to show the version label.
+    pub has_alternate_versions: bool,
 }
 
 /// Execute an API operation.
@@ -65,6 +69,7 @@ pub(crate) async fn execute_operation(
                 // No trailing full stop: this is a status line, not a sentence,
                 // matching the other success lines ("Token refreshed", etc.).
                 summary: format!("{} {}", verb, noun),
+                api_version: operation.api_version,
             })
         } else {
             None
@@ -162,6 +167,7 @@ pub(crate) async fn execute_operation(
             success,
             trace,
             raw_body,
+            has_alternate_versions: ctx.has_alternate_versions,
         })))
     } else {
         sink.on_event(ProgressEvent::Finished);
@@ -665,6 +671,77 @@ mod progress_event_order_tests {
         }
     }
 
+    /// Build a minimal mutating POST operation at a specific API version.
+    fn make_mutating_post_operation(version: u32) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new("createItem"),
+            name: "create".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::Mutating,
+            http_method: HttpMethod::Post,
+            path_template: "/items".to_string(),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: String::new(),
+            api_version: ApiVersion(version),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// `ApiSuccess` carries the operation's `api_version` so renderers can
+    /// show which contract version was used without parsing the summary.
+    #[tokio::test]
+    async fn test_api_success_carries_api_version_for_mutating_call() {
+        let client = RecordingClient::default();
+        let operation = make_mutating_post_operation(3);
+        let ctx = ApiCallContext {
+            client: &client,
+            base_url: "https://example.com",
+            token: "fake-token",
+            service_name: "social",
+            resource_name: "stat-definitions",
+            resolution_trace: None,
+            has_alternate_versions: false,
+        };
+        let request = CommandRequest {
+            service: crate::catalogue::Catalogue::find_id("social").expect("social in manifest"),
+            operation_id: OperationId::new("createItem"),
+            namespace: None,
+            path_params: BTreeMap::new(),
+            query_params: BTreeMap::new(),
+            header_params: BTreeMap::new(),
+            form_params: BTreeMap::new(),
+            body: None,
+            output_format: OutputFormat::Human,
+            pagination: PaginationHint::Auto,
+            verbosity: Verbosity::Normal,
+            output: None,
+        };
+        let mut sink = RecordingSink::default();
+        let result = execute_operation(&ctx, &operation, &request, &mut sink)
+            .await
+            .expect("execute_operation should succeed");
+
+        let api_output = match result {
+            CommandOutput::Service(ref output) => output,
+            other => panic!("expected Service output, got: {other:?}"),
+        };
+        let success = api_output
+            .success
+            .as_ref()
+            .expect("mutating call must produce ApiSuccess");
+
+        assert_eq!(
+            success.api_version,
+            ApiVersion(3),
+            "ApiSuccess must carry the operation's api_version"
+        );
+    }
+
     /// A formData operation with one text-only parameter — no path/query
     /// params, no body (this test exercises the body-wiring bug, which
     /// affects any formData operation, not just file-typed ones).
@@ -705,6 +782,7 @@ mod progress_event_order_tests {
             service_name: "svc",
             resource_name: "import",
             resolution_trace: None,
+            has_alternate_versions: false,
         };
         let request = CommandRequest {
             service: crate::catalogue::Catalogue::find_id("csm").expect("csm in manifest"),
@@ -764,6 +842,7 @@ mod progress_event_order_tests {
             service_name: "iam",
             resource_name: "roles",
             resolution_trace: None,
+            has_alternate_versions: false,
         };
 
         let request = CommandRequest {
@@ -859,6 +938,7 @@ mod progress_event_order_tests {
             service_name: "iam",
             resource_name: "roles",
             resolution_trace: None,
+            has_alternate_versions: false,
         };
         let request = CommandRequest {
             service: crate::catalogue::Catalogue::find_id("iam").expect("iam in manifest"),
@@ -907,6 +987,7 @@ mod progress_event_order_tests {
             service_name: "ams",
             resource_name: "images",
             resolution_trace: None,
+            has_alternate_versions: false,
         };
         let request = CommandRequest {
             service: crate::catalogue::Catalogue::find_id("ams").expect("ams in manifest"),

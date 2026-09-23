@@ -560,7 +560,7 @@ pub(crate) async fn execute_compiled_workflow(
         let _ = crate::frontend::streams::UiSink.write_all(format!("{styled}\n").as_bytes());
     }
 
-    let (outcome, telemetry_client) = phase_result?;
+    let (outcome, telemetry_client, _final_raw_body) = phase_result?;
 
     // Flush the exact `TelemetryClient` instance that queued the step events
     // (if any were queued) — `Drop` alone would not: `posthog-rs` sends on a

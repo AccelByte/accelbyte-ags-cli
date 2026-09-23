@@ -756,3 +756,115 @@ fn test_fullscreen_builtin_degrades_to_plain_and_exits_zero() {
         "no panic expected; output:\n{output_text}"
     );
 }
+
+/// Typing `n` at the `update --install` confirmation prompt MUST exit 2
+/// (the cancelled-outcome code) and print `Cancelled.` to the terminal.
+///
+/// This is the PTY-driven complement to the pure-logic
+/// `confirm_or_refuse_rules` unit test in `confirm.rs`, which asserts
+/// that `Ok(Declined)` is returned for `n` and empty input. The PTY test
+/// exercises the wired path: prompt → stdin → exit code.
+///
+/// Requires a real PTY (the binary reads stdin only when it is a TTY).
+/// A wiremock release mock serves a newer version so the prompt is reached.
+#[test]
+#[ignore = "Requires a real PTY; run with --ignored"]
+fn test_update_install_declined_prompt_exits_2() {
+    use std::io::{Read, Write};
+
+    // Start a mock release server in a tokio runtime that stays alive
+    // throughout the test so the hyper listener keeps serving.
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+    let server = rt.block_on(wiremock::MockServer::start());
+    rt.block_on(async {
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(wiremock::matchers::path("/releases/latest"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "tag_name": "v99.0.0" })),
+            )
+            .mount(&server)
+            .await;
+    });
+    let release_url = format!("{}/releases/latest", server.uri());
+
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows: 30,
+            cols: 100,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .expect("openpty");
+
+    let mut cmd = CommandBuilder::new(ags_binary_path());
+    cmd.args(["update", "--install"]);
+    let ags_home = isolated_ags_home();
+    cmd.env("AGS_HOME", &ags_home);
+    cmd.env("AGS_NO_KEYCHAIN", "1");
+    cmd.env("AGS_NO_UPDATE_CHECK", "1");
+    cmd.env("AGS_UPDATE_CHECK_URL", &release_url);
+
+    let mut child = pair
+        .slave
+        .spawn_command(cmd)
+        .expect("spawn child process inside PTY");
+
+    // Drain output concurrently to avoid PTY write-buffer deadlock.
+    let reader = pair.master.try_clone_reader().expect("clone reader");
+    let collected = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+    let collected_writer = std::sync::Arc::clone(&collected);
+    let reader_thread = std::thread::spawn(move || {
+        let mut reader = reader;
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => collected_writer
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(&buf[..n]),
+            }
+        }
+    });
+
+    // Wait for the confirmation prompt to render (release check + prompt).
+    std::thread::sleep(Duration::from_secs(5));
+
+    // Type "n" + Enter to decline.
+    {
+        let mut writer = pair.master.take_writer().expect("take writer");
+        writer.write_all(b"n\r").ok();
+        writer.flush().ok();
+    }
+
+    // Wait for exit.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        match child.try_wait().expect("try_wait") {
+            Some(status) => break status,
+            None if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = reader_thread.join();
+                let out = String::from_utf8_lossy(&collected.lock().unwrap()).into_owned();
+                panic!("process did not exit within 10s of decline; output:\n{out}");
+            }
+            None => std::thread::sleep(Duration::from_millis(50)),
+        }
+    };
+
+    let _ = reader_thread.join();
+    let output_text = String::from_utf8_lossy(&collected.lock().unwrap()).into_owned();
+
+    assert_eq!(
+        status.exit_code(),
+        2,
+        "exit code must be 2 for declined prompt, got {}\noutput: {output_text}",
+        status.exit_code(),
+    );
+    assert!(
+        output_text.contains("Cancelled"),
+        "output must contain 'Cancelled'; got: {output_text}"
+    );
+}

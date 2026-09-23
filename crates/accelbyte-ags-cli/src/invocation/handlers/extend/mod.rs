@@ -5,11 +5,14 @@
 //! forward `extend-helper-cli` invocation names to their canonical
 //! `ags csm` service operations.
 
+pub(crate) mod app_lifecycle;
 pub(crate) mod app_ui;
 pub(crate) mod clone_template;
 pub(crate) mod csm_error;
 pub(crate) mod image_upload;
 pub(crate) mod remote_debug;
+pub(crate) mod security_assessment_request;
+pub(crate) mod security_assessment_result;
 pub(crate) mod session_log;
 pub(crate) mod tunnel;
 pub(crate) mod update_secret;
@@ -45,6 +48,33 @@ pub(crate) async fn handle_extend(
                 update_secret::handle_update_secret(sub, flags, frontend).await
             }
             Some(("update-var", sub)) => update_var::handle_update_var(sub, flags, frontend).await,
+            Some(("security-assessment", sub)) => match sub.subcommand() {
+                Some(("request", request_sub)) => {
+                    security_assessment_request::handle_security_assessment_request(
+                        request_sub,
+                        flags,
+                        frontend,
+                    )
+                    .await
+                }
+                Some(("result", result_sub)) => {
+                    security_assessment_result::handle_security_assessment_result(
+                        result_sub, flags, frontend,
+                    )
+                    .await
+                }
+                _ => {
+                    // `list`/`list-endpoints` are intercepted earlier (see
+                    // `service_shims.rs`); only an unknown action or `--help`
+                    // reaches here.
+                    if let Some(security_assessment) =
+                        command.find_subcommand_mut("security-assessment")
+                    {
+                        let _ = security_assessment.print_help();
+                    }
+                    Ok(InvocationOutcome::Exit(1))
+                }
+            },
             Some(("remote-debug", sub)) => match sub.subcommand() {
                 Some(("connect", connect_sub)) => {
                     remote_debug::handle_remote_debug_connect(connect_sub, flags, frontend).await

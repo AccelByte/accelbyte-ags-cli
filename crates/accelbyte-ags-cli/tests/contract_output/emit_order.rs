@@ -94,6 +94,7 @@ fn test_service_verbose_trace_before_data() {
             }),
         }),
         raw_body: None,
+        has_alternate_versions: false,
     }));
 
     let rendered = render(&output, &RenderOptions::default()).unwrap();
@@ -130,9 +131,11 @@ fn test_service_mutation_success_trace_before_data() {
         }))),
         success: Some(ApiSuccess {
             summary: "Role created.".to_string(),
+            api_version: ags_protocol::catalogue::ApiVersion(4),
         }),
         trace: None,
         raw_body: None,
+        has_alternate_versions: false,
     }));
 
     let rendered = render(&output, &RenderOptions::default()).unwrap();

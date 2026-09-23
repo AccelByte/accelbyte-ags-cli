@@ -71,6 +71,10 @@ pub(crate) fn classify_root(remaining: &[String]) -> RootDispatch {
         match remaining.get(1).map(String::as_str) {
             Some("docker-login") => return RootDispatch::ExtendDockerLogin,
             Some("image-upload") => return RootDispatch::ExtendImageUpload,
+            // `list` / `list-endpoints` are `service_shims` entries and
+            // `request`/`result` are native `handlers/extend` commands (like
+            // `update-var`/`tunnel`) — all fall through to Builtin, which
+            // dispatches them via `handle_extend`.
             _ => {}
         }
     }
@@ -105,6 +109,7 @@ mod classify_root_tests {
             "doctor",
             "completions",
             "refresh-specs",
+            "update",
             "help",
         ] {
             assert!(
@@ -291,6 +296,52 @@ mod classify_root_tests {
         assert!(matches!(
             classify_root(&remaining(&["extend", "image-upload", "--help"])),
             RootDispatch::ExtendImageUpload
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_extend_security_assessment_list_is_builtin_shim() {
+        // `list` / `list-endpoints` are service_shims entries (a plain
+        // forward to `ags csm security-assessment ...`), not a dedicated
+        // route — they classify as Builtin like every other shim.
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "security-assessment", "list"])),
+            RootDispatch::Builtin
+        ));
+        assert!(matches!(
+            classify_root(&remaining(&[
+                "extend",
+                "security-assessment",
+                "list-endpoints",
+                "--app",
+                "myapp"
+            ])),
+            RootDispatch::Builtin
+        ));
+    }
+
+    #[test]
+    fn test_classify_root_bare_extend_security_assessment_is_builtin() {
+        // No action token (or --help) falls through to Builtin, which
+        // renders the group's clap-driven help/error. `request` and `result`
+        // also fall through to Builtin — both are native `handlers/extend`
+        // commands dispatched from there, not a dedicated `RootDispatch`
+        // variant.
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "security-assessment"])),
+            RootDispatch::Builtin
+        ));
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "security-assessment", "--help"])),
+            RootDispatch::Builtin
+        ));
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "security-assessment", "request"])),
+            RootDispatch::Builtin
+        ));
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "security-assessment", "result"])),
+            RootDispatch::Builtin
         ));
     }
 }

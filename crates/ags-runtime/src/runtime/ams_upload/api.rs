@@ -11,6 +11,18 @@ use super::errors::AmsUploadError;
 /// Image format AMS is told to expect. Only `tgz` is produced by this CLI.
 const IMAGE_FORMAT: &str = "tgz";
 
+/// Operation labels for each AMS upload API call, shared with `errors.rs` so a
+/// 403's stage-specific guidance can match on them without duplicating the
+/// literal strings.
+pub(crate) mod operation {
+    pub(crate) const CREATE_IMAGE: &str = "Creating the image";
+    pub(crate) const PRESIGN_URL: &str = "Requesting an upload URL";
+    pub(crate) const INITIATE_MULTIPART: &str = "Starting the multipart upload";
+    pub(crate) const PRESIGN_PART: &str = "Requesting an upload URL for a part";
+    pub(crate) const FINALIZE_MULTIPART: &str = "Finalizing the multipart upload";
+    pub(crate) const COMPLETE: &str = "Completing the upload";
+}
+
 const HEADER_SOURCE_ENVIRONMENT: &str = "ams-source-environment";
 const HEADER_CLI_VERSION: &str = "ams-cli-version";
 
@@ -66,9 +78,9 @@ impl UploadApi {
             "targetArchitecture": target_architecture,
         });
         let value = self
-            .send("Creating the image", Method::POST, "/images", body, 201)
+            .send(operation::CREATE_IMAGE, Method::POST, "/images", body, 201)
             .await?;
-        string_field(&value, "id", "Creating the image")
+        string_field(&value, "id", operation::CREATE_IMAGE)
     }
 
     /// Get a pre-signed URL for a single-shot upload of `file_path`.
@@ -80,14 +92,14 @@ impl UploadApi {
         let body = json!({ "imageId": image_id, "filePath": file_path });
         let value = self
             .send(
-                "Requesting an upload URL",
+                operation::PRESIGN_URL,
                 Method::POST,
                 "/pre-sign-url",
                 body,
                 200,
             )
             .await?;
-        string_field(&value, "url", "Requesting an upload URL")
+        string_field(&value, "url", operation::PRESIGN_URL)
     }
 
     /// Start a multipart upload and return its upload id.
@@ -99,14 +111,14 @@ impl UploadApi {
         let body = json!({ "imageId": image_id, "filePath": file_path });
         let value = self
             .send(
-                "Starting the multipart upload",
+                operation::INITIATE_MULTIPART,
                 Method::POST,
                 "/multi-part",
                 body,
                 200,
             )
             .await?;
-        string_field(&value, "uploadId", "Starting the multipart upload")
+        string_field(&value, "uploadId", operation::INITIATE_MULTIPART)
     }
 
     /// Get a pre-signed URL for one part. `part_number` is 1-based.
@@ -124,14 +136,14 @@ impl UploadApi {
         });
         let value = self
             .send(
-                "Requesting an upload URL for a part",
+                operation::PRESIGN_PART,
                 Method::PUT,
                 &format!("/multi-part/{upload_id}"),
                 body,
                 200,
             )
             .await?;
-        string_field(&value, "url", "Requesting an upload URL for a part")
+        string_field(&value, "url", operation::PRESIGN_PART)
     }
 
     /// Close a multipart upload. `etags` must be ordered by part number.
@@ -148,7 +160,7 @@ impl UploadApi {
             "parts": etags,
         });
         self.send(
-            "Finalizing the multipart upload",
+            operation::FINALIZE_MULTIPART,
             Method::PUT,
             &format!("/multi-part/{upload_id}/finalize"),
             body,
@@ -170,7 +182,7 @@ impl UploadApi {
             "imageSizeBytes": image_size_bytes,
             "command": command,
         });
-        self.send("Completing the upload", Method::PUT, "/complete", body, 200)
+        self.send(operation::COMPLETE, Method::PUT, "/complete", body, 200)
             .await?;
         Ok(())
     }

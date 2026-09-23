@@ -5,7 +5,7 @@ Auto-generated from `specs/*.json.gz` via `scripts/generate_cli_command_catalogu
 Lists every operation the CLI dispatches. Deprecated operations and the `internal` resource are excluded. Each row corresponds to a concrete `--api-scope` / `--api-version` combination.
 
 **Services:** 25
-**Operations:** 1996
+**Operations:** 2002
 
 ## achievement
 
@@ -394,7 +394,7 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 
 - Spec name: `csm`
 - Resources: 14
-- Operations: 84
+- Operations: 90
 
 | Resource | Method | Scope | Version | HTTP | Path | Summary |
 |----------|--------|-------|---------|------|------|---------|
@@ -406,13 +406,17 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `apps` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Creates a new extend app |
 | `apps` | `create` | admin | v5 | POST | `/csm/v5/admin/namespaces/{namespace}/apps/{app}` | Creates a new extend app (v5) |
 | `apps` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Deletes the extend app by name |
+| `apps` | `delete` | admin | v5 | DELETE | `/csm/v5/admin/namespaces/{namespace}/apps/{app}` | Deletes the extend app by name |
 | `apps` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Retrieves the extend app by name |
+| `apps` | `get` | admin | v5 | GET | `/csm/v5/admin/namespaces/{namespace}/apps/{app}` | Retrieves the extend app by name |
 | `apps` | `get-release-info` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/apps/{app}/release` | Gets the Latest Release Version info of this App |
 | `apps` | `get-status-progress` | admin | v4 | GET | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/status-progress` | Retrieves progress steps for an extend app long-running operation |
 | `apps` | `list` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps` | Lists extend apps in the given game namespace |
 | `apps` | `request-resource-limit-increase` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/resources/form` | Submits a request to increase the app resource limits |
 | `apps` | `start` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/start` | Starts the Application |
+| `apps` | `start` | admin | v5 | PUT | `/csm/v5/admin/namespaces/{namespace}/apps/{app}/start` | Starts the Application |
 | `apps` | `stop` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/stop` | Stops the Application |
+| `apps` | `stop` | admin | v5 | PUT | `/csm/v5/admin/namespaces/{namespace}/apps/{app}/stop` | Stops the Application |
 | `apps` | `update` | admin | v2 | PATCH | `/csm/v2/admin/namespaces/{namespace}/apps/{app}` | Updates the app configuration |
 | `apps` | `update-resource` | admin | v2 | PATCH | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/resources` | Updates the app resource allocation |
 | `config` | `create-secret` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/secrets` | Saves an environment secret |
@@ -426,12 +430,14 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `debug` | `get` | admin | v4 | GET | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/debuginfo` | Retrieves remote debug info for an extend app |
 | `debug` | `update` | admin | v4 | PUT | `/csm/v4/admin/namespaces/{namespace}/apps/{app}/debugmode` | Enables or disables remote debug mode for an extend app |
 | `deployments` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/deployments` | Creates Deployment |
+| `deployments` | `create` | admin | v5 | POST | `/csm/v5/admin/namespaces/{namespace}/apps/{app}/deployments` | Creates Deployment |
 | `deployments` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Deletes a deployment by ID |
 | `deployments` | `get` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/deployments/{deploymentId}` | Retrieves a deployment by ID |
 | `deployments` | `list` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/deployments` | Fetches the List of Deployments |
 | `files` | `get` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/files/{filePath}` | Retrieves a hosted static file |
 | `images` | `delete` | admin | v2 | DELETE | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/images` | Deletes app images |
 | `images` | `list` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/images` | Lists container images for the app |
+| `images` | `list` | admin | v5 | GET | `/csm/v5/admin/namespaces/{namespace}/apps/{app}/images` | Lists container images for the app |
 | `key-value` | `create-cluster` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/keyvalue/clusters` | Creates Key-Value Cluster |
 | `key-value` | `create-credentials` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/credentials` | Generates a Key-Value credential for an integrated Extend app |
 | `key-value` | `create-integration` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/keyvalue/integrations` | Integrates an Extend app with a Key-Value cluster |
@@ -456,6 +462,10 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `nosql` | `stop-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/nosql/clusters/stop` | Stops the NoSQL cluster |
 | `nosql` | `update-cluster` | admin | v2 | PUT | `/csm/v2/admin/namespaces/{namespace}/nosql/clusters` | Updates the NoSQL cluster configuration |
 | `resource-limits` | `list` | admin | v2 | GET | `/csm/v2/admin/namespaces/{namespace}/resources/limits` | Retrieves configurable resource limits for extend apps |
+| `security-assessment` | `create` | admin | v1 | POST | `/csm/v1/admin/namespaces/{namespace}/pentestings` | Creates a new pen-testing request for an Extend app |
+| `security-assessment` | `get-app-endpoints` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/pentestings/apps/{appName}/endpoints` | Gets the testable endpoints and required permissions for a Service Extension app |
+| `security-assessment` | `get-report` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/pentestings/{engagementId}/report` | Downloads a completed pen-testing report |
+| `security-assessment` | `list` | admin | v1 | GET | `/csm/v1/admin/namespaces/{namespace}/pentestings` | Lists pen-testing requests for Extend apps in a game namespace |
 | `service-messages` | `list` | public | v1 | GET | `/csm/v1/messages` | Retrieves service messages |
 | `sql` | `create` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/apps/{app}/sql/databases` | Creates SQL Database for Extend App |
 | `sql` | `create-cluster` | admin | v2 | POST | `/csm/v2/admin/namespaces/{namespace}/sql/clusters` | Creates SQL Cluster |

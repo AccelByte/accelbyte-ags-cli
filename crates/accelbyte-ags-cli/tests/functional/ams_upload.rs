@@ -100,12 +100,19 @@ fn test_dry_run_reports_the_plan_without_credentials() {
         "dry-run must work while logged out: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("linux-x86_64"), "{stderr}");
-    assert!(stderr.contains("./server"), "{stderr}");
+    // The plan is the command's result, so it is read from stdout.
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("linux-x86_64"), "{stdout}");
+    assert!(stdout.contains("./server"), "{stdout}");
     assert!(
-        stderr.contains("2 files"),
-        "the .pdb must be excluded by default:\n{stderr}"
+        stdout.contains("2 files"),
+        "the .pdb must be excluded by default:\n{stdout}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Would upload image"), "{stderr}");
+    assert!(
+        stderr.contains("Dry run: nothing was archived and no request was sent."),
+        "{stderr}"
     );
 }
 
@@ -133,6 +140,36 @@ fn test_dry_run_json_envelope() {
     assert_eq!(json["file_count"], 2);
     assert_eq!(json["excluded_symbol_file_count"], 1);
     assert!(json["upload_base_url"].is_null());
+}
+
+#[test]
+fn test_dry_run_rejects_an_invalid_upload_url() {
+    let build = build_directory();
+    let output = dry_run(
+        build.path(),
+        &[
+            "--executable",
+            "server",
+            "--image-name",
+            "my-image",
+            "--upload-url",
+            "not-a-url",
+        ],
+    );
+    assert!(
+        !output.status.success(),
+        "an invalid --upload-url must fail the dry run"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("AMS upload host 'not-a-url' is not an absolute http(s) URL"),
+        "{stderr}"
+    );
+    assert!(
+        stderr
+            .contains("Pass --upload-url as an absolute URL, e.g. https://prod.ams.accelbyte.io."),
+        "{stderr}"
+    );
 }
 
 /// A symlinked directory is not archived, so the dry run has to name it — that

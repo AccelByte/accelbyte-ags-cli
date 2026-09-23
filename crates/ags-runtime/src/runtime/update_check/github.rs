@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use super::UpdateCheckResult;
+use super::{UpdateCheckError, UpdateCheckResult};
 
 /// Minimal projection of GitHub's "latest release" response — we need only the
 /// tag; serde ignores the rest of the payload.
@@ -34,31 +34,60 @@ pub(crate) fn compare_versions(current: &str, latest: &str) -> Option<UpdateChec
     })
 }
 
+/// Compare the running version against a GitHub tag, returning the value that
+/// failed to parse as semver. Unlike [`compare_versions`], which returns
+/// `None` on either-side failure, this reports the offending string so the
+/// caller can surface it in an error message.
+pub(crate) fn try_compare_versions(
+    current: &str,
+    latest: &str,
+) -> Result<UpdateCheckResult, String> {
+    let current_version = semver::Version::parse(current).map_err(|_| current.to_string())?;
+    let latest_version = semver::Version::parse(latest).map_err(|_| latest.to_string())?;
+
+    Ok(UpdateCheckResult {
+        current: current.to_string(),
+        latest: latest.to_string(),
+        is_newer: latest_version > current_version,
+    })
+}
+
 /// Fetch and normalise the latest release version from a GitHub-releases-style
-/// endpoint. Returns `None` on any failure — network error, non-2xx status, or
-/// malformed JSON. `url` is a parameter so tests can point it at a mock server.
-pub(super) async fn fetch_latest_version(client: &reqwest::Client, url: &str) -> Option<String> {
-    let release: GithubRelease = client
+/// endpoint. Returns the version string on success, or a typed error on
+/// transport failure, non-success HTTP status, or malformed JSON.
+///
+/// `url` is a parameter so tests can point it at a mock server.
+pub(super) async fn fetch_latest_version(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<String, UpdateCheckError> {
+    let response = client
         .get(url)
         .header("User-Agent", "accelbyte-ags-cli")
         .send()
         .await
-        .ok()?
-        .error_for_status()
-        .ok()?
+        .map_err(|e| UpdateCheckError::Transport(e.to_string()))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(UpdateCheckError::HttpStatus(status.as_u16()));
+    }
+
+    let release: GithubRelease = response
         .json()
         .await
-        .ok()?;
+        .map_err(|e| UpdateCheckError::Transport(e.to_string()))?;
+
     let normalized = release
         .tag_name
         .strip_prefix('v')
         .unwrap_or(&release.tag_name);
-    Some(normalized.to_string())
+    Ok(normalized.to_string())
 }
 
 /// Build the update-check client with a caller-chosen timeout. Split out so
 /// tests can use a tiny timeout without hitting the real 3-second wait.
-fn build_client_with_timeout(timeout: Duration) -> Option<reqwest::Client> {
+pub(super) fn build_client_with_timeout(timeout: Duration) -> Option<reqwest::Client> {
     reqwest::Client::builder().timeout(timeout).build().ok()
 }
 
@@ -113,6 +142,20 @@ mod tests {
         assert!(compare_versions("0.4.0", "garbage").is_none());
     }
 
+    /// `try_compare_versions` reports the value that failed to parse, not a
+    /// generic "invalid" message. Tests both sides: an invalid latest returns
+    /// the latest string, an invalid current returns the current string.
+    #[test]
+    fn compare_versions_reports_which_side_is_invalid() {
+        // Invalid latest → Err contains the latest tag.
+        let err = try_compare_versions("1.0.0", "garbage").unwrap_err();
+        assert_eq!(err, "garbage", "must report the invalid latest tag");
+
+        // Invalid current → Err contains the current tag.
+        let err = try_compare_versions("not-a-version", "1.0.0").unwrap_err();
+        assert_eq!(err, "not-a-version", "must report the invalid current tag");
+    }
+
     #[tokio::test]
     async fn fetch_strip_leading_v() {
         let server = MockServer::start().await;
@@ -127,10 +170,7 @@ mod tests {
         let client = reqwest::Client::new();
         let url = format!("{}/releases/latest", server.uri());
 
-        assert_eq!(
-            fetch_latest_version(&client, &url).await.as_deref(),
-            Some("0.5.0")
-        );
+        assert_eq!(fetch_latest_version(&client, &url).await.unwrap(), "0.5.0");
     }
 
     #[tokio::test]
@@ -147,14 +187,11 @@ mod tests {
 
         let client = reqwest::Client::new();
         let url = format!("{}/releases/latest", server.uri());
-        assert_eq!(
-            fetch_latest_version(&client, &url).await.as_deref(),
-            Some("0.5.0")
-        );
+        assert_eq!(fetch_latest_version(&client, &url).await.unwrap(), "0.5.0");
     }
 
     #[tokio::test]
-    async fn fetch_is_none_on_404() {
+    async fn fetch_returns_http_status_on_404() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/releases/latest"))
@@ -164,7 +201,10 @@ mod tests {
 
         let client = reqwest::Client::new();
         let url = format!("{}/releases/latest", server.uri());
-        assert!(fetch_latest_version(&client, &url).await.is_none());
+        assert!(matches!(
+            fetch_latest_version(&client, &url).await,
+            Err(UpdateCheckError::HttpStatus(404))
+        ));
     }
 
     #[tokio::test]
@@ -180,9 +220,12 @@ mod tests {
             .mount(&server)
             .await;
 
-        // A 50ms timeout against a 500ms server -> the client aborts -> None.
+        // A 50ms timeout against a 500ms server -> the client aborts -> Transport.
         let client = build_client_with_timeout(Duration::from_millis(50)).unwrap();
         let url = format!("{}/releases/latest", server.uri());
-        assert!(fetch_latest_version(&client, &url).await.is_none());
+        assert!(matches!(
+            fetch_latest_version(&client, &url).await,
+            Err(UpdateCheckError::Transport(_))
+        ));
     }
 }

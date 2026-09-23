@@ -1,12 +1,16 @@
-//! Static registration table mapping `extend-helper-cli` invocation names
-//! to their canonical `ags csm` service operations.
+//! Static registration table mapping an `ags extend` shortcut name to its
+//! canonical `ags csm` service operation — either an `extend-helper-cli`
+//! migration shortcut, or a newer command that simply has no logic beyond
+//! a single API call (e.g. `security-assessment list`).
 //!
-//! This table is the SOLE place any migration shortcut name is written as
+//! This table is the SOLE place any such shortcut name is written as
 //! a literal. The Clap subcommands, help text, and forwarding logic all
 //! derive from it by iterating the slice. A rename costs one string edit
 //! in one file — this one.
 
 use clap::Command;
+
+use crate::errors::CliError;
 
 /// One migration shortcut entry mapping an `extend-helper-cli` invocation
 /// to its canonical `ags csm` service operation.
@@ -37,6 +41,18 @@ pub struct ExtendShim {
     pub resource: &'static str,
     /// Canonical method name.
     pub method: &'static str,
+    /// Optional async-wait target. `Some` for app lifecycle commands that
+    /// support `--wait` (poll until the app reaches a terminal state);
+    /// `None` for shims that return as soon as the API call completes.
+    pub(crate) wait: Option<&'static super::app_lifecycle::wait::WaitSpec>,
+    /// Flag renames applied when forwarding user-supplied args: pairs of
+    /// `(extend-facing long flag, canonical operation flag)`, each without
+    /// the leading `--`. Lets a shim keep an established `ags extend`-
+    /// family flag name (e.g. `--app`) even when the underlying operation's
+    /// own kebab-cased parameter name differs (e.g. `--app-name` for an
+    /// `appName` parameter). Empty when the shim's flags already match the
+    /// canonical operation's flag names verbatim.
+    pub arg_renames: &'static [(&'static str, &'static str)],
 }
 
 /// The static registration table. Every extend migration shortcut is
@@ -52,6 +68,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "apps",
         method: "create",
+        wait: Some(&super::app_lifecycle::wait::CREATE_APP_WAIT),
+        arg_renames: &[],
     },
     ExtendShim {
         name: "get-app-info",
@@ -61,6 +79,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "apps",
         method: "get",
+        wait: None,
+        arg_renames: &[],
     },
     ExtendShim {
         name: "list-images",
@@ -70,6 +90,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "images",
         method: "list",
+        wait: None,
+        arg_renames: &[],
     },
     ExtendShim {
         name: "deploy-app",
@@ -79,6 +101,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "deployments",
         method: "create",
+        wait: Some(&super::app_lifecycle::wait::DEPLOY_APP_WAIT),
+        arg_renames: &[],
     },
     ExtendShim {
         name: "start-app",
@@ -88,6 +112,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "apps",
         method: "start",
+        wait: Some(&super::app_lifecycle::wait::START_APP_WAIT),
+        arg_renames: &[],
     },
     ExtendShim {
         name: "stop-app",
@@ -97,6 +123,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "apps",
         method: "stop",
+        wait: Some(&super::app_lifecycle::wait::STOP_APP_WAIT),
+        arg_renames: &[],
     },
     ExtendShim {
         name: "delete-app",
@@ -106,6 +134,8 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "apps",
         method: "delete",
+        wait: Some(&super::app_lifecycle::wait::DELETE_APP_WAIT),
+        arg_renames: &[],
     },
     ExtendShim {
         name: "create",
@@ -115,6 +145,37 @@ pub static SHIMS: &[ExtendShim] = &[
         service: "csm",
         resource: "app-ui",
         method: "create",
+        wait: None,
+        arg_renames: &[],
+    },
+    ExtendShim {
+        name: "list",
+        parent: Some("security-assessment"),
+        // No historical Go invocation — this is a new command, not a
+        // migration shortcut. Equal to its own extend address so
+        // `shim_about` omits the "(was: ...)" suffix.
+        go_invocation: "security-assessment list",
+        summary: "List security-assessment engagements for a namespace",
+        service: "csm",
+        resource: "security-assessment",
+        method: "list",
+        wait: None,
+        arg_renames: &[],
+    },
+    ExtendShim {
+        name: "list-endpoints",
+        parent: Some("security-assessment"),
+        go_invocation: "security-assessment list-endpoints",
+        summary: "Discover an Extend app's testable endpoints and required permissions",
+        service: "csm",
+        resource: "security-assessment",
+        method: "get-app-endpoints",
+        wait: None,
+        // The get-app-endpoints operation's own parameter is `appName`
+        // (kebab-cased to `--app-name` by the generic dynamic command
+        // builder), but every other `security-assessment` command uses
+        // `--app` — keep that family convention here too.
+        arg_renames: &[("app", "app-name")],
     },
 ];
 
@@ -202,11 +263,38 @@ fn resolve_shim_triple(
     Ok(())
 }
 
-/// If `remaining` starts with `"extend"` followed by a registered shim
-/// address, return the rewritten service arguments for `run_service`.
-/// Returns `None` when the invocation is not a shim (e.g. `extend --help`,
-/// `extend clone-template`, or `extend no-such-command`).
-pub(crate) fn try_rewrite_to_service_args(remaining: &[String]) -> Option<Vec<String>> {
+/// The result of rewriting a shim invocation: the service-dispatch arguments
+/// (with any `--wait-*` flags stripped), an optional resolved wait request for
+/// the lifecycle commands that support `--wait`, and the shortcut presentation
+/// used to render the shim's own `--help` page.
+pub(crate) struct ShimDispatch {
+    pub(crate) service_args: Vec<String>,
+    pub(crate) wait: Option<super::app_lifecycle::WaitRequest>,
+    pub(crate) presentation: ShimPresentation,
+}
+
+/// Presentation metadata for a matched shim, carried from the shim match
+/// through to the help printer so the shortcut's own help page can be
+/// rendered instead of the canonical CSM operation's page.
+// Public for integration-test access; not a supported API surface.
+#[doc(hidden)]
+pub struct ShimPresentation {
+    /// Hand-written summary (first line of the shortcut help page).
+    pub summary: &'static str,
+    /// The display address the user typed, e.g. `"ags extend deploy-app"`.
+    pub display_address: String,
+    /// The canonical `ags <service> <resource> <method>` address.
+    pub canonical_address: String,
+    /// True when the shim supports `--wait`. The help printer adds the
+    /// `--wait*` flags to the shortcut's help page for these
+    /// (see `routes/service/help.rs::apply_shim_overrides`).
+    pub wait_capable: bool,
+}
+
+/// Match `remaining` against the shim table. Returns the matched shim and the
+/// user args that follow the shim address (`None` when not a shim invocation,
+/// e.g. `extend --help`, `extend clone-template`, `extend no-such-command`).
+fn match_shim(remaining: &[String]) -> Option<(&'static ExtendShim, &[String])> {
     if remaining.first().map(String::as_str) != Some("extend") {
         return None;
     }
@@ -220,7 +308,7 @@ pub(crate) fn try_rewrite_to_service_args(remaining: &[String]) -> Option<Vec<St
     // Top-level shims: `extend <name> [flags...]`
     for shim in SHIMS {
         if shim.parent.is_none() && shim.name == first {
-            return Some(build_service_args(shim, &extend_args[1..]));
+            return Some((shim, &extend_args[1..]));
         }
     }
 
@@ -229,7 +317,7 @@ pub(crate) fn try_rewrite_to_service_args(remaining: &[String]) -> Option<Vec<St
         let second = extend_args[1].as_str();
         for shim in SHIMS {
             if shim.parent == Some(first) && shim.name == second {
-                return Some(build_service_args(shim, &extend_args[2..]));
+                return Some((shim, &extend_args[2..]));
             }
         }
     }
@@ -237,17 +325,246 @@ pub(crate) fn try_rewrite_to_service_args(remaining: &[String]) -> Option<Vec<St
     None
 }
 
+/// If `remaining` starts with `"extend"` followed by a registered shim
+/// address, return the rewritten dispatch (service args + optional wait).
+/// Returns `None` when the invocation is not a shim, or `Some(Err(..))` when
+/// it is a shim but the `--wait-*` flag values are malformed.
+pub(crate) fn try_rewrite_shim(remaining: &[String]) -> Option<Result<ShimDispatch, CliError>> {
+    let (shim, user_args) = match_shim(remaining)?;
+    Some(build_dispatch(shim, user_args))
+}
+
+/// If `remaining` starts with `"extend"` followed by a registered shim
+/// address, return the rewritten service arguments for `run_service`.
+/// Returns `None` when the invocation is not a shim.
+///
+/// Convenience wrapper over [`try_rewrite_shim`] for callers that only need
+/// the service address (collision guards, tests). The `--wait-*` flags are
+/// still stripped; a malformed wait value collapses to `None` here since those
+/// callers never pass wait flags.
+#[cfg(test)]
+pub(crate) fn try_rewrite_to_service_args(
+    remaining: &[String],
+) -> Option<(Vec<String>, ShimPresentation)> {
+    match try_rewrite_shim(remaining) {
+        Some(Ok(dispatch)) => Some((dispatch.service_args, dispatch.presentation)),
+        _ => None,
+    }
+}
+
+/// Build the dispatch for a matched shim. For wait-capable shims, the
+/// `--wait` / `--wait-interval` / `--wait-limit` flags are parsed and stripped
+/// from the forwarded args (the generic service Clap tree would reject them),
+/// and `--app` / `-a` is captured as the poll target.
+///
+/// The `--wait` status poll uses a fixed `/csm/v5/` endpoint (see
+/// [`super::app_lifecycle::api::get_app_status`]) and therefore ignores
+/// `--api-scope` / `--api-version`, even though the primary operation built here
+/// honours them. The two can diverge — an explicit `--api-version`, or a stale
+/// parse cache resolving the operation to v2, leaves the operation on v2 while
+/// the poll stays v5 (benign in practice, same record). See the reference doc's
+/// `--wait` caveat and the follow-up to resolve the poll through the spec path.
+fn build_dispatch(
+    shim: &'static ExtendShim,
+    user_args: &[String],
+) -> Result<ShimDispatch, CliError> {
+    let Some(spec) = shim.wait else {
+        return Ok(ShimDispatch {
+            service_args: build_service_args(shim, user_args),
+            wait: None,
+            presentation: shim_presentation(shim),
+        });
+    };
+
+    let parsed = parse_wait_flags(user_args)?;
+    let wait = if parsed.wait {
+        let app = parsed.app.clone().ok_or_else(|| CliError::Usage {
+            message: "--wait requires --app to identify the app to poll".to_string(),
+            metadata: None,
+        })?;
+        Some(super::app_lifecycle::WaitRequest {
+            spec,
+            app,
+            interval_secs: parsed.interval,
+            limit_secs: parsed.limit,
+            // Populated after the primary call returns, from its create
+            // response — see the shim dispatch in `invocation::run`.
+            expected_deployment_id: None,
+        })
+    } else {
+        None
+    };
+
+    Ok(ShimDispatch {
+        service_args: build_service_args(shim, &parsed.rest),
+        wait,
+        presentation: shim_presentation(shim),
+    })
+}
+
+/// Defaults mirror `extend-helper-cli`: poll every 10s, up to 600s.
+const DEFAULT_WAIT_INTERVAL_SECS: u64 = 10;
+const DEFAULT_WAIT_LIMIT_SECS: u64 = 600;
+
+/// Parsed `--wait-*` state plus the args to forward to the service dispatch.
+struct ParsedWaitFlags {
+    wait: bool,
+    interval: u64,
+    limit: u64,
+    /// The `--app` / `-a` value, captured for polling (still forwarded too).
+    app: Option<String>,
+    /// User args with the `--wait-*` flags removed.
+    rest: Vec<String>,
+}
+
+/// Strip and parse the `--wait-*` flags out of a shim's user args. `--app` /
+/// `-a` is captured but left in `rest` so the primary call still receives it.
+fn parse_wait_flags(user_args: &[String]) -> Result<ParsedWaitFlags, CliError> {
+    let mut wait = false;
+    let mut interval = DEFAULT_WAIT_INTERVAL_SECS;
+    let mut interval_explicit = false;
+    let mut limit = DEFAULT_WAIT_LIMIT_SECS;
+    let mut app: Option<String> = None;
+    let mut rest: Vec<String> = Vec::with_capacity(user_args.len());
+
+    let parse_secs = |flag: &str, raw: &str| -> Result<u64, CliError> {
+        raw.parse::<u64>().map_err(|_| CliError::Usage {
+            message: format!("{flag} expects a non-negative integer, got '{raw}'"),
+            metadata: None,
+        })
+    };
+
+    let mut i = 0;
+    while i < user_args.len() {
+        let arg = user_args[i].as_str();
+        if arg == "--wait" {
+            wait = true;
+        } else if arg == "--wait-interval" || arg == "--wait-limit" {
+            let raw = user_args.get(i + 1).ok_or_else(|| CliError::Usage {
+                message: format!("{arg} requires a value"),
+                metadata: None,
+            })?;
+            let secs = parse_secs(arg, raw)?;
+            if arg == "--wait-interval" {
+                interval = secs;
+                interval_explicit = true;
+            } else {
+                limit = secs;
+            }
+            i += 1; // consume the value token (not forwarded)
+        } else if let Some(raw) = arg.strip_prefix("--wait-interval=") {
+            interval = parse_secs("--wait-interval", raw)?;
+            interval_explicit = true;
+        } else if let Some(raw) = arg.strip_prefix("--wait-limit=") {
+            limit = parse_secs("--wait-limit", raw)?;
+        } else {
+            // Capture the app name for polling, but keep the flag+value in the
+            // forwarded args so the primary service call still receives it.
+            if arg == "--app" || arg == "-a" {
+                if let Some(v) = user_args.get(i + 1) {
+                    app = Some(v.clone());
+                }
+            } else if let Some(v) = arg.strip_prefix("--app=") {
+                app = Some(v.to_string());
+            }
+            rest.push(user_args[i].clone());
+        }
+        i += 1;
+    }
+
+    if interval == 0 {
+        return Err(CliError::Usage {
+            message: "--wait-interval must be greater than 0".to_string(),
+            metadata: None,
+        });
+    }
+
+    // A 0 limit would enter the poll loop zero times and report an instant
+    // timeout without ever polling. Reject it rather than "wait" for nothing.
+    if limit == 0 {
+        return Err(CliError::Usage {
+            message: "--wait-limit must be greater than 0".to_string(),
+            metadata: None,
+        });
+    }
+
+    // The loop sleeps a full interval before checking the clock, so an interval
+    // larger than the limit would block past the promised maximum wait (e.g.
+    // interval 300 / limit 30 sleeps 300s). Reject it; equal is fine — a single
+    // poll at exactly the limit.
+    if interval > limit {
+        // Name the default explicitly — the common way to hit this is passing a
+        // small `--wait-limit` while `--wait-interval` is still its default 10s.
+        let interval_display = if interval_explicit {
+            format!("{interval}s")
+        } else {
+            format!("{interval}s, the default")
+        };
+        return Err(CliError::Usage {
+            message: format!(
+                "--wait-interval ({interval_display}) must not be greater than \
+                 --wait-limit ({limit}s); pass a smaller --wait-interval or a larger --wait-limit"
+            ),
+            metadata: None,
+        });
+    }
+
+    Ok(ParsedWaitFlags {
+        wait,
+        interval,
+        limit,
+        app,
+        rest,
+    })
+}
+
+/// Build a [`ShimPresentation`] from a matched shim entry.
+fn shim_presentation(shim: &ExtendShim) -> ShimPresentation {
+    ShimPresentation {
+        summary: shim.summary,
+        display_address: match shim.parent {
+            Some(parent) => format!("ags extend {} {}", parent, shim.name),
+            None => format!("ags extend {}", shim.name),
+        },
+        canonical_address: format!("ags {} {} {}", shim.service, shim.resource, shim.method),
+        wait_capable: shim.wait.is_some(),
+    }
+}
+
 /// Construct the service dispatch arguments from a matched shim entry
-/// and the user's remaining flags. User-supplied flags are forwarded
-/// verbatim after the service/resource/method triple.
+/// and the user's remaining flags. User-supplied flags are forwarded after
+/// the service/resource/method triple, renamed per `shim.arg_renames`.
 fn build_service_args(shim: &ExtendShim, user_args: &[String]) -> Vec<String> {
     let mut args = vec![
         shim.service.to_string(),
         shim.resource.to_string(),
         shim.method.to_string(),
     ];
-    args.extend_from_slice(user_args);
+    args.extend(rename_args(user_args, shim.arg_renames));
     args
+}
+
+/// Rewrite each `--<from>` (or `--<from>=value`) flag in `args` to
+/// `--<to>`, per `renames`. Every other token — including the flag's own
+/// value, when given as a separate argv element — passes through
+/// unchanged. A no-op when `renames` is empty.
+fn rename_args(args: &[String], renames: &[(&str, &str)]) -> Vec<String> {
+    if renames.is_empty() {
+        return args.to_vec();
+    }
+    args.iter()
+        .map(|arg| {
+            for (from, to) in renames {
+                if arg == &format!("--{from}") {
+                    return format!("--{to}");
+                }
+                if let Some(value) = arg.strip_prefix(&format!("--{from}=")) {
+                    return format!("--{to}={value}");
+                }
+            }
+            arg.clone()
+        })
+        .collect()
 }
 
 /// Build the `about` string for a shim subcommand.
@@ -291,12 +608,13 @@ pub(crate) fn add_shim_subcommands(mut cmd: Command) -> Command {
     // clap-generated Commands: section.
     for shim in SHIMS {
         if shim.parent.is_none() {
-            cmd = cmd.subcommand(
+            cmd = cmd.subcommand(with_wait_args(
                 Command::new(shim.name)
                     .about(shim_about(shim))
                     .disable_help_flag(true)
                     .hide(false),
-            );
+                shim,
+            ));
         }
     }
 
@@ -323,18 +641,62 @@ pub(crate) fn add_shim_subcommands(mut cmd: Command) -> Command {
             .subcommand_required(true);
 
         for shim in children {
-            sub = sub.subcommand(
+            sub = sub.subcommand(with_wait_args(
                 Command::new(shim.name)
                     .about(shim_about(shim))
                     .disable_help_flag(true)
                     .hide(false),
-            );
+                shim,
+            ));
         }
 
         cmd = cmd.subcommand(sub.hide(true));
     }
 
     cmd
+}
+
+/// Register the `--wait` / `--wait-interval` / `--wait-limit` flags on a
+/// wait-capable shim command so they appear in `--help` and shell completions.
+///
+/// The flags are actually consumed by [`parse_wait_flags`], which scans argv
+/// before the generic service dispatch — clap on the shim command never parses
+/// them at runtime (the shim routing intercepts first). Declaring them here is
+/// purely for discoverability: without it the three flags are silently accepted
+/// by the pre-clap scanner but invisible in `--help` and offer no completions.
+/// A no-op for shims that do not support `--wait` (`shim.wait` is `None`).
+fn with_wait_args(command: Command, shim: &ExtendShim) -> Command {
+    if shim.wait.is_none() {
+        return command;
+    }
+    add_wait_flag_args(command)
+}
+
+/// Add the `--wait` / `--wait-interval` / `--wait-limit` flags to a clap
+/// command so they appear in `--help` and shell completions. Shared by the
+/// extend command tree (`with_wait_args`, for completions) and the shortcut
+/// help-page override (`routes/service/help.rs::apply_shim_overrides`), so the
+/// wording and shape stay in one place.
+pub(crate) fn add_wait_flag_args(command: Command) -> Command {
+    command
+        .arg(
+            clap::Arg::new("wait")
+                .long("wait")
+                .action(clap::ArgAction::SetTrue)
+                .help("Wait until the app reaches a terminal state before returning"),
+        )
+        .arg(
+            clap::Arg::new("wait-interval")
+                .long("wait-interval")
+                .value_name("SECONDS")
+                .help("Seconds between status polls while waiting (default 10)"),
+        )
+        .arg(
+            clap::Arg::new("wait-limit")
+                .long("wait-limit")
+                .value_name("SECONDS")
+                .help("Maximum seconds to wait before giving up (default 600)"),
+        )
 }
 
 #[cfg(test)]
@@ -382,9 +744,10 @@ mod tests {
             input.push("--namespace");
             input.push("test-ns");
 
-            let result = try_rewrite_to_service_args(&remaining(&input)).unwrap_or_else(|| {
-                panic!("shim '{}' (parent {:?}) must match", shim.name, shim.parent)
-            });
+            let (result, presentation) = try_rewrite_to_service_args(&remaining(&input))
+                .unwrap_or_else(|| {
+                    panic!("shim '{}' (parent {:?}) must match", shim.name, shim.parent)
+                });
 
             assert_eq!(
                 result[0], shim.service,
@@ -411,6 +774,20 @@ mod tests {
             assert!(
                 result.contains(&"test-ns".to_string()),
                 "shim '{}': user flag value must be forwarded",
+                shim.name
+            );
+
+            // Presentation carries the correct addresses.
+            assert_eq!(
+                presentation.summary, shim.summary,
+                "shim '{}': presentation summary mismatch",
+                shim.name
+            );
+            let expected_canonical =
+                format!("ags {} {} {}", shim.service, shim.resource, shim.method);
+            assert_eq!(
+                presentation.canonical_address, expected_canonical,
+                "shim '{}': canonical address mismatch",
                 shim.name
             );
         }
@@ -646,6 +1023,8 @@ mod tests {
             service: "csm",
             resource: "no-such-resource",
             method: "list",
+            wait: None,
+            arg_renames: &[],
         };
 
         let result = resolve_shim_triple(&csm_schema, &bad_shim);
@@ -679,6 +1058,8 @@ mod tests {
             service: "csm",
             resource: real_resource,
             method: "no-such-method",
+            wait: None,
+            arg_renames: &[],
         };
 
         let result = resolve_shim_triple(&csm_schema, &bad_shim);
@@ -727,10 +1108,71 @@ mod tests {
             .find(|s| s.parent.is_none())
             .expect("at least one top-level shim");
         let args = remaining(&["extend", shim.name, "--json", r#"{"a":1}"#]);
-        let result = try_rewrite_to_service_args(&args).expect("shim must match");
+        let (result, _) = try_rewrite_to_service_args(&args).expect("shim must match");
         // The --json and value are forwarded verbatim.
         assert!(result.contains(&"--json".to_string()));
         assert!(result.contains(&r#"{"a":1}"#.to_string()));
+    }
+
+    // ── Flag renames ──
+
+    #[test]
+    fn rename_args_rewrites_bare_flag_and_leaves_its_value_alone() {
+        let args = remaining(&["--app", "playground"]);
+        let renamed = rename_args(&args, &[("app", "app-name")]);
+        assert_eq!(renamed, vec!["--app-name", "playground"]);
+    }
+
+    #[test]
+    fn rename_args_rewrites_equals_form() {
+        let args = remaining(&["--app=playground"]);
+        let renamed = rename_args(&args, &[("app", "app-name")]);
+        assert_eq!(renamed, vec!["--app-name=playground"]);
+    }
+
+    #[test]
+    fn rename_args_leaves_unmatched_flags_untouched() {
+        let args = remaining(&["--namespace", "ns", "--app", "playground"]);
+        let renamed = rename_args(&args, &[("app", "app-name")]);
+        assert_eq!(
+            renamed,
+            vec!["--namespace", "ns", "--app-name", "playground"]
+        );
+    }
+
+    #[test]
+    fn rename_args_is_noop_with_no_renames() {
+        let args = remaining(&["--app", "playground"]);
+        assert_eq!(rename_args(&args, &[]), args);
+    }
+
+    #[test]
+    fn list_endpoints_shim_rewrites_app_to_app_name() {
+        let args = remaining(&[
+            "extend",
+            "security-assessment",
+            "list-endpoints",
+            "--app",
+            "playground",
+        ]);
+        let (result, _presentation) = try_rewrite_to_service_args(&args).expect("shim must match");
+        assert_eq!(
+            result,
+            vec![
+                "csm",
+                "security-assessment",
+                "get-app-endpoints",
+                "--app-name",
+                "playground",
+            ]
+        );
+    }
+
+    #[test]
+    fn list_shim_rewrites_to_csm_security_assessment_list() {
+        let args = remaining(&["extend", "security-assessment", "list"]);
+        let (result, _presentation) = try_rewrite_to_service_args(&args).expect("shim must match");
+        assert_eq!(result, vec!["csm", "security-assessment", "list"]);
     }
 
     // ── Help section rendering ──
@@ -988,6 +1430,268 @@ mod tests {
         assert!(
             !help.contains("Migration shortcuts"),
             "help must not contain 'Migration shortcuts' heading:\n{help}"
+        );
+    }
+
+    // ── Wait-flag parsing and dispatch ──
+
+    fn strings(tokens: &[&str]) -> Vec<String> {
+        tokens.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_wait_defaults_when_only_wait() {
+        let parsed = parse_wait_flags(&strings(&["--app", "my-app", "--wait"])).unwrap();
+        assert!(parsed.wait);
+        assert_eq!(parsed.interval, 10);
+        assert_eq!(parsed.limit, 600);
+        assert_eq!(parsed.app.as_deref(), Some("my-app"));
+        // --app and its value are still forwarded to the primary call.
+        assert_eq!(parsed.rest, strings(&["--app", "my-app"]));
+    }
+
+    #[test]
+    fn parse_wait_strips_interval_and_limit_space_form() {
+        let parsed = parse_wait_flags(&strings(&[
+            "--app",
+            "a",
+            "--wait",
+            "--wait-interval",
+            "5",
+            "--wait-limit",
+            "60",
+        ]))
+        .unwrap();
+        assert_eq!(parsed.interval, 5);
+        assert_eq!(parsed.limit, 60);
+        // Wait flags and their values must not leak into the forwarded args.
+        assert_eq!(parsed.rest, strings(&["--app", "a"]));
+    }
+
+    #[test]
+    fn parse_wait_equals_form() {
+        let parsed =
+            parse_wait_flags(&strings(&["--wait-interval=15", "--wait-limit=120"])).unwrap();
+        assert_eq!(parsed.interval, 15);
+        assert_eq!(parsed.limit, 120);
+        assert!(parsed.rest.is_empty());
+    }
+
+    #[test]
+    fn parse_wait_captures_app_from_short_and_equals() {
+        assert_eq!(
+            parse_wait_flags(&strings(&["-a", "x"]))
+                .unwrap()
+                .app
+                .as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            parse_wait_flags(&strings(&["--app=y"]))
+                .unwrap()
+                .app
+                .as_deref(),
+            Some("y")
+        );
+    }
+
+    #[test]
+    fn parse_wait_absent_means_no_wait() {
+        let parsed = parse_wait_flags(&strings(&["--app", "a"])).unwrap();
+        assert!(!parsed.wait);
+    }
+
+    #[test]
+    fn parse_wait_rejects_non_integer() {
+        assert!(parse_wait_flags(&strings(&["--wait-interval", "abc"])).is_err());
+    }
+
+    #[test]
+    fn parse_wait_rejects_zero_interval() {
+        assert!(parse_wait_flags(&strings(&["--wait-interval", "0"])).is_err());
+    }
+
+    #[test]
+    fn parse_wait_rejects_zero_limit() {
+        // A 0 limit would enter the poll loop zero times and report an instant
+        // timeout without ever polling — reject it up front, like interval 0.
+        assert!(parse_wait_flags(&strings(&["--wait-limit", "0"])).is_err());
+    }
+
+    #[test]
+    fn parse_wait_rejects_interval_greater_than_limit() {
+        // The loop sleeps a full interval before checking the clock, so an
+        // interval larger than the limit overshoots the promised maximum wait
+        // (e.g. interval 300 / limit 30 blocks for 300s). Reject it.
+        assert!(
+            parse_wait_flags(&strings(&["--wait-interval", "300", "--wait-limit", "30"])).is_err()
+        );
+        // Equal is fine — a single poll at exactly the limit.
+        assert!(
+            parse_wait_flags(&strings(&["--wait-interval", "30", "--wait-limit", "30"])).is_ok()
+        );
+    }
+
+    #[test]
+    fn interval_over_limit_error_names_the_default_when_interval_not_passed() {
+        // The common case: only `--wait-limit` passed, so the offending
+        // interval is the default 10 — the message must say so and suggest
+        // the fix, rather than blame a flag the user never typed.
+        let Err(CliError::Usage { message, .. }) =
+            parse_wait_flags(&strings(&["--wait-limit", "5"]))
+        else {
+            panic!("expected a usage error");
+        };
+        assert!(
+            message.contains("10s, the default"),
+            "must reveal the interval is the default: {message}"
+        );
+        assert!(
+            message.contains("pass a smaller --wait-interval"),
+            "must suggest the fix: {message}"
+        );
+        // When the interval WAS passed, it is not labelled a default.
+        let Err(CliError::Usage { message, .. }) =
+            parse_wait_flags(&strings(&["--wait-interval", "300", "--wait-limit", "30"]))
+        else {
+            panic!("expected a usage error");
+        };
+        assert!(
+            !message.contains("the default"),
+            "an explicit interval must not be labelled a default: {message}"
+        );
+    }
+
+    #[test]
+    fn rewrite_create_app_with_wait_builds_request_and_strips_flags() {
+        let dispatch = try_rewrite_shim(&remaining(&[
+            "extend",
+            "create-app",
+            "--namespace",
+            "ns",
+            "--app",
+            "my-app",
+            "--wait",
+            "--wait-interval",
+            "5",
+        ]))
+        .expect("create-app is a shim")
+        .expect("wait flags are valid");
+
+        // Service args carry the canonical triple and the surviving flags,
+        // with the wait flags removed.
+        assert_eq!(
+            dispatch.service_args,
+            strings(&[
+                "csm",
+                "apps",
+                "create",
+                "--namespace",
+                "ns",
+                "--app",
+                "my-app"
+            ])
+        );
+        let wait = dispatch.wait.expect("--wait must produce a wait request");
+        assert_eq!(wait.app, "my-app");
+        assert_eq!(wait.interval_secs, 5);
+        assert_eq!(wait.limit_secs, 600);
+    }
+
+    #[test]
+    fn rewrite_create_app_without_wait_has_no_request() {
+        let dispatch = try_rewrite_shim(&remaining(&[
+            "extend",
+            "create-app",
+            "--namespace",
+            "ns",
+            "--app",
+            "my-app",
+        ]))
+        .expect("create-app is a shim")
+        .expect("no wait flags is valid");
+        assert!(dispatch.wait.is_none());
+    }
+
+    #[test]
+    fn rewrite_wait_without_app_is_usage_error() {
+        let result = try_rewrite_shim(&remaining(&["extend", "create-app", "--wait"]))
+            .expect("create-app is a shim");
+        assert!(matches!(result, Err(CliError::Usage { .. })));
+    }
+
+    // ── shim presentation + --wait help capability ──
+
+    /// A wait-capable shim's dispatch carries a presentation marked
+    /// `wait_capable`, so the help page adds the `--wait*` flags.
+    #[test]
+    fn wait_capable_shim_presentation_is_wait_capable() {
+        for addr in [
+            "deploy-app",
+            "start-app",
+            "stop-app",
+            "delete-app",
+            "create-app",
+        ] {
+            let dispatch = try_rewrite_shim(&remaining(&["extend", addr]))
+                .expect("is a shim")
+                .expect("valid");
+            assert!(
+                dispatch.presentation.wait_capable,
+                "{addr} presentation must be wait_capable"
+            );
+        }
+    }
+
+    /// A non-wait shim's presentation is not `wait_capable`, so its help page
+    /// gets no `--wait*` flags.
+    #[test]
+    fn non_wait_shim_presentation_is_not_wait_capable() {
+        for addr in ["get-app-info", "list-images"] {
+            let dispatch = try_rewrite_shim(&remaining(&["extend", addr]))
+                .expect("is a shim")
+                .expect("valid");
+            assert!(
+                !dispatch.presentation.wait_capable,
+                "{addr} presentation must not be wait_capable"
+            );
+        }
+    }
+
+    /// The presentation carries the display and canonical addresses used to
+    /// rewrite the shortcut help page's header and usage line.
+    #[test]
+    fn presentation_carries_display_and_canonical_addresses() {
+        let dispatch = try_rewrite_shim(&remaining(&["extend", "deploy-app"]))
+            .expect("is a shim")
+            .expect("valid");
+        assert_eq!(
+            dispatch.presentation.display_address,
+            "ags extend deploy-app"
+        );
+        assert_eq!(
+            dispatch.presentation.canonical_address,
+            "ags csm deployments create"
+        );
+    }
+
+    #[test]
+    fn rewrite_non_wait_shim_ignores_wait_field() {
+        // get-app-info has no wait spec; it must dispatch normally.
+        let dispatch = try_rewrite_shim(&remaining(&[
+            "extend",
+            "get-app-info",
+            "--namespace",
+            "ns",
+            "--app",
+            "a",
+        ]))
+        .expect("get-app-info is a shim")
+        .expect("valid");
+        assert!(dispatch.wait.is_none());
+        assert_eq!(
+            dispatch.service_args,
+            strings(&["csm", "apps", "get", "--namespace", "ns", "--app", "a"])
         );
     }
 }

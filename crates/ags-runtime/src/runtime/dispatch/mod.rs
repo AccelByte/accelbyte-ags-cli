@@ -8,6 +8,7 @@ pub mod http;
 mod pagination;
 mod path;
 pub mod shape;
+mod shape_overrides;
 
 pub(crate) use confirmation::requires_confirmation;
 pub(crate) use execute::fetch_raw_body;

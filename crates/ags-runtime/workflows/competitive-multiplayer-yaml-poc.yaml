@@ -23,12 +23,9 @@ briefing:
     the required resources and connecting them for you.
   prerequisites:
     - >-
-      **An AMS server image** already available in the namespace you want
-      to use. This is the dedicated server build AMS will launch when
-      matches need hosting. If you already have images uploaded, you can
-      list them with `ags ams images list --namespace <namespace>`. If you
-      do not have one yet, upload your server image first using the AMS
-      CLI, note the image id, then come back and run this workflow.
+      **A built dedicated server** ready on disk, with its executable.
+      This workflow archives the build directory and uploads it to AMS
+      as an image itself; you do not need to upload it yourself first.
     - >-
       **A namespace** already created. Everything this workflow creates
       lives inside that namespace.
@@ -41,7 +38,8 @@ briefing:
     - "**A matchmaking ruleset.** This uses that stat together with your team and player-count settings."
     - "**A session template.** This defines how match sessions are created."
     - "**A match pool.** This is the queue players join when searching for a match."
-    - "**A dedicated server fleet.** This is created from your AMS image in the region you choose."
+    - "**An AMS image.** Your dedicated server build, archived and uploaded to AMS."
+    - "**A dedicated server fleet.** This is created from that AMS image in the region you choose."
     - "**The final session-to-fleet wiring.** This makes sure matched players are hosted on that fleet."
 
 is_reviewed_by_default: true

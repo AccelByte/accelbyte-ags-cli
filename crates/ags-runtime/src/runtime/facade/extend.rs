@@ -97,10 +97,10 @@ impl crate::runtime::Runtime {
         })
     }
 
-    /// Fetch the `appRepoUrl` for an Extend app from the CSM `GetAppV2`
+    /// Fetch the `appRepoUrl` for an Extend app from the CSM `GetAppV5`
     /// endpoint.
     ///
-    /// Calls `GET /csm/v2/admin/namespaces/{namespace}/apps/{app}` with
+    /// Calls `GET /csm/v5/admin/namespaces/{namespace}/apps/{app}` with
     /// the runtime's current access token. Returns the repository URL
     /// the app was built into, or a `Validation` error when the app
     /// exists but has never been built (the field is optional in the API
@@ -113,7 +113,7 @@ impl crate::runtime::Runtime {
         let encoded_namespace = encode_url_path_segment(namespace, "namespace")?;
         let encoded_app = encode_url_path_segment(app, "app")?;
         let url = format!(
-            "{}/csm/v2/admin/namespaces/{}/apps/{}",
+            "{}/csm/v5/admin/namespaces/{}/apps/{}",
             self.context.base_url.trim_end_matches('/'),
             encoded_namespace,
             encoded_app
@@ -150,12 +150,12 @@ impl crate::runtime::Runtime {
             );
         }
 
-        let resp: GetAppV2Response = response.json().await.map_err(|e| RuntimeError {
+        let resp: GetAppV5Response = response.json().await.map_err(|e| RuntimeError {
             kind: RuntimeErrorKind::Upstream {
                 status: 0,
                 code: None,
             },
-            message: format!("failed to parse CSM GetAppV2 response: {e}"),
+            message: format!("failed to parse CSM GetAppV5 response: {e}"),
             details: None,
             hint: None,
             trace: None,
@@ -181,13 +181,13 @@ impl crate::runtime::Runtime {
     }
 }
 
-/// Deserialization target for the CSM `GetAppV2` response.
+/// Deserialization target for the CSM `GetAppV5` response.
 ///
 /// Only the `appRepoUrl` field is extracted; the rest of the response
 /// is discarded. The field is optional in the API schema — an app that
 /// has never been built will not have one.
 #[derive(serde::Deserialize)]
-struct GetAppV2Response {
+struct GetAppV5Response {
     #[serde(rename = "appRepoUrl")]
     app_repo_url: Option<String>,
 }
@@ -424,7 +424,7 @@ mod tests {
     async fn test_fetch_app_repo_url_success() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/ns/apps/myapp"))
+            .and(path("/csm/v5/admin/namespaces/ns/apps/myapp"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_string(r#"{"appRepoUrl":"https://registry.example.com/repo"}"#),
@@ -446,7 +446,7 @@ mod tests {
     async fn test_fetch_app_repo_url_missing_field_is_validation_error() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/ns/apps/myapp"))
+            .and(path("/csm/v5/admin/namespaces/ns/apps/myapp"))
             .respond_with(ResponseTemplate::new(200).set_body_string(r#"{}"#))
             .expect(1)
             .mount(&server)
@@ -474,7 +474,7 @@ mod tests {
     async fn test_fetch_app_repo_url_empty_string_is_validation_error() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/ns/apps/myapp"))
+            .and(path("/csm/v5/admin/namespaces/ns/apps/myapp"))
             .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"appRepoUrl":""}"#))
             .expect(1)
             .mount(&server)
@@ -497,7 +497,7 @@ mod tests {
     async fn test_fetch_app_repo_url_non_2xx_produces_classified_error() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/ns/apps/myapp"))
+            .and(path("/csm/v5/admin/namespaces/ns/apps/myapp"))
             .respond_with(
                 ResponseTemplate::new(404)
                     .set_body_string(r#"{"errorCode":73245,"errorMessage":"app not found"}"#),
@@ -523,7 +523,7 @@ mod tests {
     async fn test_fetch_app_repo_url_rejects_traversal_in_namespace() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/ns/apps/myapp"))
+            .and(path("/csm/v5/admin/namespaces/ns/apps/myapp"))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
             .mount(&server)

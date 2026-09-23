@@ -1,6 +1,6 @@
 //! Shared auth presentation helpers.
 
-use ags_protocol::output::{AuthSource, Presence, TokenState};
+use ags_protocol::output::{AuthSource, AuthTokenSource, Presence, TokenState};
 
 /// Human-readable auth source label when one should be rendered explicitly.
 pub(crate) fn human_source_label(source: AuthSource) -> Option<&'static str> {
@@ -20,6 +20,20 @@ pub(crate) fn json_source_label(source: AuthSource) -> Option<&'static str> {
             Some("environment")
         }
         AuthSource::Stored => None,
+    }
+}
+
+/// JSON label for the provenance of the token `ags auth token` printed.
+///
+/// `env` rather than `environment` (the `auth status` spelling): this is a
+/// distinct field on a distinct command, and the shorter value is the one the
+/// documented contract states.
+pub(crate) fn token_source_label(source: AuthTokenSource) -> &'static str {
+    match source {
+        AuthTokenSource::Environment => "env",
+        AuthTokenSource::Stored => "stored",
+        AuthTokenSource::Refreshed => "refreshed",
+        AuthTokenSource::ClientCredentials => "client_credentials",
     }
 }
 

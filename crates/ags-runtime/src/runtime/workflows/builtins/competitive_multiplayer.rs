@@ -284,12 +284,9 @@ fn build_definition() -> WorkflowDefinition {
             ).into(),
             prerequisites: vec![
                 concat!(
-                    "**An AMS server image** already available in the namespace you ",
-                    "want to use. This is the dedicated server build AMS will launch ",
-                    "when matches need hosting. If you already have images uploaded, ",
-                    "you can list them with `ags ams images list --namespace <namespace>`. ",
-                    "If you do not have one yet, upload your server image first using ",
-                    "the AMS CLI, note the image id, then come back and run this workflow."
+                    "**A built dedicated server** ready on disk, with its executable. ",
+                    "This workflow archives the build directory and uploads it to AMS ",
+                    "as an image itself; you do not need to upload it yourself first."
                 ).into(),
                 concat!(
                     "**A namespace** already created. Everything this workflow creates ",
@@ -306,7 +303,8 @@ fn build_definition() -> WorkflowDefinition {
                 "**A matchmaking ruleset.** This uses that stat together with your team and player-count settings.".into(),
                 "**A session template.** This defines how match sessions are created.".into(),
                 "**A match pool.** This is the queue players join when searching for a match.".into(),
-                "**A dedicated server fleet.** This is created from your AMS image in the region you choose.".into(),
+                "**An AMS image.** Your dedicated server build, archived and uploaded to AMS.".into(),
+                "**A dedicated server fleet.** This is created from that AMS image in the region you choose.".into(),
                 "**The final session-to-fleet wiring.** This makes sure matched players are hosted on that fleet.".into(),
             ],
         }),
@@ -778,6 +776,48 @@ mod tests {
                 }
                 other => panic!("{step_id} dsSource must be a literal, got {other:?}"),
             }
+        }
+    }
+
+    #[test]
+    fn test_prerequisites_do_not_mention_retired_ams_cli() {
+        let wf = CompetitiveMultiplayer::new();
+        let briefing = wf
+            .definition()
+            .briefing
+            .as_ref()
+            .expect("workflow must declare a briefing");
+        for prerequisite in &briefing.prerequisites {
+            assert!(
+                !prerequisite.contains("AMS CLI"),
+                "prerequisite must not send users to the retired AMS CLI: {prerequisite}"
+            );
+            assert!(
+                !prerequisite.contains("note the image id"),
+                "prerequisite must not ask the user to supply an image id: {prerequisite}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_yaml_poc_prerequisites_do_not_mention_retired_ams_cli() {
+        let def = crate::runtime::workflows::bundled::load_bundled_yaml_workflow(
+            "competitive-multiplayer-yaml-poc",
+        )
+        .expect("bundled YAML must parse");
+        let briefing = def
+            .briefing
+            .as_ref()
+            .expect("workflow must declare a briefing");
+        for prerequisite in &briefing.prerequisites {
+            assert!(
+                !prerequisite.contains("AMS CLI"),
+                "prerequisite must not send users to the retired AMS CLI: {prerequisite}"
+            );
+            assert!(
+                !prerequisite.contains("note the image id"),
+                "prerequisite must not ask the user to supply an image id: {prerequisite}"
+            );
         }
     }
 

@@ -1,4 +1,4 @@
-//! Auth subcommands: login, logout, status.
+//! Auth subcommands: login, logout, status, token, refresh.
 
 mod oauth;
 
@@ -140,6 +140,24 @@ pub(crate) async fn route_auth(
                     Err(error) => Err(error.into()),
                 };
             Ok(finish_auth_run(frontend, result))
+        }
+        Some(("token", _)) => {
+            frontend.on_event(&crate::frontend::FrontendEvent::RunStarted {
+                workflow_banner: None,
+            });
+            if flags.is_dry_run {
+                let err = CliError::Usage {
+                    message: "ags auth token does not support --dry-run because its output is a live credential.".into(),
+                    metadata: None,
+                };
+                return Ok(finish_auth_run(frontend, Err(err)));
+            }
+            let token_result: Result<CommandOutput, CliError> =
+                match config::resolve_profile_name(flags.profile.as_deref()) {
+                    Ok(profile) => handle_auth_token(&profile, &runtime).await,
+                    Err(error) => Err(error.into()),
+                };
+            Ok(finish_auth_run(frontend, token_result))
         }
         Some(("refresh", _)) => {
             frontend.on_event(&crate::frontend::FrontendEvent::RunStarted {
@@ -465,6 +483,23 @@ async fn handle_auth_status(
     runtime: &ags_runtime::runtime::Runtime,
 ) -> Result<CommandOutput, CliError> {
     let view = runtime.auth_status(profile)?;
+    Ok(CommandOutput::Auth(AuthOutput { view }))
+}
+
+// ── Token ──
+
+/// Handle `ags auth token`.
+///
+/// Resolution is delegated to `Runtime::auth_token`, which runs the same
+/// session resolver the request path runs, so the printed token is the one the
+/// next API call would send. No progress sink is passed: the whole point of the
+/// command is a clean stdout, and a refresh here is incidental rather than the
+/// user's stated intent.
+async fn handle_auth_token(
+    profile: &str,
+    runtime: &ags_runtime::runtime::Runtime,
+) -> Result<CommandOutput, CliError> {
+    let view = runtime.auth_token(profile).await?;
     Ok(CommandOutput::Auth(AuthOutput { view }))
 }
 

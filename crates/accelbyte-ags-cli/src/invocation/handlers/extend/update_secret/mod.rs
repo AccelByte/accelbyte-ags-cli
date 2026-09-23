@@ -196,10 +196,10 @@ async fn handle_update_secret_with_reader(
         }
     };
 
-    // Neither `SaveSecretV2` (create) nor `UpdateSecretV2` (update) is
-    // guaranteed to echo `applyMask`/`description` back — `SaveSecretV2`
+    // Neither `SaveSecretV5` (create) nor `UpdateSecretV5` (update) is
+    // guaranteed to echo `applyMask`/`description` back — `SaveSecretV5`
     // never does, and `description` is not a required field on
-    // `UpdateConfigurationV2Response` either. Use the values actually sent
+    // `UpdateAppConfigV5Response` either. Use the values actually sent
     // (computed pre-call) for both paths instead of trusting the response,
     // so the reported output is immune to response-shape drift.
     let apply_mask = effective.apply_mask;
@@ -446,14 +446,14 @@ mod tests {
         }
     }
 
-    // ── T-USEC-01: key exists → UpdateSecretV2 called; SaveSecretV2 not called ──
+    // ── T-USEC-01: key exists → UpdateSecretV5 called; SaveSecretV5 not called ──
 
     #[tokio::test]
     #[serial_test::serial]
     async fn test_key_exists_updates_and_does_not_create() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": "old desc"}]
             })))
@@ -461,7 +461,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("PUT"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
             // Proves the merge rule directly: unset --sensitive/--description
             // preserve the existing record's applyMask (true) and
             // description ("old desc") in the PUT body, not just that some
@@ -478,7 +478,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("POST"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
             .mount(&server)
@@ -509,13 +509,13 @@ mod tests {
 
     /// `--force` must never override "key exists → update": passing
     /// `--force` alongside an existing key still takes the UPDATE path
-    /// (UpdateSecretV2), not create (SaveSecretV2).
+    /// (UpdateSecretV5), not create (SaveSecretV5).
     #[tokio::test]
     #[serial_test::serial]
     async fn test_force_with_existing_key_still_updates_and_does_not_create() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": "old desc"}]
             })))
@@ -523,7 +523,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("PUT"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
                 "applyMask": true,
@@ -536,7 +536,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("POST"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
             .mount(&server)
@@ -573,12 +573,12 @@ mod tests {
     async fn test_key_absent_no_force_returns_exact_secret_message_and_does_not_create() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         Mock::given(method("POST"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
             .mount(&server)
@@ -622,12 +622,12 @@ mod tests {
     async fn test_create_without_sensitive_defaults_apply_mask_true() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         Mock::given(method("POST"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .and(body_json(serde_json::json!({
                 "configName": "MY_KEY",
                 "value": "new-value",
@@ -643,7 +643,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/new-id",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/new-id",
             ))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
@@ -690,14 +690,14 @@ mod tests {
     async fn test_explicit_sensitive_false_removes_masking_on_update() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": "kept"}]
             })))
             .mount(&server)
             .await;
         Mock::given(method("PUT"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1"))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
                 "applyMask": false,
@@ -750,7 +750,7 @@ mod tests {
     async fn test_update_response_plaintext_value_never_reaches_output() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -758,7 +758,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
             ))
             // Real CSM echoes plaintext `value` back on update — this mock
             // reproduces that so the test proves the handler never
@@ -801,14 +801,14 @@ mod tests {
         assert!(!serialized.contains("super-secret-value"));
     }
 
-    // ── Failure-mode table: GetListOfSecretsV2 non-200 → CliError::Api ──
+    // ── Failure-mode table: GetListOfSecretsV5 non-200 → CliError::Api ──
 
     #[tokio::test]
     #[serial_test::serial]
     async fn test_list_secrets_failure_is_api_error() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(500))
             .mount(&server)
             .await;
@@ -965,7 +965,7 @@ mod tests {
     async fn test_bare_sensitive_flag_overrides_existing_mask_on_update() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": false, "description": "kept"}]
             })))
@@ -973,7 +973,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
             ))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
@@ -1195,13 +1195,13 @@ mod tests {
     async fn test_create_secret_error_redacts_value_from_error_message() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         // The CSM error response embeds the submitted value inside errorMessage.
         Mock::given(method("POST"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
                 "errorCode": 20004,
                 "errorMessage": "value 'super-secret-123' failed validation"
@@ -1252,7 +1252,7 @@ mod tests {
     async fn test_update_secret_error_redacts_value_from_error_message() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -1260,7 +1260,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
             ))
             .respond_with(ResponseTemplate::new(422).set_body_json(serde_json::json!({
                 "errorCode": 20005,
@@ -1311,7 +1311,7 @@ mod tests {
     #[test]
     fn test_redact_empty_value_returns_message_unchanged() {
         let error = CliError::Api {
-            message: "CSM SaveSecretV2 returned HTTP 400: validation error".to_string(),
+            message: "CSM SaveSecretV5 returned HTTP 400: validation error".to_string(),
             metadata: None,
             category: crate::errors::ApiErrorCategory::Upstream,
         };
@@ -1319,7 +1319,7 @@ mod tests {
         match redacted {
             CliError::Api { ref message, .. } => {
                 assert_eq!(
-                    message, "CSM SaveSecretV2 returned HTTP 400: validation error",
+                    message, "CSM SaveSecretV5 returned HTTP 400: validation error",
                     "empty-value redaction must not mangle the message: {message}"
                 );
             }
@@ -1338,7 +1338,7 @@ mod tests {
     async fn test_handler_warns_when_value_flag_used() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -1346,7 +1346,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null
@@ -1390,7 +1390,7 @@ mod tests {
     async fn test_handler_does_not_warn_when_value_stdin_used() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -1398,7 +1398,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/secrets/id-1",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null

@@ -65,3 +65,38 @@ pub fn ags_with_base_url(base_url: &str) -> Command {
     command.env("AGS_BASE_URL", base_url);
     command
 }
+
+/// Place the built `ags` binary into `dir` and return its path and a Command.
+///
+/// For tests that must observe `current_exe()` at a path they control.
+/// The returned command has `AGS_NO_UPDATE_CHECK=1` and `AGS_NO_KEYCHAIN=1`
+/// pre-set.
+///
+/// On Unix, uses a hard link instead of a copy. The debug binary is ~270 MB;
+/// `std::fs::copy` holds a write fd on the destination for the duration of
+/// the copy. When parallel tests fork (via `Command::output`/`spawn`), the
+/// child inherits the write fd. The forked child's `exec` closes it via
+/// `O_CLOEXEC`, but our `exec` can race ahead and hit `ETXTBSY`. A hard
+/// link creates a directory entry without any write fd, eliminating the
+/// race. Falls back to copy if the link fails (e.g. cross-filesystem).
+pub fn ags_copied_to(dir: &std::path::Path) -> (std::path::PathBuf, Command) {
+    let original = assert_cmd::cargo::cargo_bin("ags");
+    let binary_name = original.file_name().unwrap();
+    let dest = dir.join(binary_name);
+    #[cfg(unix)]
+    {
+        if std::fs::hard_link(&original, &dest).is_err() {
+            std::fs::copy(&original, &dest).expect("failed to copy ags binary");
+        }
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755)).ok();
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::copy(&original, &dest).expect("failed to copy ags binary");
+    }
+    let mut cmd = Command::new(&dest);
+    cmd.env("AGS_NO_UPDATE_CHECK", "1");
+    cmd.env("AGS_NO_KEYCHAIN", "1");
+    (dest, cmd)
+}

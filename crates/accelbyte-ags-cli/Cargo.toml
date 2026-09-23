@@ -37,6 +37,7 @@ clap_complete = { workspace = true }
 crossterm = { workspace = true }
 reqwest = { workspace = true }
 ratatui = { workspace = true }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

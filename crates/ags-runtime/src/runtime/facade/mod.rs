@@ -12,3 +12,5 @@ pub mod extend;
 mod profile;
 mod service;
 mod workflow;
+
+pub use service::lookup_operation;

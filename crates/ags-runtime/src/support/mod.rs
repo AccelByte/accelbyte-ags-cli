@@ -4,6 +4,7 @@ pub mod file_system;
 pub mod output_sink;
 pub mod process;
 pub mod strings;
+pub mod time;
 
 #[cfg(test)]
 pub(crate) mod test_helpers;

@@ -94,6 +94,12 @@ pub struct CollectionResult {
     pub columns: Vec<ColumnSpec>,
     pub rows: Vec<Row>,
     pub page_info: Option<PageInfo>,
+    /// Secondary lines rendered above the table in human format (e.g.
+    /// sibling scalar flags that don't belong as a table column). Empty for
+    /// every collection except those that opt in. Not consulted for JSON
+    /// output, which renders the raw response body directly.
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 /// A successful-but-empty result (e.g. "delete user" succeeded).
@@ -310,6 +316,7 @@ mod tests {
                 total_items: Some(1000),
                 has_next: true,
             }),
+            notes: vec![],
         }));
     }
 

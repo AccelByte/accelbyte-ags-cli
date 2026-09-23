@@ -114,6 +114,8 @@ pub enum AuthView {
     LoginSuccess(AuthActionData),
     /// A token refresh completed (`ags auth refresh`).
     RefreshSuccess(AuthActionData),
+    /// The resolved access token, emitted by `ags auth token`.
+    Token(AuthTokenData),
     /// Stored credentials were cleared for one profile
     LogoutSuccess(LogoutData),
     /// Stored credentials were cleared for all profiles
@@ -137,6 +139,52 @@ pub struct AuthStatusData {
     pub refresh_token: TokenState,
     pub namespace: Option<String>,
     pub next_step: Option<String>,
+}
+
+/// The access token `ags auth token` resolved, with the provenance and expiry
+/// a caller needs to decide whether to cache it.
+///
+/// The token itself is a secret, so this type deliberately withholds it from
+/// the two paths that would leak it into a log or an unrelated payload:
+/// `access_token` is skipped by `Serialize` and redacted by `Debug`. The one
+/// command that may emit it writes it out explicitly through its renderer.
+#[derive(Clone, serde::Serialize)]
+pub struct AuthTokenData {
+    /// The bearer token, without the `Bearer ` prefix.
+    #[serde(skip)]
+    pub access_token: String,
+    /// Unix epoch seconds at which the token expires, matching the stored
+    /// token's own `expires_at`. `None` when the source does not state an
+    /// expiry (an `AGS_ACCESS_TOKEN` supplied by the caller).
+    pub expires_at: Option<u64>,
+    /// Where the token came from.
+    pub source: AuthTokenSource,
+    /// Non-fatal notes raised while resolving the token, for stderr.
+    pub warnings: Vec<String>,
+}
+
+impl std::fmt::Debug for AuthTokenData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthTokenData")
+            .field("access_token", &"<redacted>")
+            .field("expires_at", &self.expires_at)
+            .field("source", &self.source)
+            .field("warnings", &self.warnings)
+            .finish()
+    }
+}
+
+/// Where the token returned by `ags auth token` came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum AuthTokenSource {
+    /// Supplied by the caller through `AGS_ACCESS_TOKEN`.
+    Environment,
+    /// A stored token that was still valid.
+    Stored,
+    /// Re-minted through the OAuth refresh-token grant.
+    Refreshed,
+    /// Newly minted through the client-credentials grant.
+    ClientCredentials,
 }
 
 /// Outcome of a successful auth action, used in [`AuthActionData::status`].
@@ -297,6 +345,42 @@ pub struct UpdateVarOutput {
     pub created: bool,
 }
 
+/// Outcome of an `extend security-assessment request` submission, ready for
+/// rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SecurityAssessmentRequestOutput {
+    /// The game namespace the engagement was requested in.
+    pub namespace: String,
+    /// The Extend app name the engagement targets.
+    pub app: String,
+    /// The created engagement's numeric id (referenced by
+    /// `security-assessment result`).
+    pub engagement_id: i64,
+    /// The engagement's normalized status, as returned by CSM (e.g.
+    /// `"SUBMITTED"`).
+    pub status: String,
+    /// Number of endpoints included in the request.
+    pub endpoint_count: usize,
+}
+
+/// Outcome of an `extend security-assessment result` report download, ready
+/// for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SecurityAssessmentResultOutput {
+    /// The game namespace the engagement belongs to.
+    pub namespace: String,
+    /// The Extend app name the engagement targets.
+    pub app: String,
+    /// The downloaded engagement's numeric id.
+    pub engagement_id: i64,
+    /// The report format requested (`"pdf"` or `"md"`).
+    pub report_format: String,
+    /// Local file path the report was written to.
+    pub path: String,
+    /// Number of bytes written.
+    pub bytes_written: usize,
+}
+
 /// Complete result of a service API call, ready for rendering.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ApiOutput {
@@ -311,6 +395,12 @@ pub struct ApiOutput {
     /// Not part of the rendered output (`#[serde(skip)]`).
     #[serde(skip)]
     pub raw_body: Option<serde_json::Value>,
+    /// Whether the scope entry that resolved this operation has more than one
+    /// API version. Used by the human renderer to decide whether to show the
+    /// API version label — the version is only informative when the user could
+    /// have chosen a different one. Not part of the serialised output.
+    #[serde(skip)]
+    pub has_alternate_versions: bool,
 }
 
 /// The response body from an API call in its shaped or fallback form.
@@ -328,6 +418,12 @@ pub enum ApiBody {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ApiSuccess {
     pub summary: String,
+    /// The API version the operation was dispatched against. Populated from
+    /// `OperationSchema.api_version` so renderers can show which contract
+    /// version was used without parsing the summary string.
+    /// Not part of the serialised output.
+    #[serde(skip)]
+    pub api_version: crate::catalogue::ApiVersion,
 }
 
 /// Verbose request/response details shown on stderr when `--verbose` is set.
@@ -626,6 +722,94 @@ pub struct WorkflowCompletionView {
     pub next_steps: Vec<crate::workflow::CompletionStep>,
 }
 
+/// How the current copy of the CLI was installed, for the update command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallMethod {
+    /// Installed via the shell or PowerShell installer script.
+    Installer,
+    /// Installed via Homebrew.
+    Homebrew,
+    /// Binary placed manually or by an unknown mechanism.
+    Manual,
+}
+
+impl std::fmt::Display for InstallMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Installer => write!(f, "installer"),
+            Self::Homebrew => write!(f, "homebrew"),
+            Self::Manual => write!(f, "manual"),
+        }
+    }
+}
+
+/// Outcome of `ags update`, ready for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UpdateOutput {
+    /// The version of the running binary.
+    pub current: String,
+    /// The latest version available on GitHub.
+    pub latest: String,
+    /// Whether the latest version is newer than the current one.
+    pub update_available: bool,
+    /// How this copy of the CLI was installed.
+    pub install_method: InstallMethod,
+    /// Path to the running binary.
+    pub binary_path: String,
+    /// The exact command to run to upgrade, or `None` for a manual install.
+    pub upgrade_command: Option<String>,
+    /// The platform-specific download archive name.
+    pub download_archive: String,
+    /// The release notes page for the latest version.
+    pub release_url: String,
+}
+
+/// Action taken by `ags update --install`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateInstallAction {
+    /// The installer ran and a newer binary was verified in place.
+    Installed,
+    /// The running version is already the latest; nothing was downloaded.
+    AlreadyCurrent,
+    /// Dry-run preview; no request was sent and no file was changed.
+    DryRun,
+}
+
+impl std::fmt::Display for UpdateInstallAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Installed => write!(f, "installed"),
+            Self::AlreadyCurrent => write!(f, "already_current"),
+            Self::DryRun => write!(f, "dry_run"),
+        }
+    }
+}
+
+/// Outcome of `ags update --install`, ready for rendering.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UpdateInstallOutput {
+    /// The action that was taken.
+    pub action: UpdateInstallAction,
+    /// Path to the binary that was (or would be) replaced.
+    pub binary_path: String,
+    /// How this copy of the CLI was installed.
+    pub install_method: InstallMethod,
+    /// The URL the installer script was downloaded from, or `None` when
+    /// nothing was downloaded (already current or dry-run).
+    pub installer_url: Option<String>,
+    /// The latest version available, or `None` under dry-run (no request).
+    pub latest: Option<String>,
+    /// The version of the binary before the upgrade.
+    pub previous: String,
+    /// The environment variable pairs the installer would receive (dry-run
+    /// renderer only). Not serialised — the JSON contract is the six fields
+    /// above.
+    #[serde(skip)]
+    pub installer_env: Vec<(String, String)>,
+}
+
 #[cfg(test)]
 mod serialize_smoke_tests {
     use super::*;
@@ -652,6 +836,40 @@ mod serialize_smoke_tests {
             next_step: None,
         });
         let _ = serde_json::to_value(&view).expect("AuthView must serialise");
+    }
+
+    /// The token is a secret: neither the derived `Serialize` nor the derived
+    /// `Debug` may carry it, so an incidental `to_value` or `{:?}` on a command
+    /// output cannot leak it. The one command allowed to emit it writes it out
+    /// explicitly in its own renderer.
+    #[test]
+    fn test_auth_token_view_withholds_the_token_from_serde_and_debug() {
+        let view = AuthView::Token(AuthTokenData {
+            access_token: "super-secret-token".to_string(),
+            expires_at: Some(1_800_000_000),
+            source: AuthTokenSource::Stored,
+            warnings: vec![],
+        });
+
+        let serialised = serde_json::to_string(&view).expect("AuthView must serialise");
+        assert!(
+            !serialised.contains("super-secret-token"),
+            "Serialize must not carry the token: {serialised}"
+        );
+        assert!(
+            serialised.contains("1800000000"),
+            "the non-secret fields must still serialise: {serialised}"
+        );
+
+        let debugged = format!("{view:?}");
+        assert!(
+            !debugged.contains("super-secret-token"),
+            "Debug must not carry the token: {debugged}"
+        );
+        assert!(
+            debugged.contains("<redacted>"),
+            "Debug must say the field was withheld: {debugged}"
+        );
     }
 
     #[test]
@@ -687,5 +905,42 @@ mod serialize_smoke_tests {
         let json = serde_json::to_string(&v).expect("WorkflowCompletionView must serialise");
         assert!(json.contains("ranked-pool"));
         assert!(json.contains("match-pools get"));
+    }
+
+    #[test]
+    fn update_install_output_serialises_six_keys() {
+        let output = UpdateInstallOutput {
+            action: UpdateInstallAction::Installed,
+            binary_path: "/usr/local/bin/ags".to_string(),
+            install_method: InstallMethod::Installer,
+            installer_url: Some("https://example.com/installer.sh".to_string()),
+            latest: Some("0.5.2".to_string()),
+            previous: "0.5.1".to_string(),
+            installer_env: vec![("FOO".to_string(), "bar".to_string())],
+        };
+        let value = serde_json::to_value(&output).expect("must serialise");
+        let obj = value.as_object().expect("must be an object");
+        assert_eq!(
+            obj.len(),
+            6,
+            "expected exactly 6 keys, got: {:?}",
+            obj.keys().collect::<Vec<_>>()
+        );
+        // Keys must be in alphabetical order (serde_json::Value::Object uses
+        // a BTreeMap).
+        let keys: Vec<&String> = obj.keys().collect();
+        assert_eq!(
+            keys,
+            &[
+                "action",
+                "binary_path",
+                "install_method",
+                "installer_url",
+                "latest",
+                "previous"
+            ]
+        );
+        // installer_env must NOT appear.
+        assert!(!obj.contains_key("installer_env"));
     }
 }

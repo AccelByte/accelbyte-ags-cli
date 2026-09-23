@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use ags_protocol::error::{ErrorDetails, RuntimeError, RuntimeErrorKind, SuggestionKind};
 
+use super::api::operation;
+
 /// Everything that can go wrong between `ags ams upload` being invoked and the
 /// image being marked complete.
 #[derive(Debug, thiserror::Error)]
@@ -19,11 +21,11 @@ pub enum AmsUploadError {
     #[error("Directory '{0}' is empty")]
     DirectoryEmpty(PathBuf),
     #[error("Cannot find executable at '{0}'")]
-    ExecutableMissing(PathBuf),
+    ExecutableMissing(String),
     #[error("Executable '{0}' is a directory, not a file")]
-    ExecutableIsDirectory(PathBuf),
+    ExecutableIsDirectory(String),
     #[error("Executable '{0}' does not match the on-disk filename case")]
-    ExecutableWrongCase(PathBuf),
+    ExecutableWrongCase(String),
     #[error("Executable '{0}' resolves outside the upload directory")]
     ExecutableOutsideDirectory(String),
     #[error("Executable must be a 64-bit little-endian ELF binary, or a shell script (.sh)")]
@@ -31,7 +33,7 @@ pub enum AmsUploadError {
     #[error("Target architecture is required when the entrypoint is a shell script")]
     ShellScriptNeedsTargetArchitecture,
     #[error("'{path}' is not a valid shell script: {reason}")]
-    ShellScriptInvalid { path: PathBuf, reason: String },
+    ShellScriptInvalid { path: String, reason: String },
     #[error(
         "Target architecture '{requested}' does not match the detected architecture '{detected}'"
     )]
@@ -113,8 +115,11 @@ impl From<AmsUploadError> for RuntimeError {
             ),
             AmsUploadError::ExecutableMissing(_) => validation(
                 message,
-                Some("--executable is resolved relative to --path.".to_string()),
-                Some("Check the path and retry."),
+                Some(
+                    "--executable is resolved relative to --path, which was searched for it."
+                        .to_string(),
+                ),
+                Some("Check --path and --executable and retry."),
             ),
             AmsUploadError::ExecutableOutsideDirectory(_) => validation(
                 message,
@@ -179,7 +184,10 @@ impl From<AmsUploadError> for RuntimeError {
                 Some("Pass --upload-url as an absolute URL, e.g. https://prod.ams.accelbyte.io."),
             ),
             AmsUploadError::ApiCallFailed {
-                status, ref trace, ..
+                status,
+                operation,
+                ref trace,
+                ..
             } => RuntimeError {
                 kind: match status {
                     Some(401) => RuntimeErrorKind::NotAuthenticated,
@@ -194,7 +202,7 @@ impl From<AmsUploadError> for RuntimeError {
                 },
                 message,
                 details: {
-                    let guidance = api_call_guidance(status);
+                    let guidance = api_call_guidance(status, operation);
                     guidance.has_context().then(|| {
                         Box::new(ErrorDetails {
                             code: None,
@@ -205,7 +213,7 @@ impl From<AmsUploadError> for RuntimeError {
                         })
                     })
                 },
-                hint: api_call_guidance(status).fix.map(str::to_string),
+                hint: api_call_guidance(status, operation).fix.map(str::to_string),
                 trace: trace.clone(),
             },
             AmsUploadError::PartUploadFailed { .. } | AmsUploadError::MissingETag(_) => {
@@ -255,7 +263,7 @@ impl ApiCallGuidance {
 /// and URL signing take CREATE while finalize and complete take UPDATE
 /// (`armada-core-api` `service/routes.go`) — so a CREATE-only identity fails
 /// only after every byte has been transferred.
-fn api_call_guidance(status: Option<u16>) -> ApiCallGuidance {
+fn api_call_guidance(status: Option<u16>, operation: &'static str) -> ApiCallGuidance {
     match status {
         Some(401) => ApiCallGuidance {
             reason: Some("The access token was rejected by AMS."),
@@ -263,6 +271,38 @@ fn api_call_guidance(status: Option<u16>) -> ApiCallGuidance {
             fix: Some("Run 'ags auth login' and retry."),
             tip: None,
         },
+        // Finalize and complete need the Update action; every earlier stage
+        // (create, presign, initiate) needs only Create. A Create-only
+        // identity gets this far only after every byte has been transferred,
+        // so the message must say Create already worked rather than implying
+        // the permission is missing outright.
+        Some(403)
+            if operation == operation::FINALIZE_MULTIPART || operation == operation::COMPLETE =>
+        {
+            ApiCallGuidance {
+                reason: Some(
+                    "The identity you authenticated as can create images but does not carry \
+                     the Update action of the AMS:UPLOAD permission.",
+                ),
+                detail: Some(
+                    "Enter it exactly as 'AMS:UPLOAD' with no ADMIN:NAMESPACE:... prefix, and \
+                     grant both the Create and Update actions. It is a different permission from \
+                     the namespaced ADMIN:NAMESPACE:{namespace}:AMS:IMAGE behind 'ags ams images', \
+                     so being able to list images does not allow uploading one.",
+                ),
+                fix: Some(
+                    "Grant AMS:UPLOAD (Create, Update) to the IAM client you authenticate as — \
+                     it must be a confidential client, used via AGS_CLIENT_ID / \
+                     AGS_CLIENT_SECRET — or to your user's roles if you sign in with 'ags auth \
+                     login'.",
+                ),
+                tip: Some(
+                    "A permission change needs a new token: 'ags auth refresh' after a \
+                     client-credentials login, or a full 'ags auth login' after a browser login \
+                     (refresh does not pick up new role grants).",
+                ),
+            }
+        }
         Some(403) => ApiCallGuidance {
             reason: Some(
                 "The identity you authenticated as does not carry the AMS:UPLOAD permission.",
@@ -482,7 +522,7 @@ mod tests {
     #[test]
     fn test_orphan_wrapper_preserves_the_inner_guidance() {
         let inner = AmsUploadError::ApiCallFailed {
-            operation: "Marking the image as complete",
+            operation: operation::COMPLETE,
             reason: "HTTP 403 token is missing required permissions".to_string(),
             status: Some(403),
             trace: None,
@@ -500,6 +540,47 @@ mod tests {
             .expect("the 403 guidance must survive wrapping");
         assert!(details.reason.unwrap().contains("AMS:UPLOAD"));
         assert!(error.hint.unwrap().contains("Create"));
+    }
+
+    /// A 403 while finalizing the multipart upload must say Create already
+    /// worked and only Update is missing — the identity got this far only
+    /// after transferring every byte, so "the permission is missing" would be
+    /// misleading.
+    #[test]
+    fn test_forbidden_finalize_names_update_as_the_missing_action() {
+        let error: RuntimeError = AmsUploadError::ApiCallFailed {
+            operation: operation::FINALIZE_MULTIPART,
+            reason: "HTTP 403 token is missing required permissions".to_string(),
+            status: Some(403),
+            trace: None,
+        }
+        .into();
+        let details = error.details.expect("a 403 must explain itself");
+        let reason = details.reason.expect("reason line");
+        assert!(reason.contains("can create images"), "{reason}");
+        assert!(reason.contains("Update"), "{reason}");
+        assert!(
+            !reason.contains("does not carry the AMS:UPLOAD permission"),
+            "{reason}"
+        );
+        let fix = error.hint.expect("fix line");
+        assert!(fix.contains("Create") && fix.contains("Update"), "{fix}");
+    }
+
+    /// Same stage-specific wording for completion, the other Update-gated call.
+    #[test]
+    fn test_forbidden_complete_names_update_as_the_missing_action() {
+        let error: RuntimeError = AmsUploadError::ApiCallFailed {
+            operation: operation::COMPLETE,
+            reason: "HTTP 403 token is missing required permissions".to_string(),
+            status: Some(403),
+            trace: None,
+        }
+        .into();
+        let details = error.details.expect("a 403 must explain itself");
+        let reason = details.reason.expect("reason line");
+        assert!(reason.contains("can create images"), "{reason}");
+        assert!(reason.contains("Update"), "{reason}");
     }
 
     /// A 5xx is the service's problem; inventing a user-facing fix would be noise.

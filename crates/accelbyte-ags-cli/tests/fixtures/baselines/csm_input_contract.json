@@ -192,6 +192,32 @@
     },
     {
       "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "forced",
+          "required": false
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Deletes the extend app by name",
+      "x_operation_id": "csm/admin/apps/v5/delete"
+    },
+    {
+      "has_request_body": false,
       "http_method": "GET",
       "method": "get",
       "parameters": [
@@ -210,6 +236,27 @@
       "permissions": [],
       "summary": "Retrieves the extend app by name",
       "x_operation_id": "csm/admin/apps/v2/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}",
+      "permissions": [],
+      "summary": "Retrieves the extend app by name",
+      "x_operation_id": "csm/admin/apps/v5/get"
     },
     {
       "has_request_body": false,
@@ -324,6 +371,27 @@
     {
       "has_request_body": false,
       "http_method": "PUT",
+      "method": "start",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}/start",
+      "permissions": [],
+      "summary": "Starts the Application",
+      "x_operation_id": "csm/admin/apps/v5/start"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
       "method": "stop",
       "parameters": [
         {
@@ -341,6 +409,27 @@
       "permissions": [],
       "summary": "Stops the Application",
       "x_operation_id": "csm/admin/apps/v2/stop"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "PUT",
+      "method": "stop",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}/stop",
+      "permissions": [],
+      "summary": "Stops the Application",
+      "x_operation_id": "csm/admin/apps/v5/stop"
     },
     {
       "has_request_body": true,
@@ -662,6 +751,27 @@
       "x_operation_id": "csm/admin/deployments/v2/create"
     },
     {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}/deployments",
+      "permissions": [],
+      "summary": "Creates Deployment",
+      "x_operation_id": "csm/admin/deployments/v5/create"
+    },
+    {
       "has_request_body": false,
       "http_method": "DELETE",
       "method": "delete",
@@ -800,6 +910,32 @@
       "permissions": [],
       "summary": "Lists container images for the app",
       "x_operation_id": "csm/admin/images/v2/list"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "app",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "cached",
+          "required": false
+        }
+      ],
+      "path": "/csm/v5/admin/namespaces/{namespace}/apps/{app}/images",
+      "permissions": [],
+      "summary": "Lists container images for the app",
+      "x_operation_id": "csm/admin/images/v5/list"
     }
   ],
   "key-value": [
@@ -1280,6 +1416,87 @@
       "permissions": [],
       "summary": "Retrieves configurable resource limits for extend apps",
       "x_operation_id": "csm/admin/resource-limits/v2/list"
+    }
+  ],
+  "security-assessment": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/pentestings",
+      "permissions": [],
+      "summary": "Creates a new pen-testing request for an Extend app",
+      "x_operation_id": "csm/admin/security-assessment/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-app-endpoints",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "appName",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/pentestings/apps/{appName}/endpoints",
+      "permissions": [],
+      "summary": "Gets the testable endpoints and required permissions for a Service Extension app",
+      "x_operation_id": "csm/admin/security-assessment/v1/get-app-endpoints"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-report",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "engagementId",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "format",
+          "required": false
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/pentestings/{engagementId}/report",
+      "permissions": [],
+      "summary": "Downloads a completed pen-testing report",
+      "x_operation_id": "csm/admin/security-assessment/v1/get-report"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/csm/v1/admin/namespaces/{namespace}/pentestings",
+      "permissions": [],
+      "summary": "Lists pen-testing requests for Extend apps in a game namespace",
+      "x_operation_id": "csm/admin/security-assessment/v1/list"
     }
   ],
   "service-messages": [

@@ -14,9 +14,9 @@ use ags_protocol::output::{
 /// Render auth command output as human-readable text
 pub(crate) fn render_auth_output(
     output: &AuthOutput,
-    _options: &RenderOptions,
+    options: &RenderOptions,
 ) -> Result<RenderedOutput, CliError> {
-    let (stdout, stderr) = render_auth_view_text(&output.view);
+    let (stdout, stderr) = render_auth_view_text(&output.view, options);
     Ok(RenderedOutput {
         stdout: Some(stdout),
         stderr,
@@ -24,9 +24,20 @@ pub(crate) fn render_auth_output(
     })
 }
 
-/// Render an auth view as styled stdout headline and optional stderr details
-fn render_auth_view_text(view: &AuthView) -> (String, Option<String>) {
+/// Render an auth view as stdout payload and optional stderr details.
+///
+/// Every arm but `Token` puts a styled headline on stdout; `Token` puts the
+/// raw token there instead, because that output is consumed by substitution.
+fn render_auth_view_text(view: &AuthView, options: &RenderOptions) -> (String, Option<String>) {
     match view {
+        // The token is the command's whole payload, so it goes to stdout
+        // unstyled and alone — no headline, no symbol, nothing a `$(...)`
+        // capture would have to strip. Only the warnings are chrome, and
+        // `--quiet` drops those.
+        AuthView::Token(data) => (
+            data.access_token.clone(),
+            render_token_warnings(&data.warnings, options),
+        ),
         AuthView::Authenticated(data) => (
             style::success("Authenticated", style::is_stdout_enabled()),
             Some(render_authenticated_details(data)),
@@ -75,6 +86,20 @@ fn render_auth_view_text(view: &AuthView) -> (String, Option<String>) {
             )
         }
     }
+}
+
+/// Render the warnings raised while resolving a token as stderr lines, or
+/// `None` when there are none or `--quiet` suppressed them.
+fn render_token_warnings(warnings: &[String], options: &RenderOptions) -> Option<String> {
+    if options.verbosity.is_quiet() || warnings.is_empty() {
+        return None;
+    }
+    let color = style::is_stderr_enabled();
+    let lines: Vec<String> = warnings
+        .iter()
+        .map(|warning| style::warning(warning, color))
+        .collect();
+    Some(lines.join("\n"))
 }
 
 /// Format the credential detail block for an authenticated status
@@ -258,5 +283,62 @@ fn format_token_state(state: &TokenState, color_enabled: bool) -> String {
         TokenState::Missing | TokenState::Present | TokenState::Unknown => {
             auth_presenter::token_state_label(state).to_string()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ags_protocol::output::{AuthTokenData, AuthTokenSource};
+
+    /// Build a token view carrying `warnings`.
+    fn token_output(warnings: Vec<String>) -> AuthOutput {
+        AuthOutput {
+            view: AuthView::Token(AuthTokenData {
+                access_token: "secret-token".to_string(),
+                expires_at: Some(1_800_000_000),
+                source: AuthTokenSource::Stored,
+                warnings,
+            }),
+        }
+    }
+
+    #[test]
+    fn test_token_stdout_is_the_bare_token() {
+        let rendered =
+            render_auth_output(&token_output(vec![]), &RenderOptions::default()).unwrap();
+        // Exactly the token: no symbol, no ANSI, nothing for a `$(...)`
+        // capture to strip. `emit_with_options` adds the trailing newline.
+        assert_eq!(rendered.stdout.as_deref(), Some("secret-token"));
+        assert!(rendered.stderr.is_none());
+    }
+
+    #[test]
+    fn test_token_warnings_render_to_stderr_only() {
+        let rendered = render_auth_output(
+            &token_output(vec!["keychain unavailable".to_string()]),
+            &RenderOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(rendered.stdout.as_deref(), Some("secret-token"));
+        assert!(rendered
+            .stderr
+            .expect("warning on stderr")
+            .contains("keychain unavailable"));
+    }
+
+    #[test]
+    fn test_token_quiet_drops_warnings_but_keeps_the_token() {
+        let options = RenderOptions {
+            verbosity: ags_protocol::request::Verbosity::Quiet,
+            ..RenderOptions::default()
+        };
+        let rendered = render_auth_output(
+            &token_output(vec!["keychain unavailable".to_string()]),
+            &options,
+        )
+        .unwrap();
+        assert_eq!(rendered.stdout.as_deref(), Some("secret-token"));
+        assert!(rendered.stderr.is_none());
     }
 }

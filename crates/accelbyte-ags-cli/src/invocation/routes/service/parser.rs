@@ -42,6 +42,9 @@ pub(super) fn parse_service_args(
     flags: &flags::GlobalFlags,
     frontend_context: &FrontendContext,
     render_options: crate::frontend::RenderOptions,
+    shim_presentation: Option<
+        &crate::invocation::handlers::extend::service_shims::ShimPresentation,
+    >,
 ) -> Result<ParseServiceOutcome, CliError> {
     let protocol_output_format = frontend_context.protocol_output_format();
     let service_id = Catalogue::find_id(service_arg).ok_or_else(|| {
@@ -94,7 +97,14 @@ pub(super) fn parse_service_args(
         && (service_args.is_empty() || has_help_flag || positional_args.len() <= 1);
 
     if needs_help {
-        help::print_service_help(service_command, internal, service_args)?;
+        help::print_service_help(
+            service_command,
+            internal,
+            service_args,
+            shim_presentation,
+            &service_schema,
+            selectors,
+        )?;
         if has_help_flag {
             return Ok(ParseServiceOutcome::Complete);
         }

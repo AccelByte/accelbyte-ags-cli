@@ -5,4 +5,6 @@ pub mod doctor;
 pub mod extend;
 pub mod profile;
 pub mod refresh_specs;
+pub mod update;
+pub mod update_install;
 pub mod version;

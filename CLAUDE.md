@@ -98,6 +98,11 @@ crates/ags-runtime/
     │   │   ├── profile.rs       # Profile facade
     │   │   ├── service.rs       # Service call facade
     │   │   └── workflow.rs      # `workflow add`/`workflow template` facade — filesystem-only, no HTTP/auth
+    │   ├── telemetry/           # PostHog event capture: opt-out gate, compile-time project key, event shaping
+    │   ├── update_check/        # `ags update` support: latest-release query, hint cache, install-method detection
+    │   │   ├── cache.rs         # Update-hint cache: latest version seen, already-notified marker
+    │   │   ├── github.rs        # GitHub latest-release query and version comparison
+    │   │   └── install_method.rs # Detect how this copy was installed (installer script, Homebrew, manual)
     │   └── workflows/           # Workflow engine (data types live in ags-protocol::workflow)
     │       ├── synthesised.rs   # Build a 1-step workflow from a single CLI command
     │       ├── auto_derive.rs   # Expand a step's OpenAPI schema into auto-derived input fields
@@ -136,6 +141,7 @@ crates/accelbyte-ags-cli/
 │   │   ├── clap_helpers.rs      # Reusable clap value-parser and argument builders
 │   │   ├── compat_flags.rs     # Backward-compatible flag definitions for migrated commands
 │   │   ├── completions_generator.rs  # Completion script generation (clap_complete)
+│   │   ├── confirm.rs           # shared confirmation helper (--yes / --no-input rules)
 │   │   ├── errors.rs            # Invocation error types
 │   │   ├── first_run.rs         # One-time first-run onboarding hint: gate predicate, emitter, seen-flag read
 │   │   ├── flags.rs             # GlobalFlags, pre-scan, namespace resolution
@@ -159,8 +165,12 @@ crates/accelbyte-ags-cli/
 │   │       ├── config.rs        # Config get/set/unset dispatch
 │   │       ├── describe/        # `ags describe` — machine-readable introspection
 │   │       ├── doctor.rs        # Diagnostic check dispatch
-│   │       ├── extend/          # `ags extend` subcommands: clone-template, app-ui, update-var, update-secret, migration shortcuts
+│   │       ├── extend/          # `ags extend` subcommands: clone-template, app-ui, update-var, update-secret, security-assessment, migration shortcuts
 │   │       │   ├── mod.rs       # Route `ags extend <subcommand>` to the appropriate handler
+│   │       │   ├── app_lifecycle/ # `--wait` polling for the app lifecycle shims (create/deploy/start/stop/delete-app)
+│   │       │   │   ├── mod.rs   # WaitRequest + run_wait_after_dispatch (resolve creds, drive poll loop)
+│   │       │   │   ├── api.rs   # Direct CSM v5 GET app status (reqwest, wiremock-testable); Found/NotFound
+│   │       │   │   └── wait.rs  # WaitSpec targets per command + sleep-then-poll loop mirroring extend-helper-cli
 │   │       │   ├── app_ui/      # `ags extend app-ui` subcommands
 │   │       │   │   ├── mod.rs   # Route `ags extend app-ui <subcommand>` to the appropriate handler
 │   │       │   │   ├── setup_env.rs # `ags extend app-ui setup-env` — write .env.local from CSM App UI record
@@ -186,10 +196,20 @@ crates/accelbyte-ags-cli/
 │   │       │   │   ├── mod.rs     # Handler, dry-run preview, merge-rule dispatch
 │   │       │   │   ├── api.rs     # CSM variable list/create/update API calls (reqwest, wiremock-testable)
 │   │       │   │   └── merge.rs   # Compute effective applyMask/description from existing record + overrides
-│   │       │   ├── service_shims.rs # Migration shortcut registration table and Clap tree builder
+│   │       │   ├── security_assessment_request/ # `ags extend security-assessment request` — discover, select, and submit a pen-test engagement
+│   │       │   │   ├── mod.rs     # Handler, mutating-endpoint confirmation, dry-run preview
+│   │       │   │   ├── api.rs     # CSM discovery/create API calls (reqwest + catalogue-driven, wiremock-testable)
+│   │       │   │   ├── checklist.rs # Interactive ratatui endpoint-selection checklist
+│   │       │   │   └── permission.rs # `--permission` override parsing ("RESOURCE [ACTION]")
+│   │       │   ├── security_assessment_result/ # `ags extend security-assessment result` — list sessions and download a completed report
+│   │       │   │   ├── mod.rs     # Handler, engagement picker, dry-run preview
+│   │       │   │   └── api.rs     # CSM list/get-report API calls (reqwest + catalogue-driven, wiremock-testable)
+│   │       │   ├── service_shims.rs # Migration shortcut registration table, Clap tree builder, and --wait flag parse/strip + WaitSpec wiring
 │   │       │   └── session_log.rs   # Shared session event log for tunnel/remote-debug (lifecycle + connection events + tracing bridge for verbose proxy-client output)
 │   │       ├── profile.rs       # Profile CRUD dispatch
 │   │       ├── refresh_specs.rs # `ags refresh-specs` subcommand dispatch
+│   │       ├── update.rs        # `ags update` release check dispatch
+│   │       ├── update_install.rs # install steps of update --install: preserve, download, run installer, verify, restore
 │   │       └── version.rs       # Version output dispatch
 │   └── frontend/                # All user-facing output, split by responsibility
 │       ├── mod.rs               # Frontend/ExecutionInteraction traits, surface selectors, RenderFormat

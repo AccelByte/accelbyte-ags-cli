@@ -252,6 +252,39 @@ ags auth logout
 ags auth logout --all   # clear credentials from all profiles
 ```
 
+### Reusing the session from a script
+
+`ags auth token` prints the current access token to stdout, and nothing else, so
+a script can call an API with the session you already have instead of running
+its own login:
+
+```bash
+curl -H "Authorization: Bearer $(ags auth token)" \
+  "https://demo.accelbyte.io/iam/v3/admin/namespaces/my-game/users"
+```
+
+The token is resolved exactly as an API call resolves it: `AGS_ACCESS_TOKEN`
+first, then the stored token, refreshed if it has expired. If no token can be
+obtained, the command exits `2` (authentication failure) or `4` (identity
+service unreachable), leaving stdout empty so the substitution above yields
+nothing rather than an error message.
+
+`--format json` adds the expiry and where the token came from:
+
+```json
+{
+  "access_token": "eyJhbGciOi...",
+  "expires_at": 1789459200,
+  "source": "refreshed"
+}
+```
+
+`expires_at` is Unix epoch seconds, or `null` when the token came from
+`AGS_ACCESS_TOKEN` and the CLI cannot know its expiry. `source` is one of
+`env`, `stored`, `refreshed`, or `client_credentials`.
+
+The token is printed only on stdout and never reaches stderr or telemetry. Treat its stdout as the secret it is: do not log it, and be careful what captures it.
+
 ### Environment variables
 
 Most interactive users don't need these. They let you override config without touching files, which is the usual pattern for CI and containerised use.
@@ -267,9 +300,11 @@ Most interactive users don't need these. They let you override config without to
 | `AGS_HOME` | Override config and cache directory location |
 | `AGS_AUTH_TIMEOUT` | Timeout in seconds for browser auth flow (default 120) |
 | `AGS_NO_KEYCHAIN` | Disable OS keychain, use file-based token storage |
-| `AGS_NO_UPDATE_CHECK` | Set to `1` to disable the background check for new releases |
+| `AGS_NO_UPDATE_CHECK` | Set to `1` to disable the background check for new releases. `ags update` is not affected |
 | `AGS_UPDATE_CHECK_URL` | Test hook: override the update-check endpoint URL (not for end-user use) |
-| `DO_NOT_TRACK` | Set to any non-empty value to disable telemetry ([donottrack.sh](https://donottrack.sh/)) |
+| `AGS_UPDATE_INSTALLER_URL` | Test hook: override the installer script base URL (not for end-user use) |
+| `AGS_UPDATE_HEALTH_TIMEOUT_SECS` | Test hook: shorten the 15-second limit the new binary has to answer `version` (not for end-user use) |
+| `DO_NOT_TRACK` | Set to any non-empty value to disable telemetry ([https://donottrack.sh/](https://donottrack.sh/)) |
 | `AGS_TELEMETRY_NO_INPUT_VALUES` | Set to any non-empty value to suppress input field values in telemetry (field names and metadata still transmit) |
 
 ## Profiles
@@ -314,9 +349,31 @@ ags config set format json
 ags config unset namespace
 ```
 
-### Update check
+### Updating
 
-The `update-check` global key controls the passive "a newer release is available" hint. It is on by default; disable it with `ags config set update-check false` or the `AGS_NO_UPDATE_CHECK=1` environment variable (both also skip the background GitHub check entirely, as does running in CI). The hint is printed to stderr only on an interactive terminal — never under `--format json`, when output is piped, or for `doctor` / `version` / `completions`.
+`ags update` checks GitHub for a newer release and prints the upgrade command for the way the CLI was installed (installer script, Homebrew, or a hand-placed binary). It never modifies the installation. Use `--format json` for scripts.
+
+```bash
+ags update
+```
+
+To upgrade in place, pass `--install`:
+
+```bash
+ags update --install
+```
+
+`ags update --install` downloads the newest release's installer script (the same one the release page publishes) and runs it for this copy, after asking for confirmation:
+
+```
+Replace ags 0.5.0 with 0.5.2 at /usr/local/bin/ags? [y/N]
+```
+
+Pass `--yes` to answer automatically in scripts. When an update is available, if the CLI was installed with Homebrew, `--install` refuses and prints the `brew upgrade accelbyte/tap/ags-cli` command instead; a Homebrew copy that is already current returns exit 0 without the refusal. The previous binary is kept as `.old` until the new one answers `version` successfully, and is restored if anything fails. If the restore itself fails, the error message names both the original cause and the reinstall instruction. On Windows the `.old` file is removed at the next `ags` start.
+
+Nothing updates unless you type the command: the CLI never replaces itself in the background.
+
+The CLI also prints a passive hint to stderr when a newer release is available. The `update-check` global key controls the hint: disable it with `ags config set update-check false` or the `AGS_NO_UPDATE_CHECK=1` environment variable (both also skip the background GitHub check entirely, as does running in CI). The hint is printed to stderr only on an interactive terminal, never under `--format json`, when output is piped, or for `doctor` / `version` / `completions`. These controls silence the passive hint only: `ags update` still works regardless.
 
 ## Shell completions
 
@@ -347,6 +404,8 @@ ags doctor --all        # check all profiles
 
 ags refresh-specs       # rebuild the parsed-schema cache for every service
 ags refresh-specs iam   # rebuild the cache for a single service
+
+ags update              # check for a newer release
 ```
 
 ## Supported services
@@ -458,12 +517,13 @@ what each error means, see **[AMS image upload](docs/reference/ams-upload.md)**.
 ## Extend
 
 `ags extend` covers the Extend platform: cloning a starter template, logging in to the
-container registry, building and pushing an image, tunnelling to a running app pod, and
-remote debugging.
+container registry, building and pushing an image, tunnelling to a running app pod,
+remote debugging, and requesting a security assessment of an app's endpoints.
 
     ags extend clone-template --help
     ags extend image-upload --help
     ags extend tunnel --help
+    ags extend security-assessment --help
 
 If you are moving from `extend-helper-cli`, its commands are here under the names you already
 know — `create-app`, `deploy-app`, `list-images` and the rest. Each forwards to the `ags csm …`

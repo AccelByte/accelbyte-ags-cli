@@ -189,6 +189,34 @@ pub(crate) fn render_output(
                 )
             }
         },
+        CommandOutput::SecurityAssessmentRequest(request_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::security_assessment_request::render_security_assessment_request_output(
+                    request_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::security_assessment_request::render_security_assessment_request_output(
+                    request_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::SecurityAssessmentResult(result_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::security_assessment_result::render_security_assessment_result_output(
+                    result_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::security_assessment_result::render_security_assessment_result_output(
+                    result_output,
+                    options,
+                )
+            }
+        },
         CommandOutput::BinaryWritten(binary_written_output) => {
             render_binary_written(format, binary_written_output)
         }
@@ -295,6 +323,34 @@ pub(crate) fn render_output(
         CommandOutput::WorkflowTemplate(workflow_template_output) => {
             render_workflow_template(format, workflow_template_output)
         }
+        CommandOutput::Update(update_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::update::render_update_output(
+                    update_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::update::render_update_output(
+                    update_output,
+                    options,
+                )
+            }
+        },
+        CommandOutput::UpdateInstall(update_install_output) => match format {
+            RenderFormat::Human => {
+                crate::frontend::output::human::commands::update_install::render_update_install_output(
+                    update_install_output,
+                    options,
+                )
+            }
+            RenderFormat::Json => {
+                crate::frontend::output::json::commands::update_install::render_update_install_output(
+                    update_install_output,
+                    options,
+                )
+            }
+        },
         CommandOutput::WorkflowRemove(workflow_remove_output) => match format {
             RenderFormat::Human => {
                 crate::frontend::output::human::commands::workflow::render_workflow_remove(

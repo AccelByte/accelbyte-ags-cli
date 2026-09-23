@@ -27,6 +27,16 @@ pub const ENV_NO_UPDATE_CHECK: &str = "AGS_NO_UPDATE_CHECK";
 /// this URL instead of the real GitHub releases endpoint.
 pub const ENV_UPDATE_CHECK_URL: &str = "AGS_UPDATE_CHECK_URL";
 
+/// Env var: override the installer base URL (test hook — not for end-user
+/// use). When set, `ags update --install` downloads the installer script
+/// from this URL instead of the real GitHub releases endpoint.
+pub const ENV_UPDATE_INSTALLER_URL: &str = "AGS_UPDATE_INSTALLER_URL";
+
+/// Env var: override the health-check timeout in seconds (test hook — not
+/// for end-user use). Shortens the 15-second limit the install step gives
+/// the new binary to answer `version`.
+pub const ENV_UPDATE_HEALTH_TIMEOUT_SECS: &str = "AGS_UPDATE_HEALTH_TIMEOUT_SECS";
+
 /// Built-in profile name used when no profile is explicitly configured
 pub const DEFAULT_PROFILE: &str = "default";
 
@@ -63,6 +73,28 @@ pub fn update_check_url_override() -> Option<String> {
     std::env::var(ENV_UPDATE_CHECK_URL)
         .ok()
         .filter(|s| !s.is_empty())
+}
+
+/// Returns the override installer base URL, if set.
+///
+/// This is a test hook that redirects `ags update --install` to a mock
+/// server, so the functional test suite can verify the download and install
+/// path without hitting GitHub.
+pub fn update_installer_url_override() -> Option<String> {
+    std::env::var(ENV_UPDATE_INSTALLER_URL)
+        .ok()
+        .filter(|s| !s.is_empty())
+}
+
+/// Returns the override health-check timeout in seconds, if set and valid.
+///
+/// Parses the value as `u64`; returns `None` when unset, empty, or not a
+/// number.
+pub fn update_health_timeout_override() -> Option<u64> {
+    std::env::var(ENV_UPDATE_HEALTH_TIMEOUT_SECS)
+        .ok()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse().ok())
 }
 
 pub fn is_ci() -> bool {

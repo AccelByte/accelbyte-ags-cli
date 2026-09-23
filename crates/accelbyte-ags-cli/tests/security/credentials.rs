@@ -240,3 +240,48 @@ async fn test_client_secret_never_in_output() {
         "Client secret must never appear in output: {combined}"
     );
 }
+
+// ── `auth token` prints the token on stdout and nowhere else ──
+
+#[test]
+fn test_auth_token_does_not_echo_the_token_to_stderr() {
+    let token = "printed-access-token";
+    let output = ags_isolated()
+        .env("AGS_ACCESS_TOKEN", token)
+        .args(["--verbose", "auth", "token"])
+        .output()
+        .unwrap();
+
+    // stdout is the one channel licensed to carry it. stderr is where the CLI
+    // writes hints, progress, and the verbose trace — anything a user is
+    // likely to be sharing in a bug report — so the token must not reach it,
+    // even under --verbose.
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains(token),
+        "auth token must print the token on stdout"
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stderr).contains(token),
+        "auth token must not echo the token to stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_auth_token_is_the_only_auth_command_that_prints_the_token() {
+    let token = "printed-access-token";
+    for subcommand in ["status", "refresh"] {
+        let output = ags_isolated()
+            .env("AGS_ACCESS_TOKEN", token)
+            .args(["auth", subcommand])
+            .output()
+            .unwrap();
+
+        let combined = String::from_utf8_lossy(&output.stdout).to_string()
+            + &String::from_utf8_lossy(&output.stderr);
+        assert!(
+            !combined.contains(token),
+            "'auth {subcommand}' must not print the raw token: {combined}"
+        );
+    }
+}

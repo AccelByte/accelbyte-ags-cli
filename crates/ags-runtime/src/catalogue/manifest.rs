@@ -364,6 +364,11 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
     ("csm", "resource-limits", "Resource limits and quotas"),
     (
         "csm",
+        "security-assessment",
+        "Pen-testing engagement requests and reports for extend apps",
+    ),
+    (
+        "csm",
         "service-messages",
         "Service messaging and notifications",
     ),

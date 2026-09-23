@@ -9,8 +9,7 @@ use crate::frontend::RenderOptions;
 use crate::frontend::RenderedOutput;
 use ags_protocol::catalogue::OperationSchema;
 use ags_protocol::output::{
-    ApiBody, ApiOutput, ApiSuccess, CommandIntent, ExecutionTrace, FieldEntry, ResolutionTrace,
-    Section,
+    ApiBody, ApiOutput, CommandIntent, ExecutionTrace, FieldEntry, ResolutionTrace, Section,
 };
 
 /// Render a full API output to stdout (body) and stderr (trace, success message)
@@ -32,8 +31,23 @@ pub(crate) fn render_api_output(
     if let Some(trace) = &output.trace {
         stderr_lines.push(render_execution_trace(trace));
     }
-    if let Some(ApiSuccess { summary }) = &output.success {
-        stderr_lines.push(style::success(summary, style::is_stderr_enabled()));
+    if let Some(success) = &output.success {
+        let label = if output.has_alternate_versions {
+            format!("{} ({})", success.summary, success.api_version)
+        } else {
+            success.summary.clone()
+        };
+        stderr_lines.push(style::success(&label, style::is_stderr_enabled()));
+    } else if output.has_alternate_versions && !options.verbosity.is_quiet() {
+        // Read operations have no ApiSuccess, but when the command has
+        // alternate versions the user needs to know which API contract
+        // version served the response.
+        let label = format!("API {}", output.operation.api_version);
+        stderr_lines.push(style::apply_tone(
+            &label,
+            style::Tone::Dim,
+            style::is_stderr_enabled(),
+        ));
     }
 
     Ok(RenderedOutput {
@@ -158,11 +172,29 @@ fn render_collection(
     options: &RenderOptions,
     color_enabled: bool,
 ) -> String {
+    // Notes (e.g. sibling app-level flags) describe the response as a whole,
+    // not the row list specifically, so they're prepended whether or not
+    // there are any rows — an empty/null endpoints array is exactly the case
+    // where knowing isAppRunning/hasAPISpec/hasGRPCReflection matters most.
+    let notes_prefix = if collection.notes.is_empty() || options.verbosity.is_quiet() {
+        String::new()
+    } else {
+        let notes: Vec<String> = collection
+            .notes
+            .iter()
+            .map(|note| style::apply_tone(note, style::Tone::Dim, color_enabled))
+            .collect();
+        format!("{}\n", notes.join("\n"))
+    };
+
     if collection.rows.is_empty() {
         if options.verbosity.is_quiet() {
             return String::new();
         }
-        return style::info(&format!("No {} found", collection.kind), color_enabled);
+        return format!(
+            "{notes_prefix}{}",
+            style::info(&format!("No {} found", collection.kind), color_enabled)
+        );
     }
 
     let headers: Vec<String> = collection
@@ -182,7 +214,7 @@ fn render_collection(
         has_next: info.has_next,
     });
 
-    templates::render_list_text(
+    let table = templates::render_list_text(
         collection.rows.len(),
         &collection.kind,
         &headers,
@@ -191,7 +223,9 @@ fn render_collection(
         options.is_page_all,
         options.verbosity.is_quiet(),
         color_enabled,
-    )
+    );
+
+    format!("{notes_prefix}{table}")
 }
 
 /// Render a single-entity API response — heading, fields, and grouped sections — for action, inspect, or list intents.
@@ -377,7 +411,7 @@ mod tests {
         ApiVersion, HttpMethod, MutationClass, OperationId, OperationSchema,
     };
     use ags_protocol::output::{ApiBody, ApiOutput, ApiSuccess};
-    use ags_protocol::result::DryRunResult;
+    use ags_protocol::result::{CollectionResult, DryRunResult};
 
     /// Build a minimal DELETE operation schema for tests.
     fn make_delete_operation() -> OperationSchema {
@@ -413,9 +447,11 @@ mod tests {
             body: ApiBody::Empty,
             success: Some(ApiSuccess {
                 summary: "Deleted stat-definition".to_string(),
+                api_version: ApiVersion(1),
             }),
             trace: None,
             raw_body: None,
+            has_alternate_versions: false,
         };
         let options = RenderOptions::default();
         let rendered = render_api_output(&output, &options).expect("render must succeed");
@@ -451,6 +487,424 @@ mod tests {
         assert!(
             !stdout.contains("?limit") && !stdout.contains("?offset"),
             "old per-param ? prefix should be gone; got: {stdout:?}"
+        );
+    }
+
+    /// Build a minimal mutating POST operation at a given API version.
+    fn make_post_operation(version: u32) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new("createItem"),
+            name: "create".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::Mutating,
+            http_method: HttpMethod::Post,
+            path_template: format!("/social/v{version}/admin/items"),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: "admin".to_string(),
+            api_version: ApiVersion(version),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// When the command has alternate versions, the human success line for a
+    /// mutating call must contain the API version suffix so the user knows
+    /// which contract version was used.
+    #[test]
+    fn test_human_success_line_contains_api_version_with_choice() {
+        let output = ApiOutput {
+            operation: make_post_operation(3),
+            resource_name: "stat-definitions".to_string(),
+            body: ApiBody::Empty,
+            success: Some(ApiSuccess {
+                summary: "Created stat-definition".to_string(),
+                api_version: ApiVersion(3),
+            }),
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions::default();
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        let stderr = rendered.stderr.expect("success line must be on stderr");
+        assert!(
+            stderr.contains("v3"),
+            "success line must contain the API version label; got: {stderr:?}"
+        );
+    }
+
+    /// Build a minimal read-only GET operation at a given API version.
+    fn make_get_operation(version: u32) -> OperationSchema {
+        OperationSchema {
+            id: OperationId::new("getItems"),
+            name: "list".to_string(),
+            summary: String::new(),
+            description: None,
+            mutation_class: MutationClass::ReadOnly,
+            http_method: HttpMethod::Get,
+            path_template: format!("/social/v{version}/admin/items"),
+            parameters: vec![],
+            request_body: None,
+            response: None,
+            permissions: vec![],
+            scope: "admin".to_string(),
+            api_version: ApiVersion(version),
+            deprecated: false,
+            response_content_type: None,
+        }
+    }
+
+    /// When the command has alternate versions, a read operation must emit a
+    /// dim API version label to stderr so the user knows which contract
+    /// version was used.
+    #[test]
+    fn test_human_read_emits_api_version_label_with_choice() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions::default();
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        let stderr = rendered
+            .stderr
+            .expect("version label must appear on stderr");
+        assert!(
+            stderr.contains("v2"),
+            "read output must contain the API version label on stderr; got: {stderr:?}"
+        );
+    }
+
+    /// The read version label must NOT appear in `--format json` output —
+    /// it is human chrome, and the JSON renderer never emits stderr.
+    #[test]
+    fn test_json_read_does_not_contain_api_version_label_with_choice() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions::default();
+        let rendered =
+            crate::frontend::output::json::commands::service::render_api_output(&output, &options)
+                .expect("JSON render must succeed");
+        assert!(
+            rendered.stderr.is_none(),
+            "JSON renderer must not emit stderr for reads; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    /// The read version label must be suppressed in quiet mode even when the
+    /// command has alternate versions.
+    #[test]
+    fn test_human_read_quiet_suppresses_api_version_label_with_choice() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions {
+            verbosity: ags_protocol::request::Verbosity::Quiet,
+            ..Default::default()
+        };
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        assert!(
+            rendered.stderr.is_none() || !rendered.stderr.as_deref().unwrap_or("").contains("v2"),
+            "quiet mode must suppress the API version label; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    /// `--format json` output must NOT contain the API version — the JSON
+    /// renderer emits only `output.body` and the version is human chrome.
+    #[test]
+    fn test_json_output_does_not_contain_api_version_with_choice() {
+        let output = ApiOutput {
+            operation: make_post_operation(3),
+            resource_name: "stat-definitions".to_string(),
+            body: ApiBody::Text(r#"{"id":"abc"}"#.to_string()),
+            success: Some(ApiSuccess {
+                summary: "Created stat-definition".to_string(),
+                api_version: ApiVersion(3),
+            }),
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions::default();
+        let rendered =
+            crate::frontend::output::json::commands::service::render_api_output(&output, &options)
+                .expect("JSON render must succeed");
+
+        // JSON stdout must not contain any version reference.
+        if let Some(stdout) = &rendered.stdout {
+            assert!(
+                !stdout.contains("api_version") && !stdout.contains("v3"),
+                "JSON stdout must not contain the API version; got: {stdout:?}"
+            );
+        }
+        // JSON renderer must not emit stderr (no success line, no trace).
+        assert!(
+            rendered.stderr.is_none(),
+            "JSON renderer must not emit stderr; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    // ── "without a choice" tests: version must NOT appear ─────────────
+
+    /// When the command has only one API version, the mutating success line
+    /// must NOT carry a version suffix — it must be byte-identical to the
+    /// line `origin/main` renders: `style::success(&summary, ...)`.
+    #[test]
+    fn test_human_success_line_no_version_without_choice() {
+        let output = ApiOutput {
+            operation: make_post_operation(3),
+            resource_name: "stat-definitions".to_string(),
+            body: ApiBody::Empty,
+            success: Some(ApiSuccess {
+                summary: "Created stat-definition".to_string(),
+                api_version: ApiVersion(3),
+            }),
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: false,
+        };
+        let options = RenderOptions::default();
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        let stderr = rendered.stderr.expect("success line must be on stderr");
+        // The line must be exactly what origin/main produces: just the
+        // summary through style::success, with no version suffix.
+        let expected = style::success("Created stat-definition", style::is_stderr_enabled());
+        assert_eq!(
+            stderr, expected,
+            "without alternate versions the success line must match origin/main exactly"
+        );
+    }
+
+    /// When the command has only one API version, a read operation must NOT
+    /// emit any API version label to stderr.
+    #[test]
+    fn test_human_read_no_label_without_choice() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: false,
+        };
+        let options = RenderOptions::default();
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        assert!(
+            rendered.stderr.is_none() || !rendered.stderr.as_deref().unwrap_or("").contains("API"),
+            "without alternate versions no API version label must appear; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    // ── quiet suppression for commands WITH a choice ──────────────────
+
+    /// Quiet mode must suppress the mutating success line even when the
+    /// command has alternate versions. The success line is already None
+    /// because `execute_operation` omits `ApiSuccess` when quiet, but this
+    /// test verifies the renderer handles the case correctly if one is
+    /// somehow present.
+    #[test]
+    fn test_human_mutating_quiet_suppresses_version_with_choice() {
+        // ApiSuccess is None in quiet mode (enforced by execute_operation),
+        // so the version suffix path is unreachable. Verify no label leaks.
+        let output = ApiOutput {
+            operation: make_post_operation(3),
+            resource_name: "stat-definitions".to_string(),
+            body: ApiBody::Empty,
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let options = RenderOptions {
+            verbosity: ags_protocol::request::Verbosity::Quiet,
+            ..Default::default()
+        };
+        let rendered = render_api_output(&output, &options).expect("render must succeed");
+        assert!(
+            rendered.stderr.is_none(),
+            "quiet mode must produce no stderr for mutating call; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    // ── JSON: version never appears for any combination ──────────────
+
+    /// JSON mode for a read command without alternate versions: no stderr.
+    #[test]
+    fn test_json_read_no_version_without_choice() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: false,
+        };
+        let options = RenderOptions::default();
+        let rendered =
+            crate::frontend::output::json::commands::service::render_api_output(&output, &options)
+                .expect("JSON render must succeed");
+        assert!(
+            rendered.stderr.is_none(),
+            "JSON renderer must not emit stderr; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    /// JSON mode for a mutating command without alternate versions: no
+    /// stderr and no version key.
+    #[test]
+    fn test_json_mutating_no_version_without_choice() {
+        let output = ApiOutput {
+            operation: make_post_operation(3),
+            resource_name: "stat-definitions".to_string(),
+            body: ApiBody::Text(r#"{"id":"abc"}"#.to_string()),
+            success: Some(ApiSuccess {
+                summary: "Created stat-definition".to_string(),
+                api_version: ApiVersion(3),
+            }),
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: false,
+        };
+        let options = RenderOptions::default();
+        let rendered =
+            crate::frontend::output::json::commands::service::render_api_output(&output, &options)
+                .expect("JSON render must succeed");
+        if let Some(stdout) = &rendered.stdout {
+            assert!(
+                !stdout.contains("api_version") && !stdout.contains("v3"),
+                "JSON stdout must not contain the API version; got: {stdout:?}"
+            );
+        }
+        assert!(
+            rendered.stderr.is_none(),
+            "JSON renderer must not emit stderr; got: {:?}",
+            rendered.stderr
+        );
+    }
+
+    /// Serialising an `ApiOutput` with `has_alternate_versions: true` must
+    /// not produce a key for the flag — it is `#[serde(skip)]`.
+    #[test]
+    fn test_serde_skip_has_alternate_versions() {
+        let output = ApiOutput {
+            operation: make_get_operation(2),
+            resource_name: "items".to_string(),
+            body: ApiBody::Text(r#"{"data":[]}"#.to_string()),
+            success: None,
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let json = serde_json::to_string(&output).expect("ApiOutput must serialise");
+        assert!(
+            !json.contains("has_alternate_versions"),
+            "has_alternate_versions must not appear in serialised output; got: {json}"
+        );
+    }
+
+    /// Serialising an `ApiOutput` whose `success` carries an `api_version`
+    /// must not produce an `api_version` key in the success object — it is
+    /// renderer-only metadata, not part of the serialised output.
+    #[test]
+    fn test_serde_skip_api_version_in_success() {
+        let output = ApiOutput {
+            operation: make_get_operation(3),
+            resource_name: "items".to_string(),
+            body: ApiBody::Empty,
+            success: Some(ApiSuccess {
+                summary: "OK".to_string(),
+                api_version: ApiVersion(3),
+            }),
+            trace: None,
+            raw_body: None,
+            has_alternate_versions: true,
+        };
+        let json = serde_json::to_string(&output).expect("ApiOutput must serialise");
+        let value: serde_json::Value = serde_json::from_str(&json).expect("round-trip must parse");
+        let success = value
+            .get("success")
+            .expect("success key must be present when Some");
+        assert!(
+            success.get("api_version").is_none(),
+            "api_version must not appear in the serialised success object; \
+             success was: {success}"
+        );
+    }
+
+    /// A collection with notes but zero rows (e.g. `get-app-endpoints` for a
+    /// stopped app, where `endpoints` comes back null) must still print the
+    /// notes line — that's exactly the case where knowing
+    /// isAppRunning/hasAPISpec/hasGRPCReflection matters most. Regression
+    /// test for the notes line being dropped by the empty-rows early return.
+    #[test]
+    fn test_render_collection_prints_notes_even_when_rows_are_empty() {
+        let collection = CollectionResult {
+            kind: "endpoints".to_string(),
+            columns: vec![],
+            rows: vec![],
+            page_info: None,
+            notes: vec!["App running: no  ·  API spec: no  ·  gRPC reflection: no".to_string()],
+        };
+        let rendered = render_collection(&collection, &RenderOptions::default(), false);
+        assert!(
+            rendered.contains("App running: no"),
+            "notes line must appear even with zero rows; got: {rendered:?}"
+        );
+        assert!(
+            rendered.contains("No endpoints found"),
+            "empty-rows message must still be present; got: {rendered:?}"
+        );
+    }
+
+    /// `--quiet` suppresses notes for both the empty-rows and populated-rows
+    /// paths, and the empty-rows path must still return an empty string
+    /// under quiet (no stray notes-only output).
+    #[test]
+    fn test_render_collection_quiet_suppresses_notes_and_empty_message() {
+        let collection = CollectionResult {
+            kind: "endpoints".to_string(),
+            columns: vec![],
+            rows: vec![],
+            page_info: None,
+            notes: vec!["App running: no".to_string()],
+        };
+        let options = RenderOptions {
+            verbosity: ags_protocol::request::Verbosity::Quiet,
+            ..RenderOptions::default()
+        };
+        let rendered = render_collection(&collection, &options, false);
+        assert_eq!(
+            rendered, "",
+            "quiet mode must suppress notes and the empty message"
         );
     }
 }

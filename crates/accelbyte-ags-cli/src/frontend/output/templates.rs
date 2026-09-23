@@ -30,6 +30,7 @@ pub(crate) fn config_source_label(source: &ConfigSource) -> String {
 ///
 /// ↳ Fix: <suggestion>.       (SuggestionKind::Fix)
 /// ↳ Next: <suggestion>.      (SuggestionKind::Next)
+/// ↳ Info: <suggestion>.      (SuggestionKind::Info)
 /// ```
 pub fn render_error(
     message: &str,
@@ -64,6 +65,7 @@ pub fn render_error(
         let label = match suggestion_kind {
             SuggestionKind::Fix => "Fix",
             SuggestionKind::Next => "Next",
+            SuggestionKind::Info => "Info",
         };
         lines.push(StyledLine::plain(format!(
             "{SYMBOL_FIX} {label}: {suggestion_text}"

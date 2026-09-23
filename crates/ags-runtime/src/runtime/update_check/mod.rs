@@ -1,14 +1,16 @@
-//! Passive update-check hint.
+//! Update-check module: passive hint and explicit check.
 //!
-//! Checks GitHub Releases for a newer `ags` version via a detached background
-//! process and, at most once per new release, prints a one-line hint to stderr.
-//! Never blocks a command, never fails one, never touches machine-readable output.
+//! Checks GitHub Releases for a newer `ags` version. The **passive** path
+//! runs via a detached background process, at most once per 24h, and prints a
+//! one-line hint to stderr. The **explicit** path (`check_now`) is the
+//! synchronous, error-reporting entry point used by `ags update`.
 //!
 //! Mirrors the shape of `diagnostics/`: pure/data logic lives in submodules,
 //! the public API is exposed here at the module root.
 
 mod cache;
 mod github;
+pub mod install_method;
 
 /// The outcome of comparing our version against the latest on GitHub.
 ///
@@ -40,6 +42,14 @@ pub fn is_check_due() -> bool {
     cache::is_check_due(crate::support::unix_now())
 }
 
+/// The effective API URL for the update check: `AGS_UPDATE_CHECK_URL` when
+/// set, otherwise the real GitHub latest-release endpoint. Shared by
+/// `check_now`, `run_check`, and the CLI handler's dry-run preview.
+pub fn api_url() -> String {
+    crate::runtime::config::update_check_url_override()
+        .unwrap_or_else(|| github::GITHUB_LATEST_RELEASE_URL.to_string())
+}
+
 /// Run the GitHub check to completion and write the result to the cache.
 ///
 /// Awaited by the detached `__update-check` child process launched from the CLI
@@ -49,14 +59,13 @@ pub fn is_check_due() -> bool {
 /// Respects `AGS_UPDATE_CHECK_URL` when set, so the functional test suite can
 /// redirect the fetch to a mock server without hitting `api.github.com`.
 pub async fn run_check(client: reqwest::Client) {
-    let url = crate::runtime::config::update_check_url_override()
-        .unwrap_or_else(|| github::GITHUB_LATEST_RELEASE_URL.to_string());
+    let url = api_url();
     run_check_with_url(&client, &url).await;
 }
 
 /// URL-injectable core of [`run_check`], so tests can target a mock server.
 async fn run_check_with_url(client: &reqwest::Client, url: &str) {
-    if let Some(latest) = github::fetch_latest_version(client, url).await {
+    if let Ok(latest) = github::fetch_latest_version(client, url).await {
         cache::record_latest(&latest, crate::support::unix_now());
     }
 }
@@ -95,6 +104,70 @@ pub fn footer_to_show(
     } else {
         None
     }
+}
+
+// ── Explicit check (ags update) ──
+
+/// Error from an explicit update check, carrying the cause so the CLI layer
+/// can compose the user-facing message with the URL and fallback link.
+#[derive(Debug)]
+pub enum UpdateCheckError {
+    /// Network transport failed (unreachable, timeout, DNS error).
+    Transport(String),
+    /// GitHub responded with a non-success HTTP status.
+    HttpStatus(u16),
+    /// The release tag is not a valid semantic version.
+    InvalidTag(String),
+}
+
+impl std::fmt::Display for UpdateCheckError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transport(msg) => write!(f, "network error: {msg}"),
+            Self::HttpStatus(code) => write!(f, "HTTP {code}"),
+            Self::InvalidTag(tag) => write!(f, "tag is not a version: {tag}"),
+        }
+    }
+}
+
+/// Perform an explicit update check. Fetches the latest release from GitHub,
+/// compares against the running version, records the result in the cache, and
+/// marks the version as notified when it is newer.
+///
+/// Does NOT consult `is_check_suppressed`; the opt-outs govern the passive
+/// check only. An explicit `ags update` is the user asking.
+pub async fn check_now(client: &reqwest::Client) -> Result<UpdateCheckResult, UpdateCheckError> {
+    let url = api_url();
+
+    let latest = github::fetch_latest_version(client, &url).await?;
+
+    let result = github::try_compare_versions(env!("CARGO_PKG_VERSION"), &latest)
+        .map_err(UpdateCheckError::InvalidTag)?;
+
+    cache::record_latest(&latest, crate::support::unix_now());
+
+    if result.is_newer {
+        cache::mark_notified(&latest);
+    }
+
+    Ok(result)
+}
+
+/// The GitHub releases page URL for the latest release (the fallback link
+/// shown in error messages, not the API endpoint).
+pub fn latest_release_url() -> &'static str {
+    "https://github.com/AccelByte/accelbyte-ags-cli/releases/latest"
+}
+
+/// The releases page URL for a specific version, with a `v` prefix on the tag.
+pub fn release_url(version: &str) -> String {
+    format!("https://github.com/AccelByte/accelbyte-ags-cli/releases/tag/v{version}")
+}
+
+/// Build an HTTP client with a caller-chosen timeout. The CLI layer uses this
+/// with its `--timeout` value; the passive check uses the hard 3-second client.
+pub fn build_client_with_timeout(timeout: std::time::Duration) -> Option<reqwest::Client> {
+    github::build_client_with_timeout(timeout)
 }
 
 #[cfg(test)]
@@ -256,5 +329,201 @@ mod tests {
 
         // The check wrote 999.0.0 to disk; cached_hint() (current version) sees it.
         assert_eq!(cached_hint().unwrap().latest, "999.0.0");
+    }
+
+    // ── release_url ──
+
+    #[test]
+    fn release_url_uses_v_prefixed_tag() {
+        assert_eq!(
+            release_url("0.5.2"),
+            "https://github.com/AccelByte/accelbyte-ags-cli/releases/tag/v0.5.2"
+        );
+    }
+
+    // ── Explicit check (ags update) against a mock server ──
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn check_now_reports_newer_and_records_cache() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/releases/latest"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "tag_name": "v99.0.0" })),
+            )
+            .mount(&server)
+            .await;
+
+        let _url_guard = TempEnvGuard::set(
+            crate::runtime::config::ENV_UPDATE_CHECK_URL,
+            &format!("{}/releases/latest", server.uri()),
+        );
+
+        let result = check_now(&reqwest::Client::new()).await.unwrap();
+        assert!(result.is_newer);
+        assert_eq!(result.latest, "99.0.0");
+
+        // When is_newer, check_now marks the version notified. cached_hint()
+        // returns None because notified_version == latest_version.
+        assert!(
+            cached_hint().is_none(),
+            "notified_version must equal latest_version after check_now reports newer"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn check_now_reports_current_without_marking_notified() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        let current = env!("CARGO_PKG_VERSION");
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/releases/latest"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "tag_name": format!("v{current}") })),
+            )
+            .mount(&server)
+            .await;
+
+        let _url_guard = TempEnvGuard::set(
+            crate::runtime::config::ENV_UPDATE_CHECK_URL,
+            &format!("{}/releases/latest", server.uri()),
+        );
+
+        let result = check_now(&reqwest::Client::new()).await.unwrap();
+        assert!(!result.is_newer);
+        assert_eq!(result.current, current);
+
+        // notified_version must remain unset when the version is not newer.
+        let cache_path = tmp.path().join("cache").join("update_check.json");
+        let cache: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&cache_path).unwrap()).unwrap();
+        assert!(
+            cache["notified_version"].is_null(),
+            "notified_version must remain unchanged when not newer"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn check_now_returns_error_on_http_403() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/releases/latest"))
+            .respond_with(ResponseTemplate::new(403))
+            .mount(&server)
+            .await;
+
+        let _url_guard = TempEnvGuard::set(
+            crate::runtime::config::ENV_UPDATE_CHECK_URL,
+            &format!("{}/releases/latest", server.uri()),
+        );
+
+        let err = check_now(&reqwest::Client::new()).await.unwrap_err();
+        assert!(
+            matches!(err, UpdateCheckError::HttpStatus(403)),
+            "expected HttpStatus(403), got: {err}"
+        );
+    }
+
+    /// The error from an invalid latest tag must name the tag that failed to
+    /// parse, not a generic message — the user needs to see the offending value.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn check_now_error_names_the_value_that_failed_to_parse() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/releases/latest"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "tag_name": "nightly-latest" })),
+            )
+            .mount(&server)
+            .await;
+
+        let _url_guard = TempEnvGuard::set(
+            crate::runtime::config::ENV_UPDATE_CHECK_URL,
+            &format!("{}/releases/latest", server.uri()),
+        );
+
+        let err = check_now(&reqwest::Client::new()).await.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("nightly-latest"),
+            "error must name the invalid tag 'nightly-latest'; got: {msg}"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn check_now_returns_error_on_non_version_tag() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/releases/latest"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "tag_name": "nightly-latest" })),
+            )
+            .mount(&server)
+            .await;
+
+        let _url_guard = TempEnvGuard::set(
+            crate::runtime::config::ENV_UPDATE_CHECK_URL,
+            &format!("{}/releases/latest", server.uri()),
+        );
+
+        let err = check_now(&reqwest::Client::new()).await.unwrap_err();
+        assert!(
+            matches!(err, UpdateCheckError::InvalidTag(_)),
+            "expected InvalidTag, got: {err}"
+        );
     }
 }

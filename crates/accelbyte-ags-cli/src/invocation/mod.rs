@@ -6,6 +6,7 @@ pub mod builder;
 pub(crate) mod clap_helpers;
 pub(crate) mod compat_flags;
 pub mod completions_generator;
+pub(crate) mod confirm;
 pub mod context;
 pub mod errors;
 mod first_run;
@@ -316,6 +317,13 @@ pub fn spawn_interrupt_handler() {
             // as the force-quit escape hatch (tokio replaced the default
             // SIGINT disposition, so without this the user has no way out
             // if the command hangs during shutdown).
+            // Force quit: this path runs no destructors (process::exit
+            // skips Drop), so any lock file or child process owned by
+            // the running command outlives it.  Commands that hold such
+            // resources (e.g. update --install's InstallLock and
+            // installer child) must be able to recover on the next run
+            // (the lock expires via the staleness window; the child is
+            // killed via kill_on_drop on the first Ctrl-C path).
             if tokio::signal::ctrl_c().await.is_ok() {
                 std::process::exit(INTERRUPT_EXIT_CODE);
             }
@@ -457,12 +465,20 @@ async fn run_workflow_run(
 /// `run_workflow_run`: validates the page-limit flag (the builtin route
 /// does the same in `route_builtin`), then hands off to the self-owning
 /// service handler. `remaining` is `[<service>, <rest>...]`.
+///
+/// `shim_presentation` is `Some` when the invocation came through an `extend`
+/// migration shortcut, so the help printer can render the shortcut's own help
+/// page instead of the canonical CSM page. The returned `Option<Value>` is the
+/// final call's raw JSON response body (when the run produced one); the shim
+/// path reads the new `deploymentId` out of it to arm `deploy-app --wait`'s
+/// identity guard, and every other caller ignores it.
 async fn run_service(
     flags: &mut flags::GlobalFlags,
     options: &crate::frontend::RenderOptions,
     frontend_context: &context::FrontendContext,
     remaining: &[String],
-) -> Result<InvocationOutcome, CliError> {
+    shim_presentation: Option<handlers::extend::service_shims::ShimPresentation>,
+) -> Result<(InvocationOutcome, Option<serde_json::Value>), CliError> {
     router::parse_page_limit(flags)?;
 
     routes::service::route_service(
@@ -471,6 +487,7 @@ async fn run_service(
         flags,
         options.clone(),
         frontend_context,
+        shim_presentation.as_ref(),
     )
     .await
 }
@@ -642,7 +659,7 @@ fn detach_child(_command: &mut std::process::Command) {}
 /// and machine-oriented builtins never show the hint: `--version`/`-V` (via
 /// `is_version`), and `doctor`, `version`, and `completions` by name.
 pub(crate) fn is_footer_suppressed_command(command: &str, is_version: bool) -> bool {
-    is_version || matches!(command, "doctor" | "version" | "completions")
+    is_version || matches!(command, "doctor" | "update" | "version" | "completions")
 }
 
 /// Whether the output format indicates an automation/machine-readable context,
@@ -734,6 +751,16 @@ pub async fn run() -> Result<(), CliError> {
             ags_runtime::runtime::update_check::run_check(client).await;
         }
         return Ok(());
+    }
+
+    // Windows cannot delete the running executable's old copy during the
+    // upgrade itself, so the next start cleans it up. On other platforms
+    // the upgrade removes `.old` on success; a leftover after a force quit
+    // is the user's rollback copy and intentionally stays.
+    if cfg!(windows) {
+        if let Ok(exe) = std::env::current_exe() {
+            handlers::update_install::cleanup_previous_binary(&exe);
+        }
     }
 
     let pre_scan_result = flags::pre_scan_global_flags(&raw_args);
@@ -894,7 +921,9 @@ pub async fn run() -> Result<(), CliError> {
                     .await;
             }
             router::RootDispatch::Service => {
-                let result = run_service(&mut flags, &options, &frontend_context, &remaining).await;
+                let result = run_service(&mut flags, &options, &frontend_context, &remaining, None)
+                    .await
+                    .map(|(outcome, _raw_body)| outcome);
                 return finish_self_owned(result, telemetry_task, &flags, &remaining, is_version)
                     .await;
             }
@@ -932,11 +961,80 @@ pub async fn run() -> Result<(), CliError> {
                 // and forward to the service dispatch path before the
                 // builtin lifecycle starts. The service path is self-
                 // owned and manages its own frontend and lifecycle.
-                if let Some(service_args) =
-                    handlers::extend::service_shims::try_rewrite_to_service_args(&remaining)
+                if let Some(dispatch) =
+                    handlers::extend::service_shims::try_rewrite_shim(&remaining)
                 {
-                    let result =
-                        run_service(&mut flags, &options, &frontend_context, &service_args).await;
+                    // A shim with a malformed `--wait-*` value fails before
+                    // dispatch; render the usage error through the normal path.
+                    let dispatch = match dispatch {
+                        Ok(dispatch) => dispatch,
+                        Err(error) => {
+                            return finish_self_owned(
+                                Err(error),
+                                telemetry_task.take(),
+                                &flags,
+                                &remaining,
+                                is_version,
+                            )
+                            .await;
+                        }
+                    };
+
+                    // Pass the shortcut presentation so the operation's `--help`
+                    // renders the shim's own page — summary, canonical block,
+                    // and, for wait-capable shims, the `--wait*` flags (added in
+                    // `apply_shim_overrides`). Keep the raw response body so the
+                    // deploy-app guard can read the new `deploymentId`.
+                    let handlers::extend::service_shims::ShimDispatch {
+                        service_args,
+                        wait,
+                        presentation,
+                    } = dispatch;
+
+                    let service_result = run_service(
+                        &mut flags,
+                        &options,
+                        &frontend_context,
+                        &service_args,
+                        Some(presentation),
+                    )
+                    .await;
+
+                    // `--dry-run` skips the poll entirely (there is no real app
+                    // to poll). Say so when `--wait` was also passed: `--wait`
+                    // is what introduces exit code 6, so a silent drop would be
+                    // a false pass for someone dry-running to check their
+                    // timeout handling.
+                    if wait.is_some() && flags.is_dry_run {
+                        crate::frontend::write_stderr_line(
+                            "note: --wait is ignored under --dry-run; no polling is performed",
+                        );
+                    }
+
+                    // When `--wait` was requested and the primary call
+                    // succeeded, poll until the app reaches a terminal state.
+                    // Skipped under --dry-run (no app to poll) and when the
+                    // primary call did not complete cleanly. For the shims that
+                    // guard by deployment id (deploy-app), arm the guard from
+                    // the create response's `deploymentId` first, so the poll
+                    // only accepts OUR deployment.
+                    let result = match (service_result, wait) {
+                        (Ok((InvocationOutcome::Complete, raw_body)), Some(mut wait))
+                            if !flags.is_dry_run =>
+                        {
+                            if wait.spec.guard_by_deployment_id {
+                                wait.expected_deployment_id =
+                                    handlers::extend::app_lifecycle::deployment_id_from_response(
+                                        raw_body.as_ref(),
+                                    );
+                            }
+                            handlers::extend::app_lifecycle::run_wait_after_dispatch(wait, &flags)
+                                .await
+                        }
+                        (Ok((outcome, _raw_body)), _) => Ok(outcome),
+                        (Err(error), _) => Err(error),
+                    };
+
                     return finish_self_owned(
                         result,
                         telemetry_task.take(),
@@ -1379,6 +1477,11 @@ mod footer_suppression_tests {
     #[test]
     fn test_completions_is_suppressed() {
         assert!(is_footer_suppressed_command("completions", false));
+    }
+
+    #[test]
+    fn test_update_is_suppressed() {
+        assert!(is_footer_suppressed_command("update", false));
     }
 
     #[test]

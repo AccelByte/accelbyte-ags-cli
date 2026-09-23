@@ -27,6 +27,11 @@ const MULTIPART_CHUNK_BYTES: u64 = 500 * 1024 * 1024;
 /// broken entrypoint or an empty build directory is reported before a byte
 /// moves.
 pub(crate) fn plan_upload(request: &UploadRequest) -> Result<AmsUploadView, AmsUploadError> {
+    let upload_base_url = request
+        .upload_url_override
+        .as_deref()
+        .map(discovery::normalise_upload_url)
+        .transpose()?;
     let (resolved, manifest) = validate(request)?;
     Ok(AmsUploadView::Planned(AmsUploadPlan {
         image_name: request.image_name.clone(),
@@ -40,7 +45,7 @@ pub(crate) fn plan_upload(request: &UploadRequest) -> Result<AmsUploadView, AmsU
         include_symbol_files: request.include_symbol_files,
         excluded_symbol_file_count: manifest.excluded_symbol_file_count,
         skipped_directory_symlinks: manifest.skipped_directory_symlinks,
-        upload_base_url: request.upload_url_override.clone(),
+        upload_base_url,
     }))
 }
 
@@ -73,8 +78,11 @@ pub(super) async fn run_upload_with_chunk_size(
     sink: &mut dyn ProgressSink,
     chunk_bytes: u64,
 ) -> Result<AmsUploadView, AmsUploadError> {
-    sink.on_event(ProgressEvent::Started {
-        message: format!("Validating {}", request.directory.display()),
+    // A `Message`, not a `Started`: a `Started` lands on the temporary status
+    // line, which the next line overwrites and which is dropped entirely when
+    // stderr is captured, so the first documented step would never be seen.
+    sink.on_event(ProgressEvent::Message {
+        text: format!("Validating {}", request.directory.display()),
     });
 
     let (resolved, manifest) = validate(request)?;

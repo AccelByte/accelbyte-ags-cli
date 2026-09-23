@@ -25,6 +25,7 @@ fn test_root_help() {
       describe       Machine-readable command discovery and introspection (JSON)
       doctor         Check environment, configuration, and connectivity
       refresh-specs  Rebuild the parsed-schema cache from bundled specs
+      update         Check for a newer release and show how to install it
       extend         Extend platform tooling
       workflow       Run a registered multi-step workflow
 
@@ -333,7 +334,7 @@ fn test_iam_users_list_method_help() {
 
 // ── Auth help ──
 
-/// Auth subcommand help lists login, logout, status, and refresh commands
+/// Auth subcommand help lists login, logout, status, token, and refresh commands
 #[test]
 fn test_auth_help() {
     let output = ags().args(["auth", "--help"]).output().unwrap();
@@ -348,6 +349,7 @@ fn test_auth_help() {
       login    Log in to AccelByte
       logout   Log out and clear credentials
       status   Show current authentication status
+      token    Print the current access token to stdout
       refresh  Refresh the access token using stored credentials
 
     Options:
@@ -360,6 +362,15 @@ fn test_auth_help() {
 #[test]
 fn test_auth_refresh_help() {
     let output = ags().args(["auth", "refresh", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!(stdout);
+}
+
+/// `auth token --help` warns that the command prints a secret and shows the
+/// `$(ags auth token)` substitution it exists for
+#[test]
+fn test_auth_token_help() {
+    let output = ags().args(["auth", "token", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     insta::assert_snapshot!(stdout);
 }
@@ -401,6 +412,16 @@ fn test_profile_create_help() {
 #[test]
 fn test_doctor_help() {
     let output = ags().args(["doctor", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    insta::assert_snapshot!(stdout);
+}
+
+// ── Update help ──
+
+/// Update --help shows description, usage, and that it does not modify anything
+#[test]
+fn test_update_help() {
+    let output = ags().args(["update", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     insta::assert_snapshot!(stdout);
 }

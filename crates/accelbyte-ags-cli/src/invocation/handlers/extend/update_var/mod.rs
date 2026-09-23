@@ -187,7 +187,7 @@ async fn handle_update_var_with_reader(
         }
     };
 
-    // `SaveVariableV2`'s response only echoes `configId`/`configName` — it
+    // `SaveVariableV5`'s response only echoes `configId`/`configName` — it
     // never returns `applyMask`/`description`, so on the create path those
     // two fields must come from what was actually sent, not from the
     // (always-default) values `VariableRecord`'s `#[serde(default)]`
@@ -428,14 +428,14 @@ mod tests {
         }
     }
 
-    // ── T-UVAR-01: key exists → UpdateVariableV2 called; SaveVariableV2 not called ──
+    // ── T-UVAR-01: key exists → UpdateVariableV5 called; SaveVariableV5 not called ──
 
     #[tokio::test]
     #[serial_test::serial]
     async fn test_key_exists_updates_and_does_not_create() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": false, "description": "old desc"}]
             })))
@@ -443,7 +443,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("PUT"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id-1", "configName": "MY_KEY", "applyMask": false, "description": "old desc"
             })))
@@ -452,7 +452,7 @@ mod tests {
             .await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
@@ -490,14 +490,14 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
@@ -535,7 +535,7 @@ mod tests {
         server.verify().await;
     }
 
-    // ── T-UVAR-03: key absent, --force set → SaveVariableV2 called; UpdateVariableV2 not called ──
+    // ── T-UVAR-03: key absent, --force set → SaveVariableV5 called; UpdateVariableV5 not called ──
 
     #[tokio::test]
     #[serial_test::serial]
@@ -543,14 +543,14 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .and(body_json(serde_json::json!({
                 "configName": "MY_KEY",
@@ -559,7 +559,7 @@ mod tests {
                 "description": "created desc",
                 "source": "plaintext"
             })))
-            // Real `SaveConfigurationV2Response` contract only echoes
+            // Real `SaveAppConfigV5Response` contract only echoes
             // configId/configName — no applyMask/description.
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "new-id", "configName": "MY_KEY"
@@ -569,7 +569,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/new-id",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/new-id",
             ))
             .respond_with(ResponseTemplate::new(200))
             .expect(0)
@@ -628,7 +628,7 @@ mod tests {
     async fn test_unset_sensitive_preserves_existing_apply_mask() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": "kept"}]
             })))
@@ -636,7 +636,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
@@ -680,7 +680,7 @@ mod tests {
     async fn test_explicit_sensitive_false_overrides_existing_apply_mask_true() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": "kept"}]
             })))
@@ -688,7 +688,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
@@ -734,14 +734,14 @@ mod tests {
     async fn test_unset_description_preserves_existing_description() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": false, "description": "keep me"}]
             })))
             .mount(&server)
             .await;
         Mock::given(method("PUT"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1"))
             .and(body_json(serde_json::json!({
                 "value": "new-value",
                 "applyMask": false,
@@ -777,7 +777,7 @@ mod tests {
         server.verify().await;
     }
 
-    // ── Failure-mode table: GetListOfVariablesV2 non-200 → CliError::Api ──
+    // ── Failure-mode table: GetListOfVariablesV5 non-200 → CliError::Api ──
 
     #[tokio::test]
     #[serial_test::serial]
@@ -785,7 +785,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(500))
             .mount(&server)
@@ -1076,14 +1076,14 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"data": []})))
             .mount(&server)
             .await;
         Mock::given(method("POST"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
                 "errorCode": 20004,
@@ -1135,7 +1135,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
@@ -1144,7 +1144,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .respond_with(ResponseTemplate::new(422).set_body_json(serde_json::json!({
                 "errorCode": 20005,
@@ -1195,7 +1195,7 @@ mod tests {
     async fn test_handler_warns_when_value_flag_used() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -1203,7 +1203,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null
@@ -1247,7 +1247,7 @@ mod tests {
     async fn test_handler_does_not_warn_when_value_stdin_used() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/csm/v2/admin/namespaces/test-ns/apps/my-app/variables"))
+            .and(path("/csm/v5/admin/namespaces/test-ns/apps/my-app/variables"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": [{"configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null}]
             })))
@@ -1255,7 +1255,7 @@ mod tests {
             .await;
         Mock::given(method("PUT"))
             .and(path(
-                "/csm/v2/admin/namespaces/test-ns/apps/my-app/variables/id-1",
+                "/csm/v5/admin/namespaces/test-ns/apps/my-app/variables/id-1",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "configId": "id-1", "configName": "MY_KEY", "applyMask": true, "description": null

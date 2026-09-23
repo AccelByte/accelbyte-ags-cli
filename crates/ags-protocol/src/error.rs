@@ -84,6 +84,9 @@ pub enum SuggestionKind {
     Fix,
     /// "Next:" — a next-step hint rather than a direct fix.
     Next,
+    /// "Info:" — background context with nothing to fix or do next (e.g. an
+    /// operation that is still in progress server-side).
+    Info,
 }
 
 /// Structured metadata that any error can carry to enrich user-facing output
@@ -126,6 +129,15 @@ impl ErrorMetadata {
             code: None,
             http_status: None,
             trace: None,
+        }
+    }
+
+    /// Create metadata containing only a suggestion labelled "Info:" —
+    /// background context with nothing to fix or do next.
+    pub fn with_info(suggestion: impl Into<String>) -> Self {
+        Self {
+            suggestion_kind: SuggestionKind::Info,
+            ..Self::with_suggestion(suggestion)
         }
     }
 }

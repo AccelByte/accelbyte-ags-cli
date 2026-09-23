@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.5.0  
+Version: 0.5.1  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
@@ -310,6 +310,7 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags auth logout`
 - `ags auth status`
 - `ags auth refresh`
+- `ags auth token`
 - `ags config get`
 - `ags config set`
 - `ags config unset`
@@ -329,16 +330,23 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags extend tunnel`
 - `ags extend update-secret`
 - `ags extend update-var`
+- `ags extend security-assessment request`
+- `ags extend security-assessment result`
 - `ags extend` migration shortcuts (see 10.5.10 below)
 - `ags doctor`
 - `ags refresh-specs`
 - `ags completions`
 - `ags version`
+- `ags update`
 - `ags workflow run`
 - `ags workflow add`
 - `ags workflow template`
 - `ags workflow remove`
 - `ags ams upload`
+
+`ags update` MUST query the GitHub latest-release endpoint, MUST print whether a newer release exists and the upgrade instruction for the detected install method, MUST NOT modify the installation, MUST exit 0 in both outcomes and exit 4 when the endpoint cannot be reached, answers with an error status, or answers with a tag that is not a release version, and MUST NOT be suppressed by the `update_check` configuration key, `AGS_NO_UPDATE_CHECK`, or CI detection, which govern the passive hint only.
+
+`ags update --install` MUST download the newest release's installer script for the running platform and run it for the current copy. It MUST ask for confirmation unless `--yes` is given, and MUST exit 1 with a usage error under `--no-input` without `--yes`. When an update is available, it MUST refuse a copy installed with Homebrew with exit 1 and the `brew upgrade accelbyte/tap/ags-cli` command; a Homebrew copy that is already current returns exit 0 without the refusal. It MUST keep the previous binary as `.old` until the new one reports an acceptable version, and restore it otherwise. When the restore itself fails, it MUST exit 5 with a message naming the original cause, the restore failure, and the reinstall instruction — never claiming the binary "was restored" or is "still in place". It MUST exit 2 when the user declines the confirmation prompt or an interrupt is received. It MUST exit 4 when the script cannot be downloaded, and exit 5 when the script cannot be saved to the temporary directory, the installer fails, or the installed binary does not verify. The first interrupt (Ctrl-C) during the upgrade restores the previous binary, stops the installer, and releases the lock; a second interrupt is a force quit that exits at once and guarantees none of those, leaving the lock to expire on its own. It MUST NOT run unless the flag is typed: the CLI never updates itself in the background, on a timer, or as a side effect of another command. `--dry-run` MUST print what it would do and send no request.
 
 ### 10.5.1 `ags workflow run`
 
@@ -410,8 +418,9 @@ When a step fails (an API call returns an error, or a local action reports a fai
 | 3 | An AccelByte API call returned an error |
 | 4 | Network / transport failure |
 | 5 | Unexpected internal error |
+| 6 | A `--wait` limit elapsed before the operation reached a terminal state (see [Extend migration shortcuts](#10510-extend-migration-shortcuts)) |
 
-A failing step propagates the underlying error's class (codes 2–5); exit 1 is reserved for usage/input errors detected before or during input gathering.
+A failing step propagates the underlying error's class (codes 2–5); exit 1 is reserved for usage/input errors detected before or during input gathering. Code 6 is reserved for a `--wait` timeout: it is deliberately distinct from code 3 so a caller can tell a timed-out wait (the operation may still land) from a rollout the server actively failed (do not blindly retry).
 
 ### 10.5.2 `competitive-multiplayer` workflow
 
@@ -580,16 +589,24 @@ The `extend` group includes migration shortcuts that map `extend-helper-cli` com
 
 | Go invocation (`extend-helper-cli`) | Shortcut address | Canonical address | Notes |
 |---|---|---|---|
-| `create-app` | `ags extend create-app` | `ags csm apps create` | |
+| `create-app` | `ags extend create-app` | `ags csm apps create` | Supports `--wait` |
 | `get-app-info` | `ags extend get-app-info` | `ags csm apps get` | |
 | `list-images` | `ags extend list-images` | `ags csm images list` | |
-| `deploy-app` | `ags extend deploy-app` | `ags csm deployments create` | |
-| `start-app` | `ags extend start-app` | `ags csm apps start` | |
-| `stop-app` | `ags extend stop-app` | `ags csm apps stop` | |
-| `delete-app` | `ags extend delete-app` | `ags csm apps delete` | |
+| `deploy-app` | `ags extend deploy-app` | `ags csm deployments create` | Supports `--wait` |
+| `start-app` | `ags extend start-app` | `ags csm apps start` | Supports `--wait` |
+| `stop-app` | `ags extend stop-app` | `ags csm apps stop` | Supports `--wait` |
+| `delete-app` | `ags extend delete-app` | `ags csm apps delete` | Supports `--wait` |
 | `appui create` | `ags extend app-ui create` | `ags csm app-ui create` | Go spelling has no hyphen |
 
 Each shortcut forwards all user-supplied flags to the canonical service operation.
+
+The five app-lifecycle shortcuts (`create-app`, `deploy-app`, `start-app`, `stop-app`, `delete-app`) additionally accept `--wait`, `--wait-interval`, and `--wait-limit`. By default they return as soon as the API call is accepted. With `--wait`, the CLI polls the app's status until the operation reaches its terminal state — or, for `delete-app`, until the app is gone — and exits non-zero if a failed state is reached or `--wait-limit` seconds elapse first. `--wait-interval` sets the seconds between polls (default `10`) and `--wait-limit` the maximum seconds to wait (default `600`); both apply only when `--wait` is set, and both must be greater than `0`. `--wait-interval` must not exceed `--wait-limit` — the CLI rejects that up front (so a large interval cannot sleep past the limit before the first poll); note the default interval is `10`, so a `--wait-limit` below `10` needs a smaller `--wait-interval` too. Unlike other flags, these three are consumed by the CLI and are not forwarded to the canonical service operation.
+
+> **Caveat — the status poll ignores `--api-scope` / `--api-version`.** The primary operation resolves its endpoint through the bundled spec and honours `--api-scope` / `--api-version`, but the `--wait` status poll always calls the fixed endpoint `GET /csm/v5/admin/namespaces/{namespace}/apps/{app}`. So `--api-version` is honoured for the operation and silently ignored for the poll: `ags extend deploy-app --api-version v2 --wait` creates via v2 but polls via v5. Both default to v5, but they are not guaranteed to agree: an explicit `--api-version`, or a client still carrying an older parse cache (which can resolve the operation to v2 until the CLI version number changes), leaves the operation on v2 while the poll stays v5. In practice both read the same app record, so the effect is benign. Resolving the poll through the same spec path (now that `csm/admin/apps/v5/get` is bundled) is planned follow-up work.
+
+A failed terminal state and a `--wait` timeout exit with **different codes**: a state the server actively failed exits `3` (an API error), while an exceeded `--wait-limit` exits `6`. This lets a caller tell "the rollout failed, do not blindly retry" from "the wait timed out, the operation may still land" without matching message text.
+
+`deploy-app --wait` additionally guards against a **redeploy race**. Redeploying an app that is already `deployment-running` from a previous deploy would otherwise match the success state on the very first poll and report success while the old image is still serving. To prevent this, the CLI captures the `deploymentId` from the deploy call's own response and only accepts a terminal state once the app is reporting *that* deployment. (When the app-status response does not carry a `deploymentId`, the guard cannot engage and the wait falls back to status-only polling.) The other four commands do not guard this way — for `start-app` in particular, an already-running app is a legitimate immediate success.
 
 These shortcuts appear as standard subcommands in the clap-generated `Commands:` section of `ags extend --help` (and, for subgroup entries, in `ags extend remote-debug --help` and `ags extend app-ui --help`). Each entry shows a hand-written summary followed by the canonical `ags csm` address (e.g. `→ ags csm apps create`). When the Go invocation spelling differs from the `ags extend` address, a `(was: ...)` suffix is appended. In `ags describe extend`, each shortcut appears as a child with `node_type: "alias"` and an `alias_of` field pointing to the canonical `[service, resource, method]` triple.
 
@@ -917,7 +934,7 @@ Synopsis:
 ags extend update-secret --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
 ```
 
-Upserts a CSM app secret. The command lists the app's existing secrets (paging through `GetListOfSecretsV2` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that secret's value via `UpdateSecretV2`; if not found, it requires `--force` and creates the secret via `SaveSecretV2` (sending `source: "plaintext"`). The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+Upserts a CSM app secret. The command lists the app's existing secrets (paging through `GetListOfSecretsV5` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that secret's value via `UpdateSecretV5`; if not found, it requires `--force` and creates the secret via `SaveSecretV5` (sending `source: "plaintext"`). The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
 
 Prefer `--value-stdin` over `--value` to avoid exposing the secret in shell history.
 
@@ -956,7 +973,7 @@ Synopsis:
 ags extend update-var --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
 ```
 
-Upserts a CSM app configuration variable. The command lists the app's existing variables (paging through `GetListOfVariablesV2` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that variable's value via `UpdateVariableV2`; if not found, it requires `--force` and creates the variable via `SaveVariableV2`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+Upserts a CSM app configuration variable. The command lists the app's existing variables (paging through `GetListOfVariablesV5` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that variable's value via `UpdateVariableV5`; if not found, it requires `--force` and creates the variable via `SaveVariableV5`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
 
 Prefer `--value-stdin` over `--value` to avoid exposing the value in shell history.
 
@@ -1030,7 +1047,7 @@ Operator-facing setup — creating the client, the exact permission strings, tro
 
 **Upload-host discovery is fatal on failure.** The host comes from `GET /ams/v1/upload-url` on the configured platform (catalogued as `ams info get-upload-url`), or from `--upload-url`. If discovery fails the CLI MUST stop rather than fall back to a default host — a typo in the base URL must never ship a build to production.
 
-**`--dry-run` is entirely local.** It validates, enumerates what would be archived, and reports the plan. It builds no archive and sends no request, so it works before a first login. The reported upload host is the `--upload-url` override when given, and `null` otherwise.
+**`--dry-run` is entirely local.** It validates, enumerates what would be archived, and reports the plan. It builds no archive and sends no request, so it works before a first login. The reported upload host is the validated, normalised `--upload-url` override when given (an invalid override fails the dry run the same way it fails a live run), and `null` otherwise.
 
 **No confirmation prompt.** Upload is explicit and user-initiated; `--yes` is a no-op for this command.
 
@@ -1083,6 +1100,67 @@ A `file_picker` input opens a directory-browsing picker in the fullscreen surfac
 **Resolved value:** always the file's absolute path as a string, suitable for passing to subsequent workflow steps or API requests. If the typed filter matches no entries, pressing Enter commits the typed text instead — the same manual-entry escape hatch `options_source` offers — resolved to an absolute path against the picker's current directory, but *not* checked against `extensions` or filesystem existence.
 
 **Mutual exclusivity:** A single input MUST NOT declare both `options_source` and `file_picker`.
+
+### 10.5.22 `ags extend security-assessment request`
+
+Synopsis:
+
+```text
+ags extend security-assessment request --app <app> [--namespace <ns>] [--all-endpoints | --operation-ids <id1,id2,...>] [--permission <operationId>=<RESOURCE> [<ACTION>]]...
+```
+
+Discovers an Extend app's testable endpoints (`csm/admin/security-assessment/v1/get-app-endpoints`) and lets the operator choose which to include in a pen-testing engagement, then creates it via `csm/admin/security-assessment/v1/create`. Without `--all-endpoints` or `--operation-ids`, endpoint selection is interactive: a ratatui checklist over the discovered endpoints, requiring a real terminal. `--all-endpoints` and `--operation-ids` are mutually exclusive non-interactive alternatives; both are capped at the app's `maximumSelectableEndpoints`, and `--operation-ids` rejects unknown or duplicate ids. `--permission` may be repeated, one per endpoint whose permission was not auto-discovered from the app's OpenAPI spec / gRPC reflection.
+
+If any selected endpoint accepts `PUT`, `PATCH`, or `DELETE` (a "mutating" method — `POST` is deliberately excluded, matching the Admin Portal), the command warns and requires `y`/`Y` confirmation before submitting, since the assessment may generate test traffic that modifies or deletes real data. `--yes` skips this prompt; `--no-input` without `--yes` fails instead of blocking on stdin. `--dry-run` short-circuits before this confirmation and before any submission, so a dry-run preview never blocks on stdin even when mutating endpoints are selected.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` | *(required)* | Extend app name to request an assessment for. |
+| `--all-endpoints` | `false` | Select every discovered endpoint, non-interactively. Mutually exclusive with `--operation-ids`. |
+| `--operation-ids <id1,id2,...>` | *(none)* | Select exactly these endpoints by operation id, non-interactively. Rejects unknown ids, duplicate ids, and an empty/blank-only list. Mutually exclusive with `--all-endpoints`. |
+| `--permission <operationId>=<RESOURCE> [<ACTION>]` | *(none)* | Permission override for one endpoint, repeatable. `ACTION` is one or more of `CREATE\|READ\|UPDATE\|DELETE` joined by `\|`. Only valid for endpoints CSM did not auto-discover a permission for. |
+| `--wait` | `false` | Block until the engagement reaches a terminal state (`COMPLETED` or `FAILED`), polling every 10 seconds. |
+| `--wait-limit <SECONDS>` | `1800` | Maximum seconds to wait before giving up. `0` is rejected. Same flag name as the Extend app lifecycle commands, which default to `600`, because a deployment finishes faster than a pen-testing engagement. The poll sleep is capped to the remaining budget, so the wait honours the limit to the second. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--yes` — skip the mutating-endpoint confirmation prompt.
+- `--no-input` — disables the interactive checklist and the confirmation prompt; requires `--all-endpoints`/`--operation-ids` and, if any selected endpoint is mutating, `--yes`.
+- `--dry-run` — prints a preview (namespace, app, and the resolved endpoint selection) without prompting for confirmation or creating the engagement.
+
+**Preconditions checked before endpoint selection:** the app must be running, and CSM must have discovered an OpenAPI spec for it — otherwise the command fails with a specific message rather than an empty checklist.
+
+**Exit codes:** 0 on success; 1 for invalid input (missing namespace, no endpoints selected, endpoint cap exceeded, unknown/duplicate `--operation-ids`, app not running, no OpenAPI spec, or a declined/cancelled confirmation); 2 for authentication failure; 3 for rejected, permission, or not-found API failures; 4 for network failure; 6 when `--wait` runs past `--wait-limit`, which is distinct from 3 on purpose so a caller can tell "the engagement may still finish" from "the server failed it" without matching message text, the same contract the app lifecycle commands give.
+
+### 10.5.23 `ags extend security-assessment result`
+
+Synopsis:
+
+```text
+ags extend security-assessment result --app <app> [--namespace <ns>] [--engagement-id <id>] [--report-format pdf|md] [--report-output <path>]
+```
+
+Lists an Extend app's completed security-assessment sessions (`csm/admin/security-assessment/v1/list`, client-filtered to `COMPLETED` status for the given app), lets the operator pick one — by index interactively, or via `--engagement-id` to skip the picker — fetches a pre-signed download URL (`csm/admin/security-assessment/v1/get-report`), and writes the report to disk. Auto-selects when exactly one completed session matches.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` | *(required)* | Extend app name to list/download sessions for. |
+| `--engagement-id <id>` | *(none)* | Engagement id to fetch the report for, skipping the interactive picker. Must be numeric and fit an `i64`. |
+| `--report-format <pdf\|md>` | `pdf` | Report file format. |
+| `--report-output <path>` / `-o` | `<app>-<engagementId>-report.<ext>` | Local file path to write the report to. Path separators in `--app` are replaced with `_` when deriving the default filename. |
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--no-input` — disables the interactive picker; requires `--engagement-id` when more than one completed session exists.
+- `--dry-run` — prints a preview (namespace, app, engagement id, and report path) without fetching or downloading.
+
+**Exit codes:** 0 on success; 1 for invalid input (missing namespace, invalid `--report-format`, non-numeric/overflowing `--engagement-id`, no completed sessions found, or an out-of-range/invalid interactive selection); 2 for authentication failure; 3 for rejected, permission, or not-found API failures; 4 for network failure.
 
 ### 10.6 Error handling
 
@@ -1313,7 +1391,7 @@ Recommended global config keys include:
 - `timeout` — default for `--timeout`, in seconds
 - `page_limit` — default for `--page-limit`
 - `first_run_hint_seen` — whether the one-time first-run onboarding hint has been shown
-- `update_check` — whether the passive "a newer release is available" hint is enabled (default on; also disabled by the `AGS_NO_UPDATE_CHECK` environment variable or when running in CI). The `AGS_UPDATE_CHECK_URL` environment variable is a test hook that overrides the endpoint URL; it is not intended for end-user use
+- `update_check` — whether the passive "a newer release is available" hint is enabled (default on; also disabled by the `AGS_NO_UPDATE_CHECK` environment variable or when running in CI). This key controls the passive hint only and does not affect `ags update`. The `AGS_UPDATE_CHECK_URL` environment variable is a test hook that overrides the endpoint URL; it is not intended for end-user use. The `AGS_UPDATE_INSTALLER_URL` environment variable is a test hook that overrides the installer script base URL; it is not intended for end-user use. The `AGS_UPDATE_HEALTH_TIMEOUT_SECS` environment variable is a test hook that shortens the 15-second limit the new binary has to answer `version`; it is not intended for end-user use
 
 Global config MUST NOT be used to store environment-specific auth state.
 
@@ -1544,7 +1622,34 @@ Auth resolution SHOULD follow this order, applied after profile resolution:
 - token expiry, when known
 - relevant token claims, when safely decodable
 
-### 12.13 Auth logout
+### 12.13 Auth token
+
+`ags auth token` SHOULD print the access token that the request path would use
+for the selected profile, resolved through the order in [12.11](#1211-auth-resolution-order)
+— including a refresh when the stored token has expired.
+
+It MUST write the token to stdout and nothing else to stdout: no headline, no
+symbol, no styling. Warnings and guidance MUST go to stderr. The command exists
+to be consumed by substitution (`$(ags auth token)`), so anything else on stdout
+is a defect rather than a cosmetic difference.
+
+When no token can be obtained it MUST exit `2` when authentication fails and `4`
+when the identity service cannot be reached, leaving stdout empty in both cases.
+Exit `2` points the user at `ags auth login` on stderr.
+
+Under `--dry-run` the command MUST exit `1` with a usage error, write nothing to
+stdout, and send no request, because its only output would be a live credential.
+
+`--format json` SHOULD emit `access_token`, `expires_at` (Unix epoch seconds, or
+`null` where the source states no expiry) and `source` (`env`, `stored`,
+`refreshed`, or `client_credentials`).
+
+`--quiet` SHOULD suppress the warnings, not the token: the token is the
+command's payload rather than progress chrome.
+
+The help text MUST state that the command prints a secret.
+
+### 12.14 Auth logout
 
 `ags auth logout` MUST clear grant-specific stored auth material for the selected profile from the OS keychain when used, and from config-backed fallback storage when fallback is in use.
 
@@ -1554,7 +1659,9 @@ Auth resolution SHOULD follow this order, applied after profile resolution:
 
 ### 13.1 Sensitive data output
 
-The CLI MUST NOT print raw access tokens, refresh tokens, or client secrets in normal output.
+The CLI MUST NOT print raw access tokens, refresh tokens, or client secrets in normal output, except as described below.
+
+Two commands print a credential on purpose, so another program can use it. [`ags auth token`](#1213-auth-token) prints the CLI's access token on stdout; that token MUST NOT appear on stderr, including under `--verbose`, or in telemetry. `ags extend docker-login --print` prints a container registry credential on stdout. API commands print response bodies as the API returned them, including any credential fields.
 
 ### 13.2 Credential storage
 
@@ -1839,7 +1946,7 @@ The CLI MUST collect anonymous usage telemetry in official release builds. Telem
 
 ### 21.2 Opt-out
 
-The CLI MUST respect the `DO_NOT_TRACK` environment variable ([donottrack.sh](https://donottrack.sh/)). Any non-empty value MUST disable telemetry regardless of the API key.
+The CLI MUST respect the `DO_NOT_TRACK` environment variable ([https://donottrack.sh/](https://donottrack.sh/)). Any non-empty value MUST disable telemetry regardless of the API key.
 
 The `AGS_TELEMETRY_NO_INPUT_VALUES` environment variable, when set to any non-empty value, MUST suppress input field values in workflow step telemetry while still transmitting field names, locations, sources, and required-ness.
 
