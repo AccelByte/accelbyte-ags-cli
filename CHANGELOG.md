@@ -10,10 +10,10 @@ earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-
 ### Added
 
 - `ags auth token` prints the current access token to stdout and nothing else, so a
-  script can reuse the CLI's session instead of running its own login:
-  `curl -H "Authorization: Bearer $(ags auth token)" ...`. Until now there was no way to
-  get the bearer out of the CLI — `ags auth status --format json` reports
-  `"access_token": "valid"`, and `--dry-run`/`--verbose` print a redacted `Bearer <token>`.
+  script can reuse the CLI's session instead of running its own login, for example by
+  passing `$(ags auth token)` as the bearer value of the `Authorization` header. Until now
+  there was no way to get the bearer out of the CLI — `ags auth status --format json` reports
+  `"access_token": "valid"`, and `--dry-run`/`--verbose` print only a redacted header.
   The token is resolved exactly as an API call resolves it (`AGS_ACCESS_TOKEN`, then the
   stored token, refreshed when expired), so the printed token is the one the next request
   would send. With no token available it exits `2` (authentication failure) or `4`
