@@ -46,7 +46,7 @@ inside a module namespace and makes it harder to find, test, or replace a single
 
 **Reference point:** `frontend/mod.rs` is the largest `mod.rs` in the codebase at ~860
 lines, but it is justified — it owns the cross-cutting `Frontend` trait, the
-`ExecutionPhaseSurfaces` type, and the three sink helpers. Single-concern modules all have
+`ExecutionPhaseSurfaces` type, and the four sink helpers. Single-concern modules all have
 dedicated files: `ansi.rs`, `tone.rs`, `text.rs`, `span.rs`, `streams.rs`.
 
 **House pattern:**

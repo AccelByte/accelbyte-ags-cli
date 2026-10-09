@@ -425,12 +425,7 @@ pub(crate) async fn handle_remote_debug_connect(
     let result = run_connect_loop(
         &mut runner,
         cancel,
-        |attempt| {
-            Duration::from_secs_f64(apply_jitter(
-                backoff_base_secs(attempt),
-                rand_jitter_factor(),
-            ))
-        },
+        reconnect_delay,
         crate::frontend::write_stderr_line,
     )
     .await;
@@ -459,7 +454,10 @@ pub(crate) async fn handle_remote_debug_connect(
 }
 
 /// Resolve the namespace from flag, env, or profile config.
-fn resolve_namespace(flags: &GlobalFlags, command_label: &str) -> Result<String, CliError> {
+pub(crate) fn resolve_namespace(
+    flags: &GlobalFlags,
+    command_label: &str,
+) -> Result<String, CliError> {
     ags_runtime::runtime::execution::resolve_namespace(
         flags.namespace.as_deref(),
         flags.profile.as_deref(),
@@ -477,6 +475,17 @@ fn resolve_namespace(flags: &GlobalFlags, command_label: &str) -> Result<String,
 fn rand_jitter_factor() -> f64 {
     use rand::Rng;
     rand::rng().random::<f64>()
+}
+
+/// Production delay function for reconnect loops: backoff with ±20% jitter.
+///
+/// `reconnect` is 1-based: reconnect 1 → ~5 s, 2 → ~10 s, 3–5 → ~20 s.
+/// Used by both `remote-debug connect` and `extend logs stream`.
+pub(crate) fn reconnect_delay(reconnect: u32) -> std::time::Duration {
+    std::time::Duration::from_secs_f64(apply_jitter(
+        backoff_base_secs(reconnect),
+        rand_jitter_factor(),
+    ))
 }
 
 /// Write a structured exit envelope only when JSON output was requested.

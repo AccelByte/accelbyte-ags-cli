@@ -237,7 +237,7 @@ fn validate_base_url(value: &str) -> Result<Option<String>, RuntimeError> {
     if !config::is_valid_base_url(value) {
         return Err(validation_error(
             format!("Invalid URL: {value}"),
-            Some("base-url must be a valid URL (e.g. https://demo.accelbyte.io)"),
+            Some("base-url must be a valid URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io)"),
         ));
     }
     let normalised = value.trim_end_matches('/');
@@ -271,7 +271,7 @@ fn validate_namespace(value: &str) -> Result<Option<String>, RuntimeError> {
     if !config::is_valid_namespace(value) {
         return Err(validation_error(
             format!("Invalid namespace: {value}"),
-            Some("namespace must be lowercase alphanumeric or hyphens, max 48 chars (e.g. my-game-name)"),
+            Some(config::NAMESPACE_FORMAT_HINT),
         ));
     }
     Ok(None)

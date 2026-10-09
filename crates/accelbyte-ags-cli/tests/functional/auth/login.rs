@@ -325,6 +325,26 @@ fn test_auth_login_stdin_occupied_without_client_id_errors() {
         .stderr(predicate::str::contains("AGS_CLIENT_ID"));
 }
 
+/// `--no-input` without a client ID must fail fast instead of opening the
+/// guided IAM-client prompt
+#[test]
+fn test_login_no_input_without_client_id_rejects() {
+    ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            "https://x.example.com",
+        ])
+        .env_remove("AGS_CLIENT_ID")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Provide --client-id or set AGS_CLIENT_ID",
+        ));
+}
+
 /// When the stored access token is still valid, login is a no-op and
 /// no network call is made.
 #[tokio::test]

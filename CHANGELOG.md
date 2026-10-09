@@ -5,6 +5,36 @@ earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-
 
 ## Unreleased
 
+## 0.5.2 — 2026-10-08
+
+### Added
+
+- `ags auth login` offers to help create an IAM client: press Enter at the Client ID
+  prompt and the CLI prints an Admin Portal link to the IAM client form that selects
+  the AGS CLI template (a public client with `http://127.0.0.1:8080` as its redirect
+  URI). Where the Admin Portal does not have that template yet, the form opens empty,
+  and the CLI lists what to enter: Client Type Public, Client Name AGS CLI, and
+  Redirect URI `http://127.0.0.1:<port>`. It uses the namespace from `--namespace`,
+  `AGS_NAMESPACE`, or the profile, and asks for one otherwise. Browser login only;
+  `--grant client-credentials` is unchanged.
+
+- `ags extend logs stream` streams an Extend app's container logs from the CSM
+  log-streaming endpoint over Server-Sent Events. Without `--follow` it prints
+  recent lines and exits; with `--follow` it keeps the connection open and prints
+  new lines as they arrive until Ctrl-C. Supports `--tail-lines` (default 100),
+  `--pods` (default 1), `--since-seconds`, and `--previous`. With `--format json`
+  every event (log line, lifecycle, reconnect) is one JSON object per line on
+  stdout. Reconnects automatically on transient failures (up to 5 per run) with
+  exponential backoff and duplicate suppression. `--dry-run` prints the request
+  without opening a connection.
+
+### Changed
+
+- `ags auth login --port <port>` warns that the IAM client's redirect URI must be
+  `http://127.0.0.1:<port>` when the port isn't the default 8080. IAM redirects the browser
+  to the client's registered URI, so a mismatch left the login waiting until the callback
+  timeout.
+
 ## 0.5.1 — 2026-09-23
 
 ### Added

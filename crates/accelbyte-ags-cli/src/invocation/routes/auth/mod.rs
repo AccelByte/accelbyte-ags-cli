@@ -113,6 +113,7 @@ pub(crate) async fn route_auth(
                         handle_auth_login(
                             sub_matches,
                             &profile,
+                            flags.namespace.as_deref(),
                             &runtime,
                             frontend.as_mut(),
                             frontend_context,
@@ -220,6 +221,7 @@ fn finish_auth_run(
 async fn handle_auth_login(
     matches: &ArgMatches,
     profile: &str,
+    namespace_flag: Option<&str>,
     runtime: &ags_runtime::runtime::Runtime,
     frontend: &mut dyn crate::frontend::Frontend,
     frontend_context: &crate::invocation::context::FrontendContext,
@@ -244,7 +246,15 @@ async fn handle_auth_login(
             .await
         }
         GrantType::AuthorizationCode => {
-            handle_login_with_browser(matches, profile, runtime, frontend, frontend_context).await
+            handle_login_with_browser(
+                matches,
+                profile,
+                namespace_flag,
+                runtime,
+                frontend,
+                frontend_context,
+            )
+            .await
         }
     }
 }
@@ -257,6 +267,7 @@ async fn handle_auth_login(
 async fn handle_login_with_browser(
     matches: &ArgMatches,
     profile: &str,
+    namespace_flag: Option<&str>,
     runtime: &ags_runtime::runtime::Runtime,
     frontend: &mut dyn crate::frontend::Frontend,
     frontend_context: &crate::invocation::context::FrontendContext,
@@ -264,8 +275,8 @@ async fn handle_login_with_browser(
     let flag_base_url = matches.get_one::<String>("base-url").cloned();
     let flag_client_id = matches.get_one::<String>("client-id").cloned();
     let callback_port = matches
-        .get_one::<String>("port")
-        .and_then(|p| p.parse::<u16>().ok())
+        .get_one::<u16>("port")
+        .copied()
         .unwrap_or(DEFAULT_CALLBACK_PORT);
 
     // Non-interactive modes can't drive the browser flow, but they CAN still
@@ -277,19 +288,26 @@ async fn handle_login_with_browser(
         flag_base_url,
         ags_runtime::runtime::auth::credentials::resolve_base_url_value(profile),
         is_prompt_blocked,
-        "Enter Base URL (e.g. https://demo.accelbyte.io): ",
+        "Enter Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io): ",
         "Base URL is required.",
         "Provide --base-url or set AGS_BASE_URL when running non-interactively.",
     )?;
 
-    let client_id = resolve_login_value(
-        flag_client_id,
-        ags_runtime::runtime::auth::credentials::resolve_client_id_value(profile),
-        is_prompt_blocked,
-        "Enter Client ID: ",
-        "Client ID is required.",
-        "Provide --client-id or set AGS_CLIENT_ID when running non-interactively.",
-    )?;
+    let (client_id, redirect_hint_shown) = match flag_client_id
+        .or_else(|| ags_runtime::runtime::auth::credentials::resolve_client_id_value(profile))
+    {
+        Some(client_id) => (client_id, false),
+        None if is_prompt_blocked => {
+            return Err(CliError::Usage {
+                message: "Provide --client-id or set AGS_CLIENT_ID when running non-interactively."
+                    .to_string(),
+                metadata: None,
+            });
+        }
+        None => {
+            prompt_client_id_with_create_guide(&base_url, profile, namespace_flag, callback_port)?
+        }
+    };
 
     // Probe BEFORE binding the callback port or printing any browser URL.
     // If the user already has a usable (or refreshable) session, we report
@@ -316,6 +334,20 @@ async fn handle_login_with_browser(
                 .to_string(),
             metadata: None,
         });
+    }
+
+    // The authorize URL omits redirect_uri, so IAM redirects to the client's
+    // registered URI. On a mismatched port the callback never arrives and
+    // login only ends at the callback timeout. The create-client guide
+    // already said this for a client made during this run.
+    if callback_port != DEFAULT_CALLBACK_PORT && !redirect_hint_shown {
+        frontend.render_warning(
+            &format!(
+                "The login callback will use port {callback_port}. Your IAM client's redirect URI must be http://127.0.0.1:{callback_port}."
+            ),
+            Some("Otherwise the browser is redirected to a port the CLI isn't listening on, and login waits until it times out."),
+            None,
+        );
     }
 
     let (code_verifier, code_challenge) = oauth::generate_pkce_pair();
@@ -389,7 +421,7 @@ async fn handle_login_with_client_credentials(
         flag_base_url,
         ags_runtime::runtime::auth::credentials::resolve_base_url_value(profile),
         is_prompt_blocked,
-        "Enter Base URL (e.g. https://demo.accelbyte.io): ",
+        "Enter Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io): ",
         "Base URL is required.",
         "Provide --base-url or set AGS_BASE_URL when using --no-input.",
     )?;
@@ -693,6 +725,94 @@ fn resolve_login_value(
             metadata: None,
         });
     }
+    require_input(read_prompt_line(prompt)?, empty_error)
+}
+
+/// Prompt for a public client ID, where an empty answer links to the Admin
+/// Portal form for creating one from the `ags_cli` template. Returns the
+/// client ID and whether the guide, which states the redirect URI for
+/// `callback_port`, was shown.
+fn prompt_client_id_with_create_guide(
+    base_url: &str,
+    profile: &str,
+    namespace_flag: Option<&str>,
+    callback_port: u16,
+) -> Result<(String, bool), CliError> {
+    let client_id = read_prompt_line("Enter Client ID (or press Enter to create one): ")?;
+    if !client_id.is_empty() {
+        return Ok((client_id, false));
+    }
+
+    let namespace =
+        match ags_runtime::runtime::execution::resolve_namespace(namespace_flag, Some(profile)) {
+            Some((namespace, _)) => namespace,
+            None => require_input(
+                read_prompt_line("Enter the namespace to create the IAM client in: ")?,
+                "Namespace is required to create an IAM client.",
+            )?,
+        };
+    let create_url = create_client_url(base_url, &namespace)?;
+
+    crate::frontend::write_stderr_line("");
+    crate::frontend::write_stderr_line(&style::info(
+        "Open this URL in your browser, create the IAM client, and copy its Client ID",
+        style::is_stderr_enabled(),
+    ));
+    crate::frontend::write_stderr_line(&format!("    {create_url}"));
+    if let Some(warning) = create_client_port_warning(callback_port) {
+        crate::frontend::write_stderr_line(&style::warning(&warning, style::is_stderr_enabled()));
+    }
+    for line in create_client_form_fields(callback_port) {
+        crate::frontend::write_stderr_line(&style::ansi::dim(&line, style::is_stderr_enabled()));
+    }
+    crate::frontend::write_stderr_line("");
+
+    let client_id = require_input(
+        read_prompt_line("Enter Client ID: ")?,
+        "Client ID is required.",
+    )?;
+    Ok((client_id, true))
+}
+
+/// The `ags_cli` template registers the default callback port, so any other
+/// `--port` needs the client's redirect URI changed before login can complete.
+fn create_client_port_warning(callback_port: u16) -> Option<String> {
+    (callback_port != DEFAULT_CALLBACK_PORT).then(|| {
+        format!(
+            "The AGS CLI template registers http://127.0.0.1:{DEFAULT_CALLBACK_PORT}. Because you're using --port {callback_port}, set the client's redirect URI to http://127.0.0.1:{callback_port}."
+        )
+    })
+}
+
+/// Values to enter under the create-client link. Admin Portals without the
+/// `ags_cli` template open the form empty.
+fn create_client_form_fields(callback_port: u16) -> [String; 4] {
+    [
+        "If the form is empty, enter:".to_string(),
+        "    Client Type:   Public".to_string(),
+        "    Client Name:   AGS CLI".to_string(),
+        format!("    Redirect URI:  http://127.0.0.1:{callback_port}"),
+    ]
+}
+
+/// Build the Admin Portal link for creating an IAM client in `namespace`.
+fn create_client_url(base_url: &str, namespace: &str) -> Result<String, CliError> {
+    // Besides rejecting malformed input, this keeps `.` and `..` out of the
+    // link: the URL parser drops those segments, removing the namespace.
+    if !ags_runtime::runtime::config::is_valid_namespace(namespace) {
+        return Err(CliError::Usage {
+            message: format!(
+                "Invalid namespace: {namespace}. {}.",
+                ags_runtime::runtime::config::NAMESPACE_FORMAT_HINT
+            ),
+            metadata: None,
+        });
+    }
+    Ok(oauth::build_create_client_url(base_url, namespace)
+        .map_err(ags_protocol::error::RuntimeError::from)?)
+}
+
+fn read_prompt_line(prompt: &str) -> Result<String, CliError> {
     crate::frontend::write_stderr(prompt);
     let mut input = String::new();
     std::io::stdin()
@@ -701,7 +821,10 @@ fn resolve_login_value(
             message: format!("Failed to read input: {e}"),
             metadata: None,
         })?;
-    let value = strip_terminal_control_sequences(input.trim());
+    Ok(strip_terminal_control_sequences(input.trim()))
+}
+
+fn require_input(value: String, empty_error: &str) -> Result<String, CliError> {
     if value.is_empty() {
         return Err(CliError::Usage {
             message: empty_error.to_string(),
@@ -713,7 +836,11 @@ fn resolve_login_value(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_tip_due, TIP_AFTER_SECS};
+    use super::{
+        create_client_form_fields, create_client_port_warning, create_client_url, is_tip_due,
+        TIP_AFTER_SECS,
+    };
+    use crate::errors::CliError;
 
     #[test]
     fn test_tip_not_due_before_threshold() {
@@ -732,6 +859,54 @@ mod tests {
         assert!(!is_tip_due(TIP_AFTER_SECS, true));
         assert!(!is_tip_due(TIP_AFTER_SECS + 60, true));
         assert!(!is_tip_due(u64::MAX, true));
+    }
+
+    #[test]
+    fn test_create_client_url_uses_valid_namespace() {
+        let url = create_client_url(
+            "https://my-game.prod.gamingservices.accelbyte.io",
+            "my-game",
+        )
+        .unwrap();
+        assert_eq!(
+            url,
+            "https://my-game.prod.gamingservices.accelbyte.io/admin/namespaces/my-game/iam-clients/create?template=ags_cli"
+        );
+    }
+
+    #[test]
+    fn test_create_client_form_fields_use_callback_port() {
+        let fields = create_client_form_fields(9000).join("\n");
+        assert!(fields.contains("Client Name:   AGS CLI"), "{fields}");
+        assert!(fields.contains("Client Type:   Public"), "{fields}");
+        assert!(
+            fields.contains("Redirect URI:  http://127.0.0.1:9000"),
+            "{fields}"
+        );
+    }
+
+    #[test]
+    fn test_create_client_port_warning_only_for_non_default_port() {
+        assert_eq!(create_client_port_warning(8080), None);
+        let warning = create_client_port_warning(9000).unwrap();
+        assert!(warning.contains("--port 9000"), "{warning}");
+        assert!(warning.contains("http://127.0.0.1:9000"), "{warning}");
+    }
+
+    /// `..` would otherwise drop the namespace from the link's path
+    #[test]
+    fn test_create_client_url_rejects_invalid_namespace() {
+        for namespace in ["..", ".", "My_Game", "a/b"] {
+            match create_client_url(
+                "https://my-game.prod.gamingservices.accelbyte.io",
+                namespace,
+            ) {
+                Err(CliError::Usage { message, .. }) => {
+                    assert!(message.contains("Invalid namespace"), "{message}")
+                }
+                other => panic!("expected usage error for '{namespace}', got {other:?}"),
+            }
+        }
     }
 }
 

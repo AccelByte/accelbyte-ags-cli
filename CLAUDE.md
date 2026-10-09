@@ -165,7 +165,7 @@ crates/accelbyte-ags-cli/
 │   │       ├── config.rs        # Config get/set/unset dispatch
 │   │       ├── describe/        # `ags describe` — machine-readable introspection
 │   │       ├── doctor.rs        # Diagnostic check dispatch
-│   │       ├── extend/          # `ags extend` subcommands: clone-template, app-ui, update-var, update-secret, security-assessment, migration shortcuts
+│   │       ├── extend/          # `ags extend` subcommands: clone-template, app-ui, logs, update-var, update-secret, security-assessment, migration shortcuts
 │   │       │   ├── mod.rs       # Route `ags extend <subcommand>` to the appropriate handler
 │   │       │   ├── app_lifecycle/ # `--wait` polling for the app lifecycle shims (create/deploy/start/stop/delete-app)
 │   │       │   │   ├── mod.rs   # WaitRequest + run_wait_after_dispatch (resolve creds, drive poll loop)
@@ -178,6 +178,13 @@ crates/accelbyte-ags-cli/
 │   │       │   ├── clone_template/ # `ags extend clone-template` — clone Extend starter templates
 │   │       │   ├── image_upload/  # `ags extend image-upload` — build and push container image
 │   │       │   │   └── mod.rs     # Handler, pure functions, Docker introspection, OCI tag check, retry logic
+│   │       │   ├── logs/          # `ags extend logs stream` — stream Extend app container logs over SSE
+│   │       │   │   ├── mod.rs     # Handler: input resolution, dry-run, interrupt ownership, reconnect loop entry
+│   │       │   │   ├── output.rs  # LogStreamOutput writer and JSON record types (connected, log, reconnecting, …)
+│   │       │   │   ├── resume.rs  # ResumeWindow: last-event-id tracking and duplicate suppression across reconnects
+│   │       │   │   ├── session.rs # Reconnect decision table and run_stream_loop state machine
+│   │       │   │   ├── sse.rs     # SSE line parser: event, id, data field accumulation
+│   │       │   │   └── transport.rs # HTTP stream client, URL builder, token resolution, StreamAttempt trait
 │   │       │   ├── remote_debug/ # `ags extend remote-debug` — enable, disable, and connect debug sessions
 │   │       │   │   ├── mod.rs     # remote_debug connect handler, retry policy, namespace and output envelopes
 │   │       │   │   ├── connect_once.rs # Debug-info preconditions, tunnel/agent/forwarder orchestration

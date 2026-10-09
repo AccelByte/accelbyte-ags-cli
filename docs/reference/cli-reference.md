@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.5.1  
+Version: 0.5.2  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
@@ -327,6 +327,7 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags extend app-ui upload`
 - `ags extend docker-login`
 - `ags extend image-upload`
+- `ags extend logs stream`
 - `ags extend tunnel`
 - `ags extend update-secret`
 - `ags extend update-var`
@@ -1162,6 +1163,70 @@ Lists an Extend app's completed security-assessment sessions (`csm/admin/securit
 
 **Exit codes:** 0 on success; 1 for invalid input (missing namespace, invalid `--report-format`, non-numeric/overflowing `--engagement-id`, no completed sessions found, or an out-of-range/invalid interactive selection); 2 for authentication failure; 3 for rejected, permission, or not-found API failures; 4 for network failure.
 
+### 10.5.24 `ags extend logs stream`
+
+Synopsis:
+
+```text
+ags extend logs stream --app <app> [--follow] [--tail-lines <lines>] [--pods <count>] [--since-seconds <seconds>] [--previous] [--namespace <ns>]
+```
+
+Streams an Extend app's container logs from the CSM log-streaming endpoint (`/csm/v4/admin/namespaces/{namespace}/apps/{app}/logs`) over Server-Sent Events. Without `--follow` the command prints recent lines and exits when the server closes the connection or sends `stream-end`; with `--follow` it keeps the connection open and prints new lines as they arrive until Ctrl-C.
+
+Log lines are written to stdout (one per line). In human mode, terminal control sequences embedded in the log data are stripped before printing. In `--format json` mode every event is a JSON object on its own line — log lines, lifecycle events, and terminal records all go to stdout in event order (see the JSON record table below). Status lines (connection, reconnect, pod lifecycle) go to stderr in human mode, and are included inline in the stdout JSON stream in JSON mode. Nothing goes to stderr in JSON mode on success.
+
+**Flags**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--app <app>` / `-a <app>` | *(required)* | Extend app name. |
+| `--follow` / `-f` | `false` | Keep the connection open and print new lines as they arrive. |
+| `--tail-lines <lines>` | `100` | Number of recent lines to fetch per pod (alias: `--tail`). Must be at least 1. |
+| `--pods <count>` | `1` | Maximum number of pods to stream from. Must be at least 1. |
+| `--since-seconds <seconds>` | *(none)* | Only return logs newer than this many seconds. Must be at least 1. |
+| `--previous` | `false` | Logs of each pod's previous container instance. A pod whose container has not restarted prints no log lines; the server says why when that pod's stream finishes (human mode: the `message=` field of its `pod stream finished` line; JSON: the `pod_done` record's `message`). The command still exits 0 when the stream ends. |
+
+**JSON record table.** With `--format json`, each stdout line is a JSON object whose `event` field determines its schema:
+
+| `event` | When emitted | Fields |
+|---|---|---|
+| `connected` | A connection to the log endpoint succeeds. | `event`, `reconnect`, `elapsed_ms` |
+| `log` | A log line arrives from a pod. | `event`, `id`, `pod`, `line`, `elapsed_ms` |
+| `pod_done` | A pod's log stream finishes (container exit, etc.). | `event`, `pod`, `reason`, `message`, `elapsed_ms` |
+| `reconnecting` | The loop is about to wait and reconnect (only with `--follow`). | `event`, `reconnect`, `max_reconnects`, `delay_ms`, `last_event_id`, `reason`, `detail`, `elapsed_ms` |
+| `stream_end` | The server sent `stream-end`; the stream is complete. | `event`, `reason`, `elapsed_ms` |
+| `disconnected` | Without `--follow`, the connection closed without `stream-end`. | `event`, `elapsed_ms` |
+| `stopped` | Ctrl-C. | `event`, `elapsed_ms` |
+| `gave_up` | The reconnect budget (5) is exhausted. | `event`, `reconnects`, `last_event_id`, `elapsed_ms` |
+| `error` | A terminal error after input validation. | `event`, `message`, `exit_code`, `elapsed_ms` |
+| `dry_run` | `--dry-run`: the request the first connection would send. | `event`, `method`, `url`, `elapsed_ms` |
+
+The `reconnecting` record's `reason` field is one of `closed_without_stream_end`, `transport_error`, `idle_timeout`, or `server_unavailable`. Optional fields serialize as `null`, never omitted.
+
+A server event whose name the command does not handle produces no JSON record. With `--verbose` in human mode it is printed on stderr (see Verbosity levels).
+
+**Reconnect behaviour (with `--follow`).** When a connection drops without `stream-end`, the command reconnects with exponential backoff (5, 10, 20, 20, 20 seconds with ±20% jitter) for up to 5 reconnects per run. Reconnects resume from the last printed event id; duplicate events replayed by the server are suppressed. The reconnect budget is never restored by a successful reconnect. Without `--follow`, a dropped connection exits immediately (exit 0 for a clean close, exit 4 for a transport error or idle timeout).
+
+**Stdout closed.** When the downstream reader closes stdout (e.g. `ags extend logs stream --app x -f | head -10`), the command exits 0 at its next write to stdout, without writing a terminal record. A run that is already ending with an error keeps that error's exit code. If writing to stdout fails for any other reason, for example a full disk, the command stops and exits 1 with `Cannot write to stdout: <cause>.` on stderr.
+
+**Verbosity levels:**
+
+- **Quiet** (`--quiet`): status lines on stderr are suppressed; log lines on stdout and JSON records are unaffected.
+- **Normal** (default): status lines are written to stderr with an `[+<n>s]` elapsed-time prefix.
+- **Verbose** (`--verbose`): all Normal events plus, on stderr, the request URL (never the token or credentials) and every server event whose name the command does not handle (any name other than `message`, `pod-done`, `stream-end` and `error`), as `unrecognised event: <name>  data=<data>`. No effect in JSON mode.
+
+**Global flag interactions:**
+
+- `--namespace` / `-n` — game namespace that owns the Extend app. Required; resolved from the global flag, `AGS_NAMESPACE`, or profile config.
+- `--format json` — switches all output to one JSON object per line on stdout, in event order. Stderr is empty on success. `--quiet` has no additional effect in JSON mode.
+- `--quiet` — suppresses status lines on stderr in human mode; log lines and JSON records are unaffected.
+- `--yes` — accepted; the handler has no confirmation prompts so the flag has no observable effect.
+- `--no-input` — safe; the handler is fully non-interactive.
+- `--output` — rejected with a usage error. Streaming commands do not support `--output`; use shell redirection (`> file`) instead.
+- `--dry-run` — prints the request the first connection would send and exits without opening a connection. In JSON mode, emits a single `dry_run` record.
+
+**Exit codes:** 0 on clean shutdown (Ctrl-C), clean `stream-end`, clean close without `--follow`, or stdout closed by the downstream reader; 1 for invalid input (missing `--app`, missing `--namespace` from all sources, invalid app or namespace name, `--tail-lines`/`--pods`/`--since-seconds` below 1, or `--output` used) or stdout could not be written; 2 for authentication failure (token expired and could not be refreshed, repeated 401); 3 for a server-sent `error` event, HTTP 400, 403 (permission), 404 (app not found), 429 (rate limit: at most 10 concurrent log streams per namespace; a stream stopped less than a minute ago may still count), or other non-retriable HTTP status; 4 for a first transient connection failure, transport error, idle timeout without `--follow`, reconnect exhaustion, or a line exceeding the size limit.
+
 ### 10.6 Error handling
 
 Errors MUST be actionable and SHOULD point users to likely fixes or next steps.
@@ -1596,7 +1661,7 @@ This includes profile selection, such as:
 ```text
 AGS_PROFILE=staging
 AGS_ACCESS_TOKEN=...
-AGS_BASE_URL=https://demo.accelbyte.io
+AGS_BASE_URL=https://<your-namespace>.prod.gamingservices.accelbyte.io
 AGS_CLIENT_ID=...
 AGS_CLIENT_SECRET=...
 ```
@@ -2017,6 +2082,7 @@ The CLI ships with:
 - `ags extend app-ui upload` (build, archive, and upload App UI static-asset bundles to CSM)
 - `ags extend docker-login` (authenticate the local Docker CLI against the Extend container registry)
 - `ags extend image-upload` (build and push a container image to the Extend registry)
+- `ags extend logs stream` (stream an Extend app's container logs over Server-Sent Events)
 - `ags extend tunnel` (open a TCP-to-WebSocket bridge to an Extend app pod)
 - `ags extend update-secret` (upsert a CSM app secret)
 - `ags extend update-var` (upsert a CSM app configuration variable)

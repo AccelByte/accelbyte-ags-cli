@@ -39,19 +39,27 @@ Green = no violations in any scanned runtime directory.
 
 ---
 
-### RULE-02 — CLI binary I/O routes through the three sink helpers, never bare `println!`/`eprintln!`
+### RULE-02 — CLI binary I/O routes through the four sink helpers, never bare `println!`/`eprintln!`
 
 **Rule:** All user-visible writes in the `accelbyte-ags-cli` binary must route through
 `write_stdout_line`, `write_stderr_line`, or `write_stderr` from
 `crates/accelbyte-ags-cli/src/frontend/mod.rs`. Call bare `println!` / `eprintln!` there
 only in comments or test scaffolding.
 
-**Why:** The three helpers do three things bare macros cannot: (1) `write_stdout_line`
-calls `anstream::stdout()` so Windows VT-mode is enabled before the first escape code;
-(2) all three handle broken-pipe silently rather than panicking; (3) `write_stderr_line` /
-`write_stderr` route through `UiSink` for uniform flushing. A bare `println!` also bypasses
-the `--output <path>` sink — use `emit_with_options` for result data that may be
-file-redirected.
+A command that must stop when its reader closes stdout uses
+`write_stdout_line_reporting_closed`, in the same file. It shares
+`write_stdout_line`'s write-and-flush function but returns the closed state
+instead of treating a closed pipe as success. See the exception under RULE-06.
+
+**Why:** The four helpers do what bare macros cannot: (1) `write_stdout_line` and
+`write_stdout_line_reporting_closed` call `anstream::stdout()` so Windows VT-mode is
+enabled before the first escape code; (2) none of them panics on a closed pipe:
+`write_stdout_line`, `write_stderr_line` and `write_stderr` treat it as success, and
+`write_stdout_line_reporting_closed` returns the closed state to its caller;
+(3) the two stderr helpers flush after every write: `write_stderr_line` through `UiSink`,
+and `write_stderr` directly, so an inline prompt is visible before the program reads
+input. A bare `println!` also bypasses the `--output <path>` sink — use
+`emit_with_options` for result data that may be file-redirected.
 
 **House pattern:**
 ```rust
@@ -211,6 +219,30 @@ pub fn is_automation(&self) -> bool {
 ```
 cargo test --test integration -- format_precedence
 ```
+
+**Exception: a command whose output never ends.** `emit_with_options` and
+`JsonFrontend` print one complete result when a command finishes, so a command
+that streams until its user stops it cannot use them. `ags extend logs stream` is
+the only such command today. In JSON mode it writes one JSON record per line to
+stdout itself, and it keeps four limits that any later streaming command must
+also keep:
+
+1. One type writes everything the command prints to stdout or stderr
+   (`LogStreamOutput` in
+   `crates/accelbyte-ags-cli/src/invocation/handlers/extend/logs/output.rs`), as
+   `session_log.rs` does for `ags extend tunnel` and
+   `ags extend remote-debug connect`.
+2. It writes only through the line helpers in
+   `crates/accelbyte-ags-cli/src/frontend/mod.rs` (RULE-02), and each line is
+   flushed before the next event is handled (RULE-38).
+3. It stops when its reader closes stdout, through
+   `write_stdout_line_reporting_closed`, instead of treating the failed write as
+   success.
+4. It rejects `--output`, so no result data bypasses the file sink.
+
+On success in JSON mode it writes no human text to stderr, which keeps this
+rule's intent. A new streaming command is added to this paragraph with the same
+four limits.
 
 **Provenance:** `crates/accelbyte-ags-cli/src/invocation/context.rs:102-109, 411-412`; `frontend/mod.rs:444-447`
 

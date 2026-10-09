@@ -185,7 +185,7 @@ pub(super) async fn run_upload_with_chunk_size(
             request.part_concurrency,
         )
         .await
-        .map_err(&orphan)?;
+        .map_err(orphan)?;
     } else {
         upload_whole(
             &api,
@@ -196,7 +196,7 @@ pub(super) async fn run_upload_with_chunk_size(
             archive_bytes,
         )
         .await
-        .map_err(&orphan)?;
+        .map_err(orphan)?;
     }
 
     sink.on_event(ProgressEvent::Message {
@@ -204,7 +204,7 @@ pub(super) async fn run_upload_with_chunk_size(
     });
     api.complete(&image_id, archive_bytes, &resolved.command)
         .await
-        .map_err(&orphan)?;
+        .map_err(orphan)?;
     sink.on_event(ProgressEvent::Finished);
 
     Ok(AmsUploadView::Uploaded(AmsUploadResult {

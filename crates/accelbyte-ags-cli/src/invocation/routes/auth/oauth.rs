@@ -75,6 +75,20 @@ pub fn build_authorize_url(
     Ok(url.to_string())
 }
 
+/// Construct the Admin Portal link that opens the IAM client form with the
+/// `ags_cli` template (a public client redirecting to the default callback
+/// port) preselected.
+pub fn build_create_client_url(base_url: &str, namespace: &str) -> Result<String, AuthError> {
+    let base = base_url.trim_end_matches('/');
+    let mut url = reqwest::Url::parse(&format!("{base}/admin/namespaces"))
+        .map_err(|_| AuthError::InvalidBaseUrl(base_url.to_string()))?;
+    url.path_segments_mut()
+        .map_err(|_| AuthError::InvalidBaseUrl(base_url.to_string()))?
+        .extend([namespace, "iam-clients", "create"]);
+    url.query_pairs_mut().append_pair("template", "ags_cli");
+    Ok(url.to_string())
+}
+
 /// Start a localhost callback server and wait for the authorization code.
 ///
 /// Returns `(code, state)` from the callback query parameters.
@@ -258,6 +272,31 @@ mod tests {
         // redirect_uri and scope are omitted — AccelByte uses client defaults
         assert!(!url.contains("redirect_uri"));
         assert!(!url.contains("scope"));
+    }
+
+    #[test]
+    fn test_build_create_client_url_selects_cli_template() {
+        let url = build_create_client_url(
+            "https://my-game.prod.gamingservices.accelbyte.io/",
+            "my-game",
+        )
+        .unwrap();
+        assert_eq!(
+            url,
+            "https://my-game.prod.gamingservices.accelbyte.io/admin/namespaces/my-game/iam-clients/create?template=ags_cli"
+        );
+    }
+
+    /// Separators in the namespace are percent-encoded rather than adding path segments
+    #[test]
+    fn test_build_create_client_url_encodes_namespace() {
+        let url =
+            build_create_client_url("https://my-game.prod.gamingservices.accelbyte.io", "a/b?c")
+                .unwrap();
+        assert_eq!(
+            url,
+            "https://my-game.prod.gamingservices.accelbyte.io/admin/namespaces/a%2Fb%3Fc/iam-clients/create?template=ags_cli"
+        );
     }
 
     /// Trailing slashes on base URLs must be stripped to avoid double-slash in the path

@@ -191,16 +191,16 @@ If your team already gave you a base URL and IAM client, skip client creation an
 
 ### Creating an IAM client
 
-> [!IMPORTANT]
-> Public IAM clients must have `http://127.0.0.1:8080` as a redirect URI. The CLI's authorization code flow uses a localhost callback on port 8080 (configurable with `--port`). Without this redirect URI, the browser login will fail with an OAuth error.
+1. In your AccelByte Admin Portal, go to **Platform Configuration → IAM Clients** and select **Create**.
+2. Choose a template:
+   - For interactive use: **AGS CLI**, which creates a Public client with `http://127.0.0.1:8080` as the redirect URI. If your Admin Portal does not list it yet, choose **Custom**, select the **Public** client type, name it AGS CLI, and add that redirect URI.
+   - For CI or automation: **Trusted Backend Tool**, or **Custom** with the **Confidential** client type. Note the client secret.
+3. Assign the permissions your CLI usage requires (confidential clients only; a public client acts with the permissions of the user who signs in).
 
-1. Go to your AccelByte Admin Portal
-2. Navigate to **Platform Configuration → IAM Clients**
-3. Create a new client:
-   - For interactive use: choose **Public** client type
-   - For CI or automation: choose **Confidential** client type and note the client secret
-4. Add `http://127.0.0.1:8080` as a redirect URI (public clients only)
-5. Assign the permissions your CLI usage requires
+To open the form with the AGS CLI template already selected, go to `<base-url>/admin/namespaces/<namespace>/iam-clients/create?template=ags_cli`. Where the Admin Portal does not have the template yet, that link opens an empty form: select **Public** and enter the values from step 2.
+
+> [!IMPORTANT]
+> The CLI's browser login waits for a callback on `http://127.0.0.1:<port>` (8080 by default), and IAM sends the browser to the client's registered redirect URI. If your environment doesn't list the **AGS CLI** template, choose **Custom**, select **Public**, and add `http://127.0.0.1:8080` as a redirect URI yourself. If you log in with `--port <port>`, the redirect URI must be `http://127.0.0.1:<port>`, or the login waits until it times out.
 
 > [!NOTE]
 > **Where to create your IAM client depends on your deployment.**
@@ -222,6 +222,8 @@ ags auth login
 ```
 
 You will be prompted for the base URL and client ID. The CLI then prints a URL for you to open in your browser and completes authentication through a localhost callback.
+
+No client ID yet? Press Enter at the Client ID prompt. The CLI asks for a namespace (unless `--namespace`, `AGS_NAMESPACE`, or your profile sets one) and prints an Admin Portal link that opens the IAM client form with the **AGS CLI** template selected. Create the client there, then paste its client ID. The CLI also lists what to enter if the form opens empty, as it does where your Admin Portal doesn't have the template yet: Client Type **Public**, Client Name **AGS CLI**, and Redirect URI `http://127.0.0.1:8080` (or your `--port`).
 
 ### Client credentials flow (confidential client)
 
@@ -260,7 +262,7 @@ its own login:
 
 ```bash
 curl -H "Authorization: Bearer $(ags auth token)" \
-  "https://demo.accelbyte.io/iam/v3/admin/namespaces/my-game/users"
+  "https://<your-namespace>.prod.gamingservices.accelbyte.io/iam/v3/admin/namespaces/my-game/users"
 ```
 
 The token is resolved exactly as an API call resolves it: `AGS_ACCESS_TOKEN`
@@ -518,11 +520,13 @@ what each error means, see **[AMS image upload](docs/reference/ams-upload.md)**.
 
 `ags extend` covers the Extend platform: cloning a starter template, logging in to the
 container registry, building and pushing an image, tunnelling to a running app pod,
-remote debugging, and requesting a security assessment of an app's endpoints.
+streaming an app's logs, remote debugging, and requesting a security assessment of an
+app's endpoints.
 
     ags extend clone-template --help
     ags extend image-upload --help
     ags extend tunnel --help
+    ags extend logs stream --help
     ags extend security-assessment --help
 
 If you are moving from `extend-helper-cli`, its commands are here under the names you already

@@ -1,8 +1,9 @@
 //! `extend` subcommands: Extend-platform tooling and migration shortcuts.
 //!
 //! Contains the `clone-template` command (non-API, filesystem-only),
-//! `app-ui` subcommands (API-backed), and migration shortcuts that
-//! forward `extend-helper-cli` invocation names to their canonical
+//! `app-ui` subcommands (API-backed), the `logs stream` command
+//! (streaming SSE log output), and migration shortcuts that forward
+//! `extend-helper-cli` invocation names to their canonical
 //! `ags csm` service operations.
 
 pub(crate) mod app_lifecycle;
@@ -10,6 +11,7 @@ pub(crate) mod app_ui;
 pub(crate) mod clone_template;
 pub(crate) mod csm_error;
 pub(crate) mod image_upload;
+pub(crate) mod logs;
 pub(crate) mod remote_debug;
 pub(crate) mod security_assessment_request;
 pub(crate) mod security_assessment_result;
@@ -71,6 +73,17 @@ pub(crate) async fn handle_extend(
                         command.find_subcommand_mut("security-assessment")
                     {
                         let _ = security_assessment.print_help();
+                    }
+                    Ok(InvocationOutcome::Exit(1))
+                }
+            },
+            Some(("logs", sub)) => match sub.subcommand() {
+                Some(("stream", stream_sub)) => {
+                    logs::handle_logs_stream(stream_sub, flags, frontend).await
+                }
+                _ => {
+                    if let Some(logs_cmd) = command.find_subcommand_mut("logs") {
+                        let _ = logs_cmd.print_help();
                     }
                     Ok(InvocationOutcome::Exit(1))
                 }

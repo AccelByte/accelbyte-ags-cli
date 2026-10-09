@@ -30,6 +30,8 @@ mod describe;
 mod docker_login;
 #[path = "functional/doctor.rs"]
 mod doctor;
+#[path = "functional/extend_logs.rs"]
+mod extend_logs;
 #[path = "functional/extend_shims.rs"]
 mod extend_shims;
 #[path = "functional/extend_tunnel.rs"]

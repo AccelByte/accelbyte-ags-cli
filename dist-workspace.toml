@@ -51,7 +51,17 @@ install-updater = false
 #      Do not restate the reasoning here: two copies of it in two files that a
 #      regeneration is meant to keep in step will drift, and the copy people
 #      re-apply from is this one.
-# Re-apply all four after every regeneration.
+#   5. The plan job output uses `plan_meta` with a jq projection carrying only
+#      the fields the workflow branches on, not the full manifest. All downstream
+#      consumers use `needs.plan.outputs.plan_meta`. The host job and homebrew
+#      job read release metadata from the downloaded manifest file, not from a
+#      job output. This keeps free-text release notes out of $GITHUB_OUTPUT,
+#      where text shaped like an auth header causes the runner to mask the value.
+#   6. The host job's `if:` requires both build-local-artifacts and
+#      build-global-artifacts to report `result == 'success'`, not the generated
+#      form that also accepts `'skipped'`. Accepting skipped builds allowed a
+#      release to ship with no binaries.
+# Re-apply all six after every regeneration.
 #
 # Tag-vs-version guard: cargo-dist natively validates that the git tag matches
 # the Cargo.toml version (dist host --steps=create errors if they disagree),

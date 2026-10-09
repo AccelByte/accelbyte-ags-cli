@@ -149,6 +149,10 @@ pub fn client_ids_match(a: &str, b: &str) -> bool {
     normalise_client_id(a) == normalise_client_id(b)
 }
 
+/// User-facing description of the rule enforced by [`is_valid_namespace`].
+pub const NAMESPACE_FORMAT_HINT: &str =
+    "Namespace must be lowercase alphanumeric or hyphens, max 48 chars (e.g. my-game-name)";
+
 /// Returns true if the value is a valid namespace (lowercase alphanumeric and hyphens, max 48 chars).
 pub fn is_valid_namespace(value: &str) -> bool {
     !value.is_empty()

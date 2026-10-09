@@ -85,10 +85,10 @@ const MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
 pub const DEFAULT_TIMEOUT_SECS: u64 = 60;
 
 /// Connection-establishment timeout.
-const CONNECT_TIMEOUT_SECS: u64 = 30;
+pub const CONNECT_TIMEOUT_SECS: u64 = 30;
 
 /// Application User-Agent sent by AGS CLI backend requests.
-pub(crate) const APPLICATION_USER_AGENT: &str = concat!("ags-cli/", env!("CARGO_PKG_VERSION"));
+pub const APPLICATION_USER_AGENT: &str = concat!("ags-cli/", env!("CARGO_PKG_VERSION"));
 
 // ── Client Construction And Body Decoding ──
 

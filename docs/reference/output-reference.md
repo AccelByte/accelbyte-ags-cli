@@ -1210,3 +1210,11 @@ To enumerate only services, take the root envelope's `data.children` and filter 
 New `kind` and `node_type` values are added over time. They are **additive** to a `kind`-discriminated contract, so they do **not** bump `schema_version`: a consumer that dispatches on `kind` and ignores unrecognised values stays compatible. Consumers MUST tolerate unknown `kind` and `node_type` values rather than treating them as errors. `schema_version` bumps only on a **breaking** change to the envelope shape (a removed or repurposed field).
 
 `generated_by.version` is the CLI **binary** version, not a catalogue-content fingerprint. It changes across releases, so a cache keyed on it invalidates when the CLI is upgraded; it does **not** distinguish catalogue content across builds that share a version. There is currently no separate content fingerprint — consumers needing strict drift detection should key on `generated_by.version` plus their own hash of the describe output.
+
+## 28. Streaming command output
+
+A streaming command (e.g. `ags extend logs stream --follow --format json`) prints one JSON object per line to stdout, in the order events occur on the wire. Each object carries an `event` discriminator field, so the reader can dispatch without parsing the full schema of every record type.
+
+The stream is **unbounded** — with `--follow` it produces output until Ctrl-C. `reconnecting` records appear inline between `log` records when the connection drops and is re-established. This preserves the order of reconnect lifecycle relative to log data, so a consumer that reads line-by-line sees the events in the same sequence as the reconnect loop observed them. `connected` records after the first indicate a reconnect.
+
+A reader MUST tolerate unknown `event` values; new record types are additive and do not bump a schema version.

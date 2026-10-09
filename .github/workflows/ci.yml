@@ -121,6 +121,54 @@ jobs:
             errors=$((errors + 1))
           }
 
+          # Verify the PostHog key is gated on publishing (hand-edit #4)
+          posthog_line=$(grep 'AGS_TELEMETRY_POSTHOG_KEY' .github/workflows/release.yml || true)
+          if [ -z "$posthog_line" ]; then
+            echo "::error::AGS_TELEMETRY_POSTHOG_KEY line is missing from release.yml"
+            errors=$((errors + 1))
+          elif ! echo "$posthog_line" | grep -q "publishing == 'true'"; then
+            echo "::error::AGS_TELEMETRY_POSTHOG_KEY must be gated on publishing == 'true', not the bare vars. form"
+            errors=$((errors + 1))
+          fi
+
+          # Verify plan output filters to gate-only fields, not full manifest (hand-edit #5)
+          if grep -q 'jq -c "\."' .github/workflows/release.yml; then
+            echo "::error::Plan job must filter plan_meta to gate-only fields, not pass the full manifest through GITHUB_OUTPUT"
+            errors=$((errors + 1))
+          fi
+          if ! grep -q "jq -c '{ci:" .github/workflows/release.yml; then
+            echo "::error::Plan job must contain the filtered jq projection (jq -c '{ci: ...}') for plan_meta"
+            errors=$((errors + 1))
+          fi
+
+          # Verify host job rejects skipped builds (hand-edit #6)
+          if grep -q "build-local-artifacts.result == 'skipped'" .github/workflows/release.yml || \
+             grep -q "build-global-artifacts.result == 'skipped'" .github/workflows/release.yml; then
+            echo "::error::Host job must require both build jobs to succeed (result == 'success'), not accept skipped builds"
+            errors=$((errors + 1))
+          fi
+          if ! grep -q "build-local-artifacts.result == 'success'" .github/workflows/release.yml; then
+            echo "::error::Host job must require build-local-artifacts.result == 'success'"
+            errors=$((errors + 1))
+          fi
+          if ! grep -q "build-global-artifacts.result == 'success'" .github/workflows/release.yml; then
+            echo "::error::Host job must require build-global-artifacts.result == 'success'"
+            errors=$((errors + 1))
+          fi
+
+          # Guard against auth-scheme-shaped text in CHANGELOG.md that would
+          # trigger GitHub Actions runner masking (the 0.5.1 incident).
+          # The runner masks a capitalised auth scheme followed by whitespace and
+          # a non-space character anywhere on the line — not only after an
+          # Authorization: header name. Both incident strings (the curl example
+          # and the inline `Bearer <token>` mention) match this shape.
+          # Case sensitive: lower-case "bearer" was NOT masked in the incident,
+          # and the approved replacement wording uses it.
+          if grep -qE '\b(Bearer|Basic|Digest|NTLM|Negotiate|Token)\s+\S' CHANGELOG.md; then
+            echo "::error::CHANGELOG.md contains a capitalised auth scheme followed by a value (e.g. Bearer <x>) that will trigger GitHub Actions runner masking — use lower-case or describe without a literal example"
+            errors=$((errors + 1))
+          fi
+
           if [ "$errors" -gt 0 ]; then
             echo "::error::$errors hand-edit guard(s) failed. See dist-workspace.toml for the required edits."
             exit 1

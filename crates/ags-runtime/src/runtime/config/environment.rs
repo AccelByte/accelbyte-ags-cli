@@ -2,7 +2,7 @@
 
 /// Env var: bearer token that bypasses the normal auth flow
 pub const ENV_ACCESS_TOKEN: &str = "AGS_ACCESS_TOKEN";
-/// Env var: AccelByte base URL (e.g. `https://demo.accelbyte.io`)
+/// Env var: AccelByte base URL (e.g. `https://<your-namespace>.prod.gamingservices.accelbyte.io`)
 pub const ENV_BASE_URL: &str = "AGS_BASE_URL";
 /// Env var: OAuth2 client ID for authentication
 pub const ENV_CLIENT_ID: &str = "AGS_CLIENT_ID";

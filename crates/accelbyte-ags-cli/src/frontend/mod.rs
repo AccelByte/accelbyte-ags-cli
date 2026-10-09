@@ -471,26 +471,54 @@ pub struct RenderOptions {
 }
 
 /// Internal stdout helper parameterised by writer for unit testing.
-/// Translates `BrokenPipe` to `Ok(())` (matches Unix SIGPIPE-driven exit
+/// A closed pipe is treated as `Ok(())` (matches Unix SIGPIPE-driven exit
 /// semantics — a downstream consumer closing the pipe is a stop-signal,
-/// not an error). All other I/O errors are mapped to `CliError::Usage`.
-/// Flushes after a successful write so downstream consumers see the
-/// bytes without depending on platform-specific stream-buffering
-/// behaviour. On a `BrokenPipe` from either `writeln!` or the trailing
-/// `flush`, the helper returns `Ok(())` without retrying — the stream
-/// is broken and any further write would also fail.
+/// not an error). Any other write or flush error is mapped to
+/// `CliError::Usage`.
 fn write_stdout_line_into<W: std::io::Write>(
-    mut w: W,
+    w: W,
     text: &str,
 ) -> Result<(), crate::errors::CliError> {
+    match write_stdout_line_status_into(w, text)? {
+        StdoutLineWrite::Written | StdoutLineWrite::ReaderClosed => Ok(()),
+    }
+}
+
+/// Whether a stdout write succeeded or the reader closed its end of the pipe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StdoutLineWrite {
+    /// The line was written and flushed.
+    Written,
+    /// The downstream reader closed stdout (`BrokenPipe`).
+    ReaderClosed,
+}
+
+/// Internal stdout helper that distinguishes a closed pipe from a successful
+/// write. Shares the write-and-flush logic of [`write_stdout_line_into`] but
+/// returns [`StdoutLineWrite::ReaderClosed`] instead of collapsing
+/// `BrokenPipe` into `Ok(())`. Callers that stream until stopped need to know
+/// when the reader is gone.
+fn write_stdout_line_status_into<W: std::io::Write>(
+    mut w: W,
+    text: &str,
+) -> Result<StdoutLineWrite, crate::errors::CliError> {
     match writeln!(w, "{text}").and_then(|_| w.flush()) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(()),
+        Ok(()) => Ok(StdoutLineWrite::Written),
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(StdoutLineWrite::ReaderClosed),
         Err(e) => Err(crate::errors::CliError::Usage {
             message: format!("Cannot write to stdout: {e}."),
             metadata: None,
         }),
     }
+}
+
+/// Write `text` followed by a newline to stdout via `anstream::stdout()`,
+/// reporting whether the reader closed the pipe. Used by streaming commands
+/// that must stop when the consumer is gone.
+pub(crate) fn write_stdout_line_reporting_closed(
+    text: &str,
+) -> Result<StdoutLineWrite, crate::errors::CliError> {
+    write_stdout_line_status_into(anstream::stdout().lock(), text)
 }
 
 /// Internal no-newline stderr helper parameterised by writer for unit testing.
@@ -797,7 +825,9 @@ mod coerce_tests {
 
 #[cfg(test)]
 mod tests {
-    use super::{write_stderr_into, write_stdout_line_into};
+    use super::{
+        write_stderr_into, write_stdout_line_into, write_stdout_line_status_into, StdoutLineWrite,
+    };
     use std::io::{self, Write};
 
     /// A `Write` that records bytes, tracks flush calls, and optionally returns
@@ -892,5 +922,32 @@ mod tests {
         let mut m = Mock::ok();
         write_stderr_into(&mut m, "Continue? [y/N] ");
         assert_eq!(m.flushed, 1);
+    }
+
+    #[test]
+    fn stdout_helper_reports_broken_pipe_as_closed() {
+        // BrokenPipe → ReaderClosed
+        let mut broken = Mock::failing(io::ErrorKind::BrokenPipe);
+        assert_eq!(
+            write_stdout_line_status_into(&mut broken, "x").unwrap(),
+            StdoutLineWrite::ReaderClosed,
+        );
+
+        // Success → Written
+        let mut ok = Mock::ok();
+        assert_eq!(
+            write_stdout_line_status_into(&mut ok, "hello").unwrap(),
+            StdoutLineWrite::Written,
+        );
+
+        // Other error → CliError::Usage
+        let mut other = Mock::failing(io::ErrorKind::Other);
+        let err = write_stdout_line_status_into(&mut other, "x").unwrap_err();
+        match err {
+            crate::errors::CliError::Usage { message, .. } => {
+                assert!(message.contains("stdout"));
+            }
+            other => panic!("expected Usage, got {other:?}"),
+        }
     }
 }

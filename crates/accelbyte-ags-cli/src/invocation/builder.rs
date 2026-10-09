@@ -600,6 +600,7 @@ pub fn build_extend_command() -> Command {
     // The `disable` shim was removed from the SHIMS table, so no shim
     // creates this group — it must be built here directly.
     cmd.subcommand(build_remote_debug_subcommand())
+        .subcommand(build_logs_subcommand())
 }
 
 /// Build the `clone-template` subcommand under `extend`.
@@ -1427,6 +1428,98 @@ fn build_remote_debug_subcommand() -> Command {
         .subcommand(build_remote_debug_disable_subcommand())
 }
 
+/// Build the `logs` command group with log-related subcommands.
+fn build_logs_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}"
+        .to_string();
+
+    Command::new("logs")
+        .help_template(template)
+        .about("Extend app log commands")
+        .disable_help_subcommand(true)
+        .arg_required_else_help(true)
+        .subcommand_required(true)
+        .subcommand(build_logs_stream_subcommand())
+}
+
+/// Build the `stream` subcommand under `logs`.
+///
+/// Flags: `--app` (required), `--follow`, `--tail-lines` (default 100,
+/// alias `--tail`), `--pods` (default 1), `--since-seconds`, `--previous`.
+/// Integer flags must be at least 1.
+fn build_logs_stream_subcommand() -> Command {
+    let template = "{about-with-newline}\n\
+        {usage-heading}\n  {usage}\n\n\
+        {all-args}{after-help}"
+        .to_string();
+
+    Command::new("stream")
+        .help_template(template)
+        .about("Stream logs from an Extend app")
+        .long_about(
+            "Stream logs from an Extend app.\n\n\
+             Connects to the CSM log-streaming endpoint and prints each log\n\
+             line to stdout. Without --follow the command prints recent lines\n\
+             and exits; with --follow it keeps the connection open and prints\n\
+             new lines as they arrive.\n\n\
+             With --format json and --follow the output is one JSON object per\n\
+             line and never ends; stop it with Ctrl-C.",
+        )
+        .after_help(
+            "Global flags:\n  \
+             -n, --namespace <namespace>  Game namespace\n\n\
+             Use 'ags --help' for all global flags.",
+        )
+        .disable_help_subcommand(true)
+        .arg(
+            Arg::new("app")
+                .long("app")
+                .short('a')
+                .help("Extend app name")
+                .value_name("app")
+                .required(true),
+        )
+        .arg(
+            Arg::new("follow")
+                .long("follow")
+                .short('f')
+                .help("Keep the connection open and print new lines as they arrive")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("tail-lines")
+                .long("tail-lines")
+                .visible_alias("tail")
+                .help("Number of recent lines to fetch per pod")
+                .value_name("lines")
+                .default_value("100")
+                .value_parser(parse_at_least_one_u32),
+        )
+        .arg(
+            Arg::new("pods")
+                .long("pods")
+                .help("Maximum number of pods to stream from")
+                .value_name("count")
+                .default_value("1")
+                .value_parser(parse_at_least_one_u32),
+        )
+        .arg(
+            Arg::new("since-seconds")
+                .long("since-seconds")
+                .help("Only return logs newer than this many seconds")
+                .value_name("seconds")
+                .value_parser(parse_at_least_one_u32),
+        )
+        .arg(
+            Arg::new("previous")
+                .long("previous")
+                .help("Logs of each pod's previous container instance. A pod whose container has not restarted prints no log lines; the server says why when that pod's stream finishes")
+                .action(clap::ArgAction::SetTrue),
+        )
+}
+
 /// Build the hand-written `ags ams upload` command.
 ///
 /// Injected into the generated `ams` service tree by
@@ -1721,6 +1814,7 @@ fn build_login_subcommand() -> Command {
              \x20 Resolution order:\n\n\
              \x20   Base URL:       --base-url → AGS_BASE_URL → config → prompt\n\
              \x20   Client ID:      --client-id → AGS_CLIENT_ID → config → prompt\n\
+             \x20                   (browser login: press Enter at the prompt to create one)\n\
              \x20   Client Secret:  --client-secret → AGS_CLIENT_SECRET → keychain → prompt\n\n\
              \x20 With --format json, outputs one of:\n\
              \x20   {\"status\": \"logged_in\"}             — fresh successful grant\n\
@@ -1741,7 +1835,7 @@ fn build_login_subcommand() -> Command {
         .arg(
             Arg::new("base-url")
                 .long("base-url")
-                .help("Base URL (e.g. https://demo.accelbyte.io)")
+                .help("Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io)")
                 .value_name("URL"),
         )
         .arg(
@@ -1767,8 +1861,9 @@ fn build_login_subcommand() -> Command {
         .arg(
             Arg::new("port")
                 .long("port")
-                .help("Callback server port (default: 8080)")
-                .value_name("PORT"),
+                .help("Callback server port, 1-65535 (default: 8080)")
+                .value_name("PORT")
+                .value_parser(clap::value_parser!(u16).range(1..)),
         )
 }
 
@@ -1893,6 +1988,22 @@ fn parse_finite_nonneg_f64(s: &str) -> Result<f64, String> {
     Ok(val)
 }
 
+/// Parse a `u32` that must be at least 1.
+///
+/// Used as the `value_parser` for `--tail-lines`, `--pods`, and
+/// `--since-seconds` in `build_logs_stream_subcommand`. The built-in
+/// `value_parser!(u32).range(1..)` prints the 32-bit maximum in its error
+/// message, which is confusing. This parser says "must be at least 1".
+pub(crate) fn parse_at_least_one_u32(s: &str) -> Result<u32, String> {
+    let val: u32 = s
+        .parse()
+        .map_err(|e: std::num::ParseIntError| e.to_string())?;
+    if val == 0 {
+        return Err("must be at least 1".to_string());
+    }
+    Ok(val)
+}
+
 /// Parse and validate a Docker image tag for the clap `value_parser`.
 ///
 /// Delegates to [`crate::invocation::handlers::extend::image_upload::check_docker_tag`]
@@ -1926,6 +2037,59 @@ mod tests {
     }
 
     // ── Extend subcommand flag-collision prohibition ──
+
+    // ── Logs stream range-error tests ──
+
+    #[test]
+    fn logs_stream_tail_lines_zero_names_the_minimum() {
+        let err = build_logs_stream_subcommand()
+            .try_get_matches_from(["stream", "--app", "a", "--tail-lines", "0"])
+            .unwrap_err();
+        let rendered = err.to_string();
+        let first_line = rendered.lines().next().unwrap();
+        assert_eq!(
+            first_line,
+            "error: invalid value '0' for '--tail-lines <lines>': must be at least 1",
+        );
+        assert!(
+            !rendered.contains("4294967295"),
+            "must not contain the 32-bit maximum: {rendered}"
+        );
+    }
+
+    #[test]
+    fn logs_stream_pods_zero_names_the_minimum() {
+        let err = build_logs_stream_subcommand()
+            .try_get_matches_from(["stream", "--app", "a", "--pods", "0"])
+            .unwrap_err();
+        let rendered = err.to_string();
+        let first_line = rendered.lines().next().unwrap();
+        assert_eq!(
+            first_line,
+            "error: invalid value '0' for '--pods <count>': must be at least 1",
+        );
+        assert!(
+            !rendered.contains("4294967295"),
+            "must not contain the 32-bit maximum: {rendered}"
+        );
+    }
+
+    #[test]
+    fn logs_stream_since_seconds_zero_names_the_minimum() {
+        let err = build_logs_stream_subcommand()
+            .try_get_matches_from(["stream", "--app", "a", "--since-seconds", "0"])
+            .unwrap_err();
+        let rendered = err.to_string();
+        let first_line = rendered.lines().next().unwrap();
+        assert_eq!(
+            first_line,
+            "error: invalid value '0' for '--since-seconds <seconds>': must be at least 1",
+        );
+        assert!(
+            !rendered.contains("4294967295"),
+            "must not contain the 32-bit maximum: {rendered}"
+        );
+    }
 
     /// No `extend` subcommand may register a long or short flag that shadows
     /// a global flag consumed by `pre_scan_global_flags`. The global set is
