@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.5.2  
+Version: 0.5.3  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
@@ -328,7 +328,7 @@ The CLI SHOULD include auxiliary commands such as:
 - `ags extend docker-login`
 - `ags extend image-upload`
 - `ags extend logs stream`
-- `ags extend tunnel`
+- `ags extend database-tunnel`
 - `ags extend update-secret`
 - `ags extend update-var`
 - `ags extend security-assessment request`
@@ -556,7 +556,7 @@ Synopsis:
 ags extend app-ui setup-env --name <app-ui-name> [--namespace <ns>] [--project-path <path>] [--force]
 ```
 
-Queries the CSM `ListAppUI` endpoint for the named App UI record, extracts four VITE_AB_* environment variables from its public IAM client, and writes (or upserts) a `.env.local` file in the project directory. Existing keys are replaced in place; unmanaged keys, comments, and blank lines are preserved. The lookup pages through App UI records and matches the name exactly (case-sensitive).
+Writes `.env.local` for an Extend App UI. Looks up the named App UI, takes the four `VITE_AB_*` variables from its public client, and writes them into `.env.local` in the project directory. Existing keys are replaced in place; unmanaged keys, comments, and blank lines are preserved. The lookup pages through App UI records and matches the name exactly (case-sensitive).
 
 **Flags**
 
@@ -582,7 +582,7 @@ Queries the CSM `ListAppUI` endpoint for the named App UI record, extracts four 
 - `--yes` — bypasses the skip guard, same effect as `--force`.
 - `--no-input` — safe; the command never prompts for input.
 
-**Exit codes:** 0 on success or skip; 1 for invalid input (bad path, missing namespace, app UI name not found); 2 for auth failure; 3 for API error (HTTP 4xx/5xx from CSM); 4 for network failure.
+**Exit codes:** 0 on success or skip; 1 for invalid input (bad path, missing namespace, app UI name not found); 2 for auth failure; 3 for API error (HTTP 4xx/5xx); 4 for network failure.
 
 ### 10.5.10 Extend migration shortcuts
 
@@ -619,7 +619,7 @@ Synopsis:
 ags extend docker-login --app <app> [--namespace <ns>] [--print [--print-format <json|token>]]
 ```
 
-Fetches short-lived registry credentials from the Extend Helper Service and passes them to `docker login --password-stdin`. The password is transported via stdin to the Docker process and never appears in argv.
+Logs the local Docker client in to the Extend app container registry. Short-lived credentials for that Extend app are passed to `docker login --password-stdin`. The password is transported via stdin to the Docker process and never appears in argv.
 
 With `--print`, writes the credentials to stdout instead of running Docker.
 
@@ -665,7 +665,7 @@ Synopsis:
 ags extend image-upload --app <app> --image-tag <tag> [--namespace <ns>] [--dockerfile <path>] [--platform <platform>...] [--work-dir <path>] [--login] [--retry-limit <n>] [--retry-interval <sec>] [--retry-rate <multiplier>]
 ```
 
-Builds a container image from a Dockerfile and pushes it to the Extend container registry for the specified app. Requires Docker (or Podman) to be installed and on PATH. With `--login`, authenticates to the registry (via EHS credential fetch and `docker login --password-stdin`) before building. Without `--login`, assumes the registry is already authenticated.
+Builds an Extend app container image from a Dockerfile and pushes it to the Extend app container registry. Requires Docker or Podman on PATH. With `--login`, logs in to the registry before building. Without `--login`, the registry must already be logged in.
 
 The handler is an imperative eight-step sequence (not workflow-backed):
 
@@ -687,7 +687,7 @@ The handler is an imperative eight-step sequence (not workflow-backed):
 | `--dockerfile <path>` / `-f` | `Dockerfile` | Path to the Dockerfile. |
 | `--platform <platform>` / `-p` | `linux/amd64` | Target platform(s); may be specified multiple times. |
 | `--work-dir <path>` / `-w` | `.` | Build context directory. |
-| `--login` / `-l` | `false` | Authenticate to the registry before building. |
+| `--login` / `-l` | `false` | Log in to the registry before building. |
 | `--retry-limit <n>` | `0` | Number of retries on failure (0 = no retries). |
 | `--retry-interval <sec>` | `1.0` | Base interval between retries in seconds. |
 | `--retry-rate <multiplier>` | `2.0` | Exponential backoff multiplier. |
@@ -710,7 +710,7 @@ Synopsis:
 ags extend app-ui upload --name <name> [--namespace <ns>] [--project-path <path>] [--build-path <path>] [--build-version <version>] [--no-build]
 ```
 
-Builds the frontend project, archives the build output into a zip, and uploads the archive to the CSM `UploadAppUIFile` endpoint via the shared multipart dispatch path. With `--no-build`, skips the build step and archives the existing build output directly.
+Builds the frontend project, archives the output, and uploads it as the Extend App UI. With `--no-build`, skips the build step and archives the existing build output directly.
 
 The handler is a five-step imperative sequence:
 
@@ -749,32 +749,32 @@ Package manager detection: `yarn.lock` selects Yarn, `pnpm-lock.yaml` selects pn
 
 **Exit codes:** 0 on success; 1 for invalid input (missing `--name`, missing `--namespace`, project path not found, build path not found or empty, no `package.json` when build is needed); 2 for auth failure; 3 for API error (CSM returned non-2xx, e.g. 413 Entity Too Large); 4 for network failure or build process failure (package manager not on PATH, build timed out, build exited non-zero).
 
-### 10.5.14 `ags extend tunnel`
+### 10.5.14 `ags extend database-tunnel`
 
 Synopsis:
 
 ```text
-ags extend tunnel --resource-name <name> --local-port <port> [--pod-name <pod>] [--namespace <ns>]
+ags extend database-tunnel --resource-name <name> --local-port <port> [--namespace <ns>]
 ```
 
-Opens a TCP-to-WebSocket bridge between a local port and the CSM v2 tunnel endpoint for an Extend app. Binds `127.0.0.1:<port>` (localhost only, never a wildcard address) and, for each accepted TCP connection, resolves a fresh access token, opens a WebSocket to the tunnel endpoint, and relays bytes bidirectionally until either side closes. The tunnel runs until Ctrl-C.
+Connects your machine to an Extend database (NoSQL, SQL, or Key Value Store). `--resource-name` is the Resource Name on that database's page in the Admin Portal. The command listens on `127.0.0.1:<port>` until Ctrl-C. Pod targeting is not a flag here; `ags extend remote-debug connect` sets the pod itself. The previous name `ags extend tunnel` still runs this command and is hidden from `ags extend --help`.
 
 On startup, after successfully binding the local port, the command writes a ready-signal line to stderr. In plain mode:
 
 ```text
-∘ [+0s] listening on localhost:8080  resource=my-app  (Ctrl-C to stop)
+∘ [+0s] listening on localhost:27019  resource=extend-nosql-my-game  (Ctrl-C to stop)
 ```
 
 In `--format json` mode the ready signal is a JSON object on stderr:
 
 ```json
-{"event":"listening","local_port":8080,"resource_name":"my-app","elapsed_ms":0}
+{"event":"listening","local_port":27019,"resource_name":"extend-nosql-my-game","elapsed_ms":0}
 ```
 
 On clean shutdown (Ctrl-C), a `stopped` event is written to stderr. In `--format json` mode:
 
 ```json
-{"event":"stopped","status":"stopped","local_port":8080,"resource_name":"my-app","exit_code":0,"elapsed_ms":120000}
+{"event":"stopped","status":"stopped","local_port":27019,"resource_name":"extend-nosql-my-game","exit_code":0,"elapsed_ms":120000}
 ```
 
 Stdout remains empty throughout the tunnel's lifetime. All diagnostic output — the ready signal, per-connection events, and the exit envelope — goes to stderr, so scripts can safely consume stdout without interference.
@@ -800,9 +800,8 @@ Stdout remains empty throughout the tunnel's lifetime. All diagnostic output —
 
 | Flag | Default | Description |
 |---|---|---|
-| `--resource-name <name>` | *(required)* | Extend resource name to tunnel to. |
-| `--local-port <port>` | *(required)* | Local TCP port to bind (localhost only). |
-| `--pod-name <pod>` | *(none)* | Target pod name. When provided, appended as `&podName=<pod>` in the WebSocket URL. |
+| `-r, --resource-name <name>` | *(required)* | Resource Name from the database page in the Admin Portal. |
+| `-p, --local-port <port>` | *(required)* | Port on localhost for your database client. |
 
 **401 retry:** When the WebSocket dial receives HTTP 401, the command force-refreshes the stored session token and retries exactly once. A second 401 is a terminal auth failure (exit 2).
 
@@ -824,7 +823,7 @@ Synopsis:
 ags extend remote-debug connect --app <app> [--namespace <ns>] [--local-grpc-port <addr>] [--local-http-port <addr>]
 ```
 
-Connects to an Extend app's remote debug session and forwards its debug services to the workstation. Before opening the session, the command retrieves debug information from CSM and requires the app to be running, debug mode to be enabled, no other debug session to be connected, and at least one debug pod to be available. Run `ags extend remote-debug enable` first when debug mode is disabled.
+Connects Remote Debug for an Extend app and routes its live traffic to your machine, so you can debug without rebuilding or redeploying the image. The app must be running, Remote Debug must be enabled, no other debug session may be connected, and a replica must be ready. Run `ags extend remote-debug enable` first when Remote Debug is off.
 
 After the embedded tunnel, proxy agent, and service forwarder are ready, the command writes a ready line to stderr. In plain mode:
 
@@ -877,7 +876,7 @@ Synopsis:
 ags extend remote-debug enable --app <app> [--namespace <ns>] [--yes] [--dry-run]
 ```
 
-Enables remote debugging for an Extend app by updating CSM with `{"enableDebugMode":true}`. The command always writes a warning that remote debugging increases resource usage and may degrade application performance. It first reads the app's current status; when `appStatus` is `deployment-running`, it warns that enabling debug mode will restart the app and asks for confirmation.
+Enables Remote Debug for an Extend app. The command warns that Remote Debug can slow the app down. If the app is running, it asks you to confirm, because enabling Remote Debug restarts the app.
 
 **Flags**
 
@@ -906,7 +905,7 @@ Synopsis:
 ags extend remote-debug disable --app <app> [--namespace <ns>] [--yes] [--dry-run]
 ```
 
-Disables remote debugging for an Extend app by updating CSM with `{"enableDebugMode":false}`. It first reads the app's current status; when `appStatus` is `deployment-running`, it warns that disabling debug mode will restart the app and asks for confirmation. Unlike `enable`, the command does not emit a performance warning because disabling debug mode removes the overhead rather than adding it.
+Disables Remote Debug for an Extend app. If the app is running, it asks you to confirm, because disabling Remote Debug restarts the app.
 
 **Flags**
 
@@ -935,7 +934,7 @@ Synopsis:
 ags extend update-secret --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
 ```
 
-Upserts a CSM app secret. The command lists the app's existing secrets (paging through `GetListOfSecretsV5` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that secret's value via `UpdateSecretV5`; if not found, it requires `--force` and creates the secret via `SaveSecretV5` (sending `source: "plaintext"`). The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+Creates or updates an Extend app environment secret. If a secret named `--key` already exists, its value is updated. If it does not, `--force` is required to create it. The command lists the app's existing secrets (paging through `GetListOfSecretsV5` as needed) and matches `--key` to `configName`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
 
 Prefer `--value-stdin` over `--value` to avoid exposing the secret in shell history.
 
@@ -974,7 +973,7 @@ Synopsis:
 ags extend update-var --app <app> --key <key> {--value <value> | --value-stdin} [--namespace <ns>] [--description <text>] [--sensitive [true|false]] [--force]
 ```
 
-Upserts a CSM app configuration variable. The command lists the app's existing variables (paging through `GetListOfVariablesV5` as needed) and looks for one whose `configName` matches `--key`. If found, it updates that variable's value via `UpdateVariableV5`; if not found, it requires `--force` and creates the variable via `SaveVariableV5`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
+Creates or updates an Extend app environment variable. If a variable named `--key` already exists, its value is updated. If it does not, `--force` is required to create it. The command lists the app's existing variables (paging through `GetListOfVariablesV5` as needed) and matches `--key` to `configName`. The key lookup walks at most 5,000 records (50 pages × 100 per page); if the key is not found within that window the command reports an error rather than silently treating a truncated list as "key absent."
 
 Prefer `--value-stdin` over `--value` to avoid exposing the value in shell history.
 
@@ -1110,7 +1109,7 @@ Synopsis:
 ags extend security-assessment request --app <app> [--namespace <ns>] [--all-endpoints | --operation-ids <id1,id2,...>] [--permission <operationId>=<RESOURCE> [<ACTION>]]...
 ```
 
-Discovers an Extend app's testable endpoints (`csm/admin/security-assessment/v1/get-app-endpoints`) and lets the operator choose which to include in a pen-testing engagement, then creates it via `csm/admin/security-assessment/v1/create`. Without `--all-endpoints` or `--operation-ids`, endpoint selection is interactive: a ratatui checklist over the discovered endpoints, requiring a real terminal. `--all-endpoints` and `--operation-ids` are mutually exclusive non-interactive alternatives; both are capped at the app's `maximumSelectableEndpoints`, and `--operation-ids` rejects unknown or duplicate ids. `--permission` may be repeated, one per endpoint whose permission was not auto-discovered from the app's OpenAPI spec / gRPC reflection.
+Discovers an Extend app's testable endpoints and lets you choose which to include in a security assessment session. Without `--all-endpoints` or `--operation-ids`, endpoint selection is interactive: a checklist over the discovered endpoints, requiring a real terminal. `--all-endpoints` and `--operation-ids` are mutually exclusive non-interactive alternatives; both are capped at the app's `maximumSelectableEndpoints`, and `--operation-ids` rejects unknown or duplicate ids. `--permission` may be repeated, one per endpoint whose permission was not discovered from the app's API spec. The lookup uses `csm/admin/security-assessment/v1/get-app-endpoints`, and the request is created via `csm/admin/security-assessment/v1/create`.
 
 If any selected endpoint accepts `PUT`, `PATCH`, or `DELETE` (a "mutating" method — `POST` is deliberately excluded, matching the Admin Portal), the command warns and requires `y`/`Y` confirmation before submitting, since the assessment may generate test traffic that modifies or deletes real data. `--yes` skips this prompt; `--no-input` without `--yes` fails instead of blocking on stdin. `--dry-run` short-circuits before this confirmation and before any submission, so a dry-run preview never blocks on stdin even when mutating endpoints are selected.
 
@@ -1121,9 +1120,9 @@ If any selected endpoint accepts `PUT`, `PATCH`, or `DELETE` (a "mutating" metho
 | `--app <app>` | *(required)* | Extend app name to request an assessment for. |
 | `--all-endpoints` | `false` | Select every discovered endpoint, non-interactively. Mutually exclusive with `--operation-ids`. |
 | `--operation-ids <id1,id2,...>` | *(none)* | Select exactly these endpoints by operation id, non-interactively. Rejects unknown ids, duplicate ids, and an empty/blank-only list. Mutually exclusive with `--all-endpoints`. |
-| `--permission <operationId>=<RESOURCE> [<ACTION>]` | *(none)* | Permission override for one endpoint, repeatable. `ACTION` is one or more of `CREATE\|READ\|UPDATE\|DELETE` joined by `\|`. Only valid for endpoints CSM did not auto-discover a permission for. |
-| `--wait` | `false` | Block until the engagement reaches a terminal state (`COMPLETED` or `FAILED`), polling every 10 seconds. |
-| `--wait-limit <SECONDS>` | `1800` | Maximum seconds to wait before giving up. `0` is rejected. Same flag name as the Extend app lifecycle commands, which default to `600`, because a deployment finishes faster than a pen-testing engagement. The poll sleep is capped to the remaining budget, so the wait honours the limit to the second. |
+| `--permission <operationId>=<RESOURCE> [<ACTION>]` | *(none)* | Permission override for one endpoint, repeatable. `ACTION` is one or more of `CREATE\|READ\|UPDATE\|DELETE` joined by `\|`. Only valid for an endpoint whose permission was not discovered automatically. |
+| `--wait` | `false` | Wait until the session reaches `COMPLETED` or `FAILED`, polling every 10 seconds. |
+| `--wait-limit <SECONDS>` | `1800` | Maximum seconds to wait before giving up. `0` is rejected. Same flag name as the Extend app lifecycle commands, which default to `600`, because a deployment finishes faster than a security assessment. The poll sleep is capped to the remaining budget, so the wait honours the limit to the second. |
 
 **Global flag interactions:**
 
@@ -1144,14 +1143,14 @@ Synopsis:
 ags extend security-assessment result --app <app> [--namespace <ns>] [--engagement-id <id>] [--report-format pdf|md] [--report-output <path>]
 ```
 
-Lists an Extend app's completed security-assessment sessions (`csm/admin/security-assessment/v1/list`, client-filtered to `COMPLETED` status for the given app), lets the operator pick one — by index interactively, or via `--engagement-id` to skip the picker — fetches a pre-signed download URL (`csm/admin/security-assessment/v1/get-report`), and writes the report to disk. Auto-selects when exactly one completed session matches.
+Lists an Extend app's completed security assessment sessions and downloads the findings report for the one you pick. Pass `--engagement-id` to skip the picker. The list is read from `csm/admin/security-assessment/v1/list` (client-filtered to `COMPLETED` for the given app) and the report from `csm/admin/security-assessment/v1/get-report`. Auto-selects when exactly one completed session matches.
 
 **Flags**
 
 | Flag | Default | Description |
 |---|---|---|
 | `--app <app>` | *(required)* | Extend app name to list/download sessions for. |
-| `--engagement-id <id>` | *(none)* | Engagement id to fetch the report for, skipping the interactive picker. Must be numeric and fit an `i64`. |
+| `--engagement-id <id>` | *(none)* | Engagement (session) id of the report to download, skipping the picker. Must be numeric and fit an `i64`. |
 | `--report-format <pdf\|md>` | `pdf` | Report file format. |
 | `--report-output <path>` / `-o` | `<app>-<engagementId>-report.<ext>` | Local file path to write the report to. Path separators in `--app` are replaced with `_` when deriving the default filename. |
 
@@ -1171,7 +1170,7 @@ Synopsis:
 ags extend logs stream --app <app> [--follow] [--tail-lines <lines>] [--pods <count>] [--since-seconds <seconds>] [--previous] [--namespace <ns>]
 ```
 
-Streams an Extend app's container logs from the CSM log-streaming endpoint (`/csm/v4/admin/namespaces/{namespace}/apps/{app}/logs`) over Server-Sent Events. Without `--follow` the command prints recent lines and exits when the server closes the connection or sends `stream-end`; with `--follow` it keeps the connection open and prints new lines as they arrive until Ctrl-C.
+Streams an Extend app's container logs. Without `--follow` the command prints recent lines and exits when the server closes the connection or sends `stream-end`; with `--follow` it keeps printing new lines until Ctrl-C. The logs are read from `/csm/v4/admin/namespaces/{namespace}/apps/{app}/logs`.
 
 Log lines are written to stdout (one per line). In human mode, terminal control sequences embedded in the log data are stripped before printing. In `--format json` mode every event is a JSON object on its own line — log lines, lifecycle events, and terminal records all go to stdout in event order (see the JSON record table below). Status lines (connection, reconnect, pod lifecycle) go to stderr in human mode, and are included inline in the stdout JSON stream in JSON mode. Nothing goes to stderr in JSON mode on success.
 
@@ -2078,14 +2077,14 @@ The CLI ships with:
 - `--dry-run`, `--verbose`, `--quiet`, `--no-input`, `--yes`, `--no-color`
 - `ags auth login/logout/status/refresh`
 - `ags extend clone-template` (clone Extend starter templates)
-- `ags extend app-ui setup-env` (write `.env.local` from a CSM App UI record)
-- `ags extend app-ui upload` (build, archive, and upload App UI static-asset bundles to CSM)
-- `ags extend docker-login` (authenticate the local Docker CLI against the Extend container registry)
-- `ags extend image-upload` (build and push a container image to the Extend registry)
-- `ags extend logs stream` (stream an Extend app's container logs over Server-Sent Events)
-- `ags extend tunnel` (open a TCP-to-WebSocket bridge to an Extend app pod)
-- `ags extend update-secret` (upsert a CSM app secret)
-- `ags extend update-var` (upsert a CSM app configuration variable)
+- `ags extend app-ui setup-env` (write `.env.local` for an Extend App UI)
+- `ags extend app-ui upload` (build and upload an Extend App UI)
+- `ags extend docker-login` (log in to the Extend app container registry)
+- `ags extend image-upload` (build and push an Extend app container image)
+- `ags extend logs stream` (stream an Extend app's container logs)
+- `ags extend database-tunnel` (connect your machine to an Extend database)
+- `ags extend update-secret` (create or update an Extend app environment secret)
+- `ags extend update-var` (create or update an Extend app environment variable)
 - `ags extend` migration shortcuts (supported entry points forwarding `extend-helper-cli` command names to `ags csm` operations)
 - `ags doctor`, `ags refresh-specs`, `ags completions`, `ags version`
 

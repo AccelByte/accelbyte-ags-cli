@@ -246,7 +246,7 @@ pub(super) const EMBEDDED_TUNNEL_QUIET: bool = true;
 /// The resource name the embedded tunnel sends to the CSM tunnel endpoint.
 /// The Go tool being replaced uses the literal `"remote-debug"` — the pod
 /// name is passed separately via the `podName` query parameter. The
-/// standalone `ags extend tunnel` uses the user's own `--resource-name`
+/// standalone `ags extend database-tunnel` uses the user's own `--resource-name`
 /// argument, which is a different code path and remains unchanged.
 pub(super) const EMBEDDED_TUNNEL_RESOURCE_NAME: &str = "remote-debug";
 

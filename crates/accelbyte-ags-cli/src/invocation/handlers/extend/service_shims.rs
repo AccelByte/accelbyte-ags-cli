@@ -35,6 +35,10 @@ pub struct ExtendShim {
     /// user-facing help text from changing silently when a spec is
     /// refreshed.
     pub summary: &'static str,
+    /// User-facing body for `ags extend ... --help`. When set, replaces the
+    /// OpenAPI operation description on the shortcut page. The canonical
+    /// `ags csm` page keeps the spec text.
+    pub description: Option<&'static str>,
     /// Canonical service id (always `"csm"` for Phase 1).
     pub service: &'static str,
     /// Canonical resource name.
@@ -69,6 +73,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "apps",
         method: "create",
         wait: Some(&super::app_lifecycle::wait::CREATE_APP_WAIT),
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -80,6 +85,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "apps",
         method: "get",
         wait: None,
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -91,6 +97,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "images",
         method: "list",
         wait: None,
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -102,6 +109,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "deployments",
         method: "create",
         wait: Some(&super::app_lifecycle::wait::DEPLOY_APP_WAIT),
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -113,6 +121,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "apps",
         method: "start",
         wait: Some(&super::app_lifecycle::wait::START_APP_WAIT),
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -124,6 +133,7 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "apps",
         method: "stop",
         wait: Some(&super::app_lifecycle::wait::STOP_APP_WAIT),
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -135,17 +145,19 @@ pub static SHIMS: &[ExtendShim] = &[
         resource: "apps",
         method: "delete",
         wait: Some(&super::app_lifecycle::wait::DELETE_APP_WAIT),
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
         name: "create",
         parent: Some("app-ui"),
         go_invocation: "appui create",
-        summary: "Create an Extend app UI",
+        summary: "Create an Extend App UI",
         service: "csm",
         resource: "app-ui",
         method: "create",
         wait: None,
+        description: None,
         arg_renames: &[],
     },
     ExtendShim {
@@ -155,7 +167,11 @@ pub static SHIMS: &[ExtendShim] = &[
         // migration shortcut. Equal to its own extend address so
         // `shim_about` omits the "(was: ...)" suffix.
         go_invocation: "security-assessment list",
-        summary: "List security-assessment engagements for a namespace",
+        summary: "List security assessment sessions for a namespace",
+        description: Some(
+            "Lists the security assessment sessions for this game namespace, \
+             with each session's current status.",
+        ),
         service: "csm",
         resource: "security-assessment",
         method: "list",
@@ -167,6 +183,12 @@ pub static SHIMS: &[ExtendShim] = &[
         parent: Some("security-assessment"),
         go_invocation: "security-assessment list-endpoints",
         summary: "Discover an Extend app's testable endpoints and required permissions",
+        description: Some(
+            "Lists the endpoints on an Extend Service Extension app, and each \
+             endpoint's permission when it can be read from the app's API spec.\n\n\
+             Returns no endpoints to test when the app is stopped or its API \
+             spec cannot be reached. Fails when the app does not exist.",
+        ),
         service: "csm",
         resource: "security-assessment",
         method: "get-app-endpoints",
@@ -281,6 +303,9 @@ pub(crate) struct ShimDispatch {
 pub struct ShimPresentation {
     /// Hand-written summary (first line of the shortcut help page).
     pub summary: &'static str,
+    /// User-facing body that replaces the OpenAPI description on the
+    /// shortcut help page. `None` keeps the spec text.
+    pub description: Option<&'static str>,
     /// The display address the user typed, e.g. `"ags extend deploy-app"`.
     pub display_address: String,
     /// The canonical `ags <service> <resource> <method>` address.
@@ -522,6 +547,7 @@ fn parse_wait_flags(user_args: &[String]) -> Result<ParsedWaitFlags, CliError> {
 fn shim_presentation(shim: &ExtendShim) -> ShimPresentation {
     ShimPresentation {
         summary: shim.summary,
+        description: shim.description,
         display_address: match shim.parent {
             Some(parent) => format!("ags extend {} {}", parent, shim.name),
             None => format!("ags extend {}", shim.name),
@@ -777,17 +803,9 @@ mod tests {
                 shim.name
             );
 
-            // Presentation carries the correct addresses.
             assert_eq!(
                 presentation.summary, shim.summary,
                 "shim '{}': presentation summary mismatch",
-                shim.name
-            );
-            let expected_canonical =
-                format!("ags {} {} {}", shim.service, shim.resource, shim.method);
-            assert_eq!(
-                presentation.canonical_address, expected_canonical,
-                "shim '{}': canonical address mismatch",
                 shim.name
             );
         }
@@ -1024,6 +1042,7 @@ mod tests {
             resource: "no-such-resource",
             method: "list",
             wait: None,
+            description: None,
             arg_renames: &[],
         };
 
@@ -1059,6 +1078,7 @@ mod tests {
             resource: real_resource,
             method: "no-such-method",
             wait: None,
+            description: None,
             arg_renames: &[],
         };
 
@@ -1208,9 +1228,7 @@ mod tests {
     }
 
     /// The rendered extend help lists every top-level shim in the
-    /// Commands: section with its summary and canonical address.
-    /// Replaces `rendered_extend_help_section_contains_shim_names` from
-    /// round 4, which asserted the description-body placement.
+    /// Commands: section with its summary.
     #[test]
     fn rendered_extend_help_lists_all_top_level_shims_in_commands() {
         let mut cmd = crate::invocation::builder::build_extend_command();

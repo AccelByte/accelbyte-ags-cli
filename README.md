@@ -85,8 +85,8 @@ ags doctor
 # Upload a dedicated-server build to AMS
 ags ams upload --path ./build --executable server --image-name my-image
 
-# Open a tunnel to an Extend app pod
-ags extend tunnel --namespace my-game --resource-name my-app --local-port 8080
+# Open a tunnel to an Extend database
+ags extend database-tunnel --namespace my-game --resource-name extend-nosql-my-game --local-port 27019
 ```
 
 ## Using AGS CLI
@@ -519,13 +519,13 @@ what each error means, see **[AMS image upload](docs/reference/ams-upload.md)**.
 ## Extend
 
 `ags extend` covers the Extend platform: cloning a starter template, logging in to the
-container registry, building and pushing an image, tunnelling to a running app pod,
+container registry, building and pushing an image, tunnelling to an Extend database,
 streaming an app's logs, remote debugging, and requesting a security assessment of an
 app's endpoints.
 
     ags extend clone-template --help
     ags extend image-upload --help
-    ags extend tunnel --help
+    ags extend database-tunnel --help
     ags extend logs stream --help
     ags extend security-assessment --help
 

@@ -585,7 +585,7 @@ pub fn build_extend_command() -> Command {
     let cmd = service_shims::add_shim_subcommands(cmd);
     let cmd = cmd.mut_subcommand("app-ui", |sub| {
         sub.hide(false)
-            .about("App UI commands")
+            .about("Extend App UI commands")
             .subcommand(build_setup_env_subcommand())
             .subcommand(build_upload_subcommand())
     });
@@ -650,14 +650,14 @@ fn build_setup_env_subcommand() -> Command {
 
     Command::new("setup-env")
         .help_template(template)
-        .about("Set up the .env.local file for an App UI project")
+        .about("Write .env.local for an Extend App UI")
         .long_about(
-            "Set up the .env.local file for an App UI project.\n\n\
-             Reads the App UI record from CSM and writes the four VITE_AB_*\n\
-             environment variables into .env.local in the project directory.\n\n\
-             If .env.example exists, its contents are used as a template and\n\
-             only the managed keys are replaced or appended. Comments, blank\n\
-             lines, and unmanaged keys are preserved.",
+            "Write .env.local for an Extend App UI.\n\n\
+             Reads the App UI's public client settings and writes the four\n\
+             VITE_AB_* variables into .env.local in the project directory.\n\n\
+             If .env.example exists, it is used as the template and only those\n\
+             keys are replaced or appended. Comments, blank lines, and other\n\
+             keys are kept.",
         )
         .disable_help_subcommand(true)
         .arg(
@@ -696,12 +696,11 @@ fn build_upload_subcommand() -> Command {
 
     Command::new("upload")
         .help_template(template)
-        .about("Build and upload an App UI static-asset bundle")
+        .about("Build and upload an Extend App UI")
         .long_about(
-            "Build and upload an App UI static-asset bundle.\n\n\
-             Runs the frontend build, archives the output directory into a zip,\n\
-             and uploads the archive to CSM. With --no-build, skips the build step\n\
-             and archives the existing build output directly.",
+            "Build and upload an Extend App UI.\n\n\
+             Runs the frontend build, archives the output, and uploads it.\n\
+             With --no-build, skips the build and archives the existing output.",
         )
         .after_help(
             "Global flags:\n  \
@@ -763,11 +762,11 @@ fn build_docker_login_subcommand() -> Command {
 
     Command::new("docker-login")
         .help_template(template)
-        .about("Log in to the Extend container registry")
+        .about("Log in to the Extend app container registry")
         .long_about(
-            "Log in to the Extend container registry.\n\n\
-             Fetches short-lived registry credentials from the Extend Helper\n\
-             Service and passes them to `docker login --password-stdin`.\n\n\
+            "Log in to the Extend app container registry.\n\n\
+             Gets short-lived credentials for one Extend app and runs\n\
+             `docker login`.\n\n\
              With --print, writes the credentials to stdout instead of\n\
              running Docker.",
         )
@@ -819,7 +818,7 @@ fn build_security_assessment_result_subcommand() -> Command {
 
     Command::new("result")
         .help_template(template)
-        .about("Download a completed security-assessment engagement's report")
+        .about("Download a completed security assessment report")
         .after_help(
             "Global flags:\n  \
              -n, --namespace <namespace>  Game namespace\n\n\
@@ -855,7 +854,7 @@ fn build_security_assessment_result_subcommand() -> Command {
         .arg(
             Arg::new("engagement-id")
                 .long("engagement-id")
-                .help("Engagement id to fetch the report for, skipping the interactive picker")
+                .help("Engagement (session) id of the report to download, skipping the picker")
                 .value_name("id"),
         )
 }
@@ -873,18 +872,20 @@ fn build_security_assessment_request_subcommand() -> Command {
 
     Command::new("request")
         .help_template(template)
-        .about("Request a security assessment (pen-testing engagement) for an Extend app")
+        .about("Request a security assessment for an Extend app")
         .long_about(
-            "Request a security assessment (pen-testing engagement) for an Extend app.\n\n\
-             Discovers the app's testable endpoints and, without --all-endpoints or\n\
-             --operation-ids, prompts interactively through a checklist to choose which\n\
-             to include and to supply permissions where none was auto-discovered.\n\n\
-             Warns before submitting if any selected endpoint can modify or delete data.\n\n\
-             With --wait, blocks after submitting until the engagement reaches a terminal\n\
-             state (COMPLETED or FAILED), polling every 10s up to --wait-limit seconds\n\
-             (default 1800) and printing the current status each poll (suppressed by\n\
-             --quiet). A Ctrl-C during the wait only stops the local wait — the engagement\n\
-             keeps running; check its status later with\n\
+            "Request a security assessment for an Extend app.\n\n\
+             Lists the app's testable endpoints. Without --all-endpoints or\n\
+             --operation-ids, prompts a checklist so you can choose which to\n\
+             include and fill in permissions that were not discovered\n\
+             automatically.\n\n\
+             Warns before submitting if any selected endpoint can modify or\n\
+             delete data.\n\n\
+             With --wait, waits until the session reaches COMPLETED or FAILED,\n\
+             polling every 10s up to --wait-limit seconds (default 1800) and\n\
+             printing the current status each poll (hidden with --quiet).\n\
+             Ctrl-C stops only the local wait. The session keeps running;\n\
+             check it later with\n\
              'ags extend security-assessment list --namespace <namespace>'.",
         )
         .after_help(
@@ -926,7 +927,7 @@ fn build_security_assessment_request_subcommand() -> Command {
         .arg(
             Arg::new("wait")
                 .long("wait")
-                .help("Block until the engagement reaches a terminal state (COMPLETED or FAILED)")
+                .help("Wait until the session reaches COMPLETED or FAILED")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
@@ -955,17 +956,15 @@ fn build_update_var_subcommand() -> Command {
 
     Command::new("update-var")
         .help_template(template)
-        .about("Update or create a CSM app configuration variable")
+        .about("Create or update an Extend app environment variable")
         .long_about(
-            "Update or create a CSM app configuration variable.\n\n\
-             Updates the variable named --key to --value if it exists. If it\n\
-             does not exist, pass --force to create it. --sensitive and\n\
-             --description are merged with the existing record when not\n\
-             explicitly supplied: an unset --sensitive preserves the existing\n\
-             mask, an unset --description preserves the existing description.\n\
-             Pass --sensitive false explicitly to remove masking.\n\n\
-             Prefer --value-stdin over --value to avoid exposing the value\n\
-             in shell history.",
+            "Create or update an Extend app environment variable.\n\n\
+             Sets the variable named --key to --value when it already exists.\n\
+             Pass --force to create it when it does not. When --sensitive or\n\
+             --description is omitted, the current setting is kept. Pass\n\
+             --sensitive false to stop masking the value.\n\n\
+             Prefer --value-stdin over --value so the value is not saved in\n\
+             shell history.",
         )
         .after_help(
             "Global flags:\n  \
@@ -985,7 +984,7 @@ fn build_update_var_subcommand() -> Command {
         .arg(
             Arg::new("key")
                 .long("key")
-                .help("Variable name")
+                .help("Environment variable name")
                 .value_name("key")
                 .required(true),
         )
@@ -1008,16 +1007,15 @@ fn build_update_var_subcommand() -> Command {
         .arg(
             Arg::new("description")
                 .long("description")
-                .help("Variable description (preserved from the existing record if not supplied)")
+                .help("Variable description (kept when omitted)")
                 .value_name("text"),
         )
         .arg(
             Arg::new("sensitive")
                 .long("sensitive")
                 .help(
-                    "Mask the variable's value (defaults to false when creating; preserved from \
-                     the existing record on update if not supplied; pass 'false' explicitly to \
-                     remove masking)",
+                    "Mask the value. Defaults to false when creating. On update, the current \
+                     setting is kept when omitted. Pass false to stop masking.",
                 )
                 .value_parser(clap::value_parser!(bool))
                 .num_args(0..=1)
@@ -1026,7 +1024,7 @@ fn build_update_var_subcommand() -> Command {
         .arg(
             Arg::new("force")
                 .long("force")
-                .help("Create the variable if --key does not name an existing one")
+                .help("Create the variable when --key does not exist yet")
                 .action(clap::ArgAction::SetTrue),
         )
 }
@@ -1047,14 +1045,13 @@ fn build_image_upload_subcommand() -> Command {
 
     Command::new("image-upload")
         .help_template(template)
-        .about("Build and push a container image to the Extend registry")
+        .about("Build and push an Extend app container image")
         .long_about(
-            "Build and push a container image to the Extend registry.\n\n\
-             Builds a container image from a Dockerfile and pushes it to the\n\
-             Extend container registry for the specified app. Requires Docker\n\
-             (or Podman) to be installed and on PATH.\n\n\
-             With --login, authenticates to the registry before building.\n\
-             Without --login, assumes the registry is already authenticated.",
+            "Build and push an Extend app container image.\n\n\
+             Builds the image from a Dockerfile and pushes it to the Extend\n\
+             app container registry. Requires Docker or Podman on PATH.\n\n\
+             With --login, logs in to the registry before building. Without\n\
+             --login, the registry must already be logged in.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1108,7 +1105,7 @@ fn build_image_upload_subcommand() -> Command {
             Arg::new("login")
                 .long("login")
                 .short('l')
-                .help("Authenticate to the registry before building")
+                .help("Log in to the registry before building")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
@@ -1159,17 +1156,15 @@ fn build_update_secret_subcommand() -> Command {
 
     Command::new("update-secret")
         .help_template(template)
-        .about("Update or create a CSM app secret")
+        .about("Create or update an Extend app environment secret")
         .long_about(
-            "Update or create a CSM app secret.\n\n\
-             Updates the secret named --key to --value if it exists. If it\n\
-             does not exist, pass --force to create it. --sensitive and\n\
-             --description are merged with the existing record when not\n\
-             explicitly supplied: an unset --sensitive preserves the existing\n\
-             mask (or defaults to true on create), an unset --description\n\
-             preserves the existing description.\n\n\
-             Prefer --value-stdin over --value to avoid exposing the secret\n\
-             in shell history.",
+            "Create or update an Extend app environment secret.\n\n\
+             Sets the secret named --key to --value when it already exists.\n\
+             Pass --force to create it when it does not. When --sensitive or\n\
+             --description is omitted, the current setting is kept. A new\n\
+             secret is masked unless you pass --sensitive false.\n\n\
+             Prefer --value-stdin over --value so the secret is not saved in\n\
+             shell history.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1189,7 +1184,7 @@ fn build_update_secret_subcommand() -> Command {
         .arg(
             Arg::new("key")
                 .long("key")
-                .help("Secret name")
+                .help("Environment secret name")
                 .value_name("key")
                 .required(true),
         )
@@ -1212,16 +1207,15 @@ fn build_update_secret_subcommand() -> Command {
         .arg(
             Arg::new("description")
                 .long("description")
-                .help("Secret description (preserved from the existing record if not supplied)")
+                .help("Secret description (kept when omitted)")
                 .value_name("text"),
         )
         .arg(
             Arg::new("sensitive")
                 .long("sensitive")
                 .help(
-                    "Mask the secret's value (defaults to true; preserved from the \
-                     existing record on update if not supplied; pass 'false' explicitly \
-                     to remove masking)",
+                    "Mask the value. Defaults to true. On update, the current setting is \
+                     kept when omitted. Pass false to stop masking.",
                 )
                 .value_parser(clap::value_parser!(bool))
                 .num_args(0..=1)
@@ -1230,31 +1224,35 @@ fn build_update_secret_subcommand() -> Command {
         .arg(
             Arg::new("force")
                 .long("force")
-                .help("Create the secret if --key does not name an existing one")
+                .help("Create the secret when --key does not exist yet")
                 .action(clap::ArgAction::SetTrue),
         )
 }
 
-/// Build the `tunnel` subcommand under `extend`.
+/// Build the `database-tunnel` subcommand under `extend`.
 ///
-/// Three flags: `--resource-name` (required), `--local-port` (required, u16),
-/// `--pod-name` (optional). `--namespace` is a global flag and is NOT
-/// registered on this command.
+/// Two flags: `--resource-name` / `-r` (required) and `--local-port` / `-p`
+/// (required, u16). `--namespace` is a global flag and is NOT registered on
+/// this command. The old name `tunnel` stays as a hidden alias for one
+/// release: `ags extend tunnel` still opens this command and does not
+/// appear in `ags extend --help`. Pod targeting stays on
+/// `remote-debug connect`; this command never sends `podName`.
 fn build_tunnel_subcommand() -> Command {
     let template = "{about-with-newline}\n\
         {usage-heading}\n  {usage}\n\n\
         {all-args}{after-help}"
         .to_string();
 
-    Command::new("tunnel")
+    Command::new("database-tunnel")
+        .alias("tunnel")
         .help_template(template)
-        .about("Open a TCP tunnel to an Extend app pod")
+        .about("Connect to an Extend database from your machine")
         .long_about(
-            "Open a TCP tunnel to an Extend app pod.\n\n\
-             Binds a local TCP port and bridges connections to the CSM v2\n\
-             tunnel endpoint via WebSocket. Each accepted connection resolves\n\
-             a fresh access token and opens its own WebSocket session.\n\n\
-             The tunnel runs until Ctrl-C.",
+            "Connect to an Extend database from your machine.\n\n\
+             Opens a port on localhost and forwards it to a NoSQL, SQL, or\n\
+             Key Value Store database. Use the Resource Name shown on that\n\
+             database's page in the Admin Portal. The command keeps running\n\
+             until you press Ctrl-C.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1265,23 +1263,19 @@ fn build_tunnel_subcommand() -> Command {
         .arg(
             Arg::new("resource-name")
                 .long("resource-name")
-                .help("Extend resource name to tunnel to")
+                .short('r')
+                .help("Resource Name from the database page in the Admin Portal")
                 .value_name("name")
                 .required(true),
         )
         .arg(
             Arg::new("local-port")
                 .long("local-port")
-                .help("Local TCP port to bind (localhost only)")
+                .short('p')
+                .help("Port on localhost for your database client")
                 .value_name("port")
                 .required(true)
                 .value_parser(clap::value_parser!(u16)),
-        )
-        .arg(
-            Arg::new("pod-name")
-                .long("pod-name")
-                .help("Target pod name (optional)")
-                .value_name("pod"),
         )
 }
 
@@ -1298,13 +1292,14 @@ fn build_remote_debug_connect_subcommand() -> Command {
 
     Command::new("connect")
         .help_template(template)
-        .about("Connect to an Extend remote debug session")
+        .about("Connect Remote Debug to your machine")
         .long_about(
-            "Connect to an Extend remote debug session.\n\n\
-             Resolves debug info from the CSM API, evaluates preconditions,\n\
-             and reconnects established sessions with exponential backoff.\n\n\
-             Requires the app to be running and debug mode to be enabled\n\
-             (see 'ags extend remote-debug enable').",
+            "Connect Remote Debug to your machine.\n\n\
+             Routes the Extend app's live traffic to your local app so you\n\
+             can debug it without rebuilding or redeploying the image. The\n\
+             app must be running and Remote Debug must be enabled\n\
+             (see 'ags extend remote-debug enable'). The command keeps\n\
+             running until you press Ctrl-C.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1347,12 +1342,12 @@ fn build_remote_debug_enable_subcommand() -> Command {
 
     Command::new("enable")
         .help_template(template)
-        .about("Enable remote debugging for an Extend app")
+        .about("Enable Remote Debug for an Extend app")
         .long_about(
-            "Enable remote debugging for an Extend app.\n\n\
-             Emits a performance warning, checks whether the app is currently\n\
-             running, and prompts for confirmation when it is (because enabling\n\
-             debug mode restarts the app). Use --yes to skip the prompt.",
+            "Enable Remote Debug for an Extend app.\n\n\
+             Warns that Remote Debug can slow the app down. If the app is\n\
+             running, asks you to confirm, because enabling Remote Debug\n\
+             restarts the app. Pass --yes to skip the prompt.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1382,12 +1377,11 @@ fn build_remote_debug_disable_subcommand() -> Command {
 
     Command::new("disable")
         .help_template(template)
-        .about("Disable remote debugging for an Extend app")
+        .about("Disable Remote Debug for an Extend app")
         .long_about(
-            "Disable remote debugging for an Extend app.\n\n\
-             Checks whether the app is currently running and prompts for\n\
-             confirmation when it is (because disabling debug mode restarts\n\
-             the app). Use --yes to skip the prompt.",
+            "Disable Remote Debug for an Extend app.\n\n\
+             If the app is running, asks you to confirm, because disabling\n\
+             Remote Debug restarts the app. Pass --yes to skip the prompt.",
         )
         .after_help(
             "Global flags:\n  \
@@ -1419,7 +1413,7 @@ fn build_remote_debug_subcommand() -> Command {
 
     Command::new("remote-debug")
         .help_template(template)
-        .about("Remote debug commands")
+        .about("Remote Debug commands")
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)
@@ -1437,7 +1431,7 @@ fn build_logs_subcommand() -> Command {
 
     Command::new("logs")
         .help_template(template)
-        .about("Extend app log commands")
+        .about("Extend app logs")
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)
@@ -1457,15 +1451,14 @@ fn build_logs_stream_subcommand() -> Command {
 
     Command::new("stream")
         .help_template(template)
-        .about("Stream logs from an Extend app")
+        .about("Stream an Extend app's container logs")
         .long_about(
-            "Stream logs from an Extend app.\n\n\
-             Connects to the CSM log-streaming endpoint and prints each log\n\
-             line to stdout. Without --follow the command prints recent lines\n\
-             and exits; with --follow it keeps the connection open and prints\n\
-             new lines as they arrive.\n\n\
-             With --format json and --follow the output is one JSON object per\n\
-             line and never ends; stop it with Ctrl-C.",
+            "Stream an Extend app's container logs.\n\n\
+             Prints each log line. Without --follow, prints recent lines and\n\
+             exits. With --follow, keeps printing new lines until you press\n\
+             Ctrl-C.\n\n\
+             With --format json and --follow, each line is one JSON object\n\
+             and the command does not exit on its own.",
         )
         .after_help(
             "Global flags:\n  \

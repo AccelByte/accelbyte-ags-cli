@@ -5,6 +5,23 @@ earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-
 
 ## Unreleased
 
+## 0.5.3 — 2026-10-19
+
+### Changed
+
+- `ags extend database-tunnel` connects your machine to an Extend database (NoSQL, SQL,
+  or Key Value Store). `--resource-name` / `-r` and `--local-port` / `-p` match
+  extend-helper-cli. The old name `ags extend tunnel` still works as a hidden
+  alias and does not appear in `ags extend --help`; it will be removed in a later
+  release, so use `ags extend database-tunnel` in scripts. `--pod-name` is no
+  longer a flag on this command; `ags extend remote-debug connect` picks its pod
+  itself.
+- `ags extend` help uses the same terms as the Extend docs: environment variables and
+  secrets, Extend App UI, Extend app container registry, Remote Debug, and container
+  logs. The group title stays "Extend platform tooling", and `security-assessment`
+  keeps its 0.5.2 description in `ags extend --help`. Shortcut rows still show
+  `→ ags csm …`, and shortcut `--help` still includes the Canonical command block.
+
 ## 0.5.2 — 2026-10-08
 
 ### Added

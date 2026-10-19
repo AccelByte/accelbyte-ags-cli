@@ -1,4 +1,4 @@
-//! Functional tests for `ags extend tunnel`.
+//! Functional tests for `ags extend database-tunnel`.
 //!
 //! These tests spawn the real `ags` binary and verify end-to-end behaviour
 //! that unit tests cannot reach: exit codes after signal delivery,
@@ -16,7 +16,7 @@ fn free_port() -> u16 {
     port
 }
 
-/// Spawn `ags extend tunnel` as a child process with piped stderr,
+/// Spawn `ags extend database-tunnel` as a child process with piped stderr,
 /// using a dummy base URL (the SIGINT test never contacts the upstream).
 #[cfg(unix)]
 fn spawn_tunnel(
@@ -29,7 +29,7 @@ fn spawn_tunnel(
     spawn_tunnel_with_base_url(port, "http://localhost:1")
 }
 
-/// Spawn `ags extend tunnel` with a custom `AGS_BASE_URL`.
+/// Spawn `ags extend database-tunnel` with a custom `AGS_BASE_URL`.
 fn spawn_tunnel_with_base_url(
     port: u16,
     base_url: &str,
@@ -41,7 +41,7 @@ fn spawn_tunnel_with_base_url(
     spawn_tunnel_with_args(port, base_url, &[])
 }
 
-/// Spawn `ags extend tunnel` with a custom `AGS_BASE_URL` and extra CLI
+/// Spawn `ags extend database-tunnel` with a custom `AGS_BASE_URL` and extra CLI
 /// flags (e.g. `--quiet`, `--format`, `json`).
 fn spawn_tunnel_with_args(
     port: u16,
@@ -59,7 +59,7 @@ fn spawn_tunnel_with_args(
     let mut cmd = std::process::Command::new(&bin);
     cmd.args([
         "extend",
-        "tunnel",
+        "database-tunnel",
         "--resource-name",
         "test-res",
         "--local-port",
@@ -77,7 +77,9 @@ fn spawn_tunnel_with_args(
     .stdin(Stdio::null())
     .stdout(Stdio::null());
 
-    let mut child = cmd.spawn().expect("failed to spawn ags extend tunnel");
+    let mut child = cmd
+        .spawn()
+        .expect("failed to spawn ags extend database-tunnel");
 
     let stderr = child.stderr.take().unwrap();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -91,7 +93,7 @@ fn spawn_tunnel_with_args(
     (child, rx, tmp)
 }
 
-/// Spawn `ags extend tunnel` with stdout piped (for stdout-empty checks).
+/// Spawn `ags extend database-tunnel` with stdout piped (for stdout-empty checks).
 fn spawn_tunnel_capture_stdout(
     port: u16,
     base_url: &str,
@@ -109,7 +111,7 @@ fn spawn_tunnel_capture_stdout(
     let mut cmd = std::process::Command::new(&bin);
     cmd.args([
         "extend",
-        "tunnel",
+        "database-tunnel",
         "--resource-name",
         "test-res",
         "--local-port",
@@ -127,7 +129,9 @@ fn spawn_tunnel_capture_stdout(
     .stdin(Stdio::null())
     .stdout(Stdio::piped());
 
-    let mut child = cmd.spawn().expect("failed to spawn ags extend tunnel");
+    let mut child = cmd
+        .spawn()
+        .expect("failed to spawn ags extend database-tunnel");
 
     let stderr = child.stderr.take().unwrap();
     let stdout = child.stdout.take().unwrap();
@@ -676,5 +680,62 @@ fn test_tunnel_stopped_event_in_json_after_sigint() {
     assert!(
         parsed.get("elapsed_ms").is_some(),
         "stopped JSON must carry elapsed_ms: {parsed}"
+    );
+}
+
+fn extend_help(args: &[&str]) -> String {
+    let bin = assert_cmd::cargo::cargo_bin("ags");
+    let output = std::process::Command::new(bin)
+        .args(args)
+        .env("AGS_NO_UPDATE_CHECK", "1")
+        .output()
+        .expect("failed to run ags help");
+    assert!(
+        output.status.success(),
+        "help failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("help stdout is utf-8")
+}
+
+#[test]
+fn database_tunnel_help_describes_a_database_and_has_no_pod_flag() {
+    let help = extend_help(&["extend", "database-tunnel", "--help"]);
+    assert!(
+        help.contains("Connect to an Extend database from your machine"),
+        "help must describe a local database connection:\n{help}"
+    );
+    assert!(
+        help.contains("-r, --resource-name"),
+        "help must offer -r:\n{help}"
+    );
+    assert!(
+        help.contains("-p, --local-port"),
+        "help must offer -p:\n{help}"
+    );
+    assert!(
+        !help.contains("pod-name") && !help.contains("app pod"),
+        "database tunnel help must not mention a pod:\n{help}"
+    );
+    assert!(
+        !help.contains("ags extend tunnel"),
+        "help must not offer the old command name:\n{help}"
+    );
+}
+
+#[test]
+fn old_tunnel_name_is_a_hidden_alias() {
+    let help = extend_help(&["extend", "tunnel", "--help"]);
+    assert!(
+        help.contains("Connect to an Extend database from your machine"),
+        "ags extend tunnel must still open the database tunnel:\n{help}"
+    );
+
+    let listing = extend_help(&["extend", "--help"]);
+    assert!(
+        !regex::Regex::new(r"(?m)^\s+tunnel\s")
+            .unwrap()
+            .is_match(&listing),
+        "the old name must not appear in ags extend --help:\n{listing}"
     );
 }

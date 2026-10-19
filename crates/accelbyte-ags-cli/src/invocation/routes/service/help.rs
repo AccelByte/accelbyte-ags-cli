@@ -108,6 +108,10 @@ fn apply_shim_overrides(
         .get_long_about()
         .map(|s| s.to_string())
         .unwrap_or_default();
+    let existing_long_about = match shim.description {
+        Some(description) => replace_operation_description(&existing_long_about, description),
+        None => existing_long_about,
+    };
 
     let canonical_block = format!(
         "Canonical command: {}\n\
@@ -125,8 +129,9 @@ fn apply_shim_overrides(
             "{}\n\n{}\n\n{}{}",
             shim.summary, before_contract, canonical_block, contract_and_rest,
         )
+    } else if existing_long_about.is_empty() {
+        format!("{}\n\n{}", shim.summary, canonical_block)
     } else {
-        // Fallback: no contract block found (shouldn't happen in practice).
         format!(
             "{}\n\n{}\n\n{}",
             shim.summary, existing_long_about, canonical_block,
@@ -165,6 +170,18 @@ fn apply_shim_overrides(
     }
 
     *cmd = taken;
+}
+
+/// Replace the OpenAPI operation description and keep the permission and
+/// contract blocks that follow it.
+fn replace_operation_description(long_about: &str, description: &str) -> String {
+    if let Some(idx) = long_about.find("\n\nRequires permission:") {
+        format!("{description}{}", &long_about[idx..])
+    } else if let Some(idx) = long_about.find("\n\nDefault contract:") {
+        format!("{description}{}", &long_about[idx..])
+    } else {
+        description.to_string()
+    }
 }
 
 /// Resolve the operation for help-page rendering.

@@ -984,10 +984,10 @@ fn test_logs_stream_help_lists_flags() {
         "help must list --namespace: {all}"
     );
 
-    // The note about JSON output under --follow never ending.
+    // JSON output under --follow keeps running until the user stops it.
     assert!(
-        all.contains("never ends") || all.contains("stop it with Ctrl-C"),
-        "help must note that JSON output under --follow never ends: {all}"
+        all.contains("does not exit on its own"),
+        "help must note that JSON output under --follow does not exit on its own: {all}"
     );
 }
 

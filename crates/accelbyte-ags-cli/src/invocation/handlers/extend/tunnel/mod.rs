@@ -1,4 +1,4 @@
-//! `ags extend tunnel` — TCP-to-WebSocket bridge for Extend apps.
+//! `ags extend database-tunnel` — TCP-to-WebSocket bridge for an Extend database.
 //!
 //! Binds a local TCP port and bridges connections to the CSM v2 tunnel
 //! endpoint via WebSocket. The command runs until Ctrl-C.
@@ -14,7 +14,7 @@ use crate::errors::CliError;
 use crate::invocation::flags::GlobalFlags;
 use crate::invocation::InvocationOutcome;
 
-/// Route `ags extend tunnel <flags>`.
+/// Route `ags extend database-tunnel <flags>`.
 pub(crate) async fn handle_tunnel(
     matches: &ArgMatches,
     flags: &GlobalFlags,
@@ -27,7 +27,7 @@ pub(crate) async fn handle_tunnel(
     let resource_name = matches
         .get_one::<String>("resource-name")
         .ok_or_else(|| CliError::Usage {
-            message: "--resource-name is required for tunnel".to_string(),
+            message: "--resource-name is required for database-tunnel".to_string(),
             metadata: None,
         })?
         .clone();
@@ -36,20 +36,17 @@ pub(crate) async fn handle_tunnel(
         .get_one::<u16>("local-port")
         .copied()
         .ok_or_else(|| CliError::Usage {
-            message: "--local-port is required for tunnel".to_string(),
+            message: "--local-port is required for database-tunnel".to_string(),
             metadata: None,
         })?;
 
-    let pod_name = matches.get_one::<String>("pod-name").cloned();
-
-    // Validate inputs: namespace, resource-name, and pod-name become URL
-    // path/query segments, so they must contain only safe characters.
-    // Consistent with app_ui::upload which validates namespace the same way.
+    // Validate inputs: namespace and resource-name become URL path/query
+    // segments, so they must contain only safe characters. Consistent with
+    // app_ui::upload which validates namespace the same way. Pod targeting
+    // is not a flag on this command; remote-debug connect sets pod_name
+    // on TunnelConfig itself.
     super::app_ui::upload::validate_safe_component(&namespace, "namespace")?;
     super::app_ui::upload::validate_safe_component(&resource_name, "resource-name")?;
-    if let Some(ref pn) = pod_name {
-        super::app_ui::upload::validate_safe_component(pn, "pod-name")?;
-    }
 
     // Derive base URL and extract host (with port when present).
     let profile_name = flags.profile.as_deref().unwrap_or("default");
@@ -76,7 +73,7 @@ pub(crate) async fn handle_tunnel(
         namespace: namespace.clone(),
         resource_name: resource_name.clone(),
         local_port,
-        pod_name,
+        pod_name: None,
     };
 
     let format_json = matches!(
@@ -147,7 +144,7 @@ fn resolve_namespace(flags: &GlobalFlags) -> Result<String, CliError> {
     )
     .map(|(namespace, _source)| namespace)
     .ok_or_else(|| CliError::Usage {
-        message: "--namespace is required for tunnel".to_string(),
+        message: "--namespace is required for database-tunnel".to_string(),
         metadata: Some(Box::new(crate::errors::ErrorMetadata::with_suggestion(
             "Supply --namespace <ns>, set AGS_NAMESPACE, or run 'ags config set namespace <ns>'",
         ))),
@@ -235,7 +232,6 @@ mod tests {
                     .long("local-port")
                     .value_parser(clap::value_parser!(u16)),
             )
-            .arg(clap::Arg::new("pod-name").long("pod-name"))
             .try_get_matches_from(["tunnel", "--local-port", "8080"])
             .unwrap();
 
@@ -279,7 +275,6 @@ mod tests {
                     .long("local-port")
                     .value_parser(clap::value_parser!(u16)),
             )
-            .arg(clap::Arg::new("pod-name").long("pod-name"))
             .try_get_matches_from([
                 "tunnel",
                 "--resource-name",
@@ -329,7 +324,6 @@ mod tests {
                     .long("local-port")
                     .value_parser(clap::value_parser!(u16)),
             )
-            .arg(clap::Arg::new("pod-name").long("pod-name"))
             .try_get_matches_from(["tunnel", "--resource-name", "my-app", "--local-port", "0"])
             .unwrap();
 

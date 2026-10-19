@@ -258,10 +258,14 @@ mod classify_root_tests {
     }
 
     #[test]
-    fn test_classify_root_extend_tunnel_is_builtin() {
-        // `extend tunnel` dispatches via the Builtin arm. Pins the
-        // routing so a future self-owning route cannot silently shadow
-        // it without updating dispatch.
+    fn test_classify_root_extend_database_tunnel_is_builtin() {
+        // `extend database-tunnel` and its hidden alias `tunnel` both
+        // dispatch via the Builtin arm, so clap resolves the alias. Pins
+        // the routing so a future self-owning route cannot shadow either name.
+        assert!(matches!(
+            classify_root(&remaining(&["extend", "database-tunnel"])),
+            RootDispatch::Builtin
+        ));
         assert!(matches!(
             classify_root(&remaining(&["extend", "tunnel"])),
             RootDispatch::Builtin

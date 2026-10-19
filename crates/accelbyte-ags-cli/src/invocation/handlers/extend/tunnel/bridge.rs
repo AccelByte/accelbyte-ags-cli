@@ -1,4 +1,4 @@
-//! TCP-to-WebSocket bridge for `ags extend tunnel`.
+//! TCP-to-WebSocket bridge for `ags extend database-tunnel`.
 //!
 //! Binds a local TCP listener and, for each accepted connection, opens a
 //! WebSocket to the CSM v2 tunnel endpoint and shuttles bytes in both

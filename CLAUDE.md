@@ -191,7 +191,7 @@ crates/accelbyte-ags-cli/
 │   │       │   │   ├── debug_mode.rs # Shared debug-mode handler skeleton, dry-run gate, parameter struct, test helpers
 │   │       │   │   ├── disable.rs # Disable debug mode with running-app confirmation
 │   │       │   │   └── enable.rs  # Performance warning, running-app confirmation, debug-mode update
-│   │       │   ├── tunnel/        # `ags extend tunnel` — TCP-to-WebSocket bridge for Extend apps
+│   │       │   ├── tunnel/        # `ags extend database-tunnel` — TCP tunnel to an Extend database
 │   │       │   │   ├── mod.rs     # Handler, exit envelope, namespace/base-URL resolution
 │   │       │   │   └── bridge.rs  # TCP listener, WS dial with 401 retry, bidirectional relay
 │   │       │   ├── csm_error.rs   # Shared CSM error-detail extraction (errorCode/errorMessage from response body)

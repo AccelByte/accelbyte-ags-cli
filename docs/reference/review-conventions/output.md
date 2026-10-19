@@ -230,7 +230,7 @@ also keep:
 1. One type writes everything the command prints to stdout or stderr
    (`LogStreamOutput` in
    `crates/accelbyte-ags-cli/src/invocation/handlers/extend/logs/output.rs`), as
-   `session_log.rs` does for `ags extend tunnel` and
+   `session_log.rs` does for `ags extend database-tunnel` and
    `ags extend remote-debug connect`.
 2. It writes only through the line helpers in
    `crates/accelbyte-ags-cli/src/frontend/mod.rs` (RULE-02), and each line is

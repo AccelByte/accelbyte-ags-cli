@@ -78,6 +78,14 @@ fn extend_help_binary_shows_shims_with_summaries() {
                 shim.summary,
                 shim.name,
             );
+            assert!(
+                stdout.contains(&format!(
+                    "\u{2192} ags {} {} {}",
+                    shim.service, shim.resource, shim.method
+                )),
+                "extend help must show the canonical address for shim '{}':\n{stdout}",
+                shim.name,
+            );
         }
     }
 }
@@ -174,14 +182,14 @@ fn extend_remote_debug_without_child_shows_subgroup_help() {
         .args(["extend", "remote-debug"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("Remote debug commands"))
+        .stderr(predicate::str::contains("Remote Debug commands"))
         .stderr(predicate::str::is_match(r"Usage:\r?\n  extend remote-debug <COMMAND>").unwrap())
         .stderr(predicate::str::contains("clone-template").not());
 }
 
 /// `ags extend app-ui --help` shows the `create` shim child with its
-/// summary and canonical address in the Commands: section, alongside
-/// the native `setup-env` and `upload` subcommands.
+/// summary in the Commands: section, alongside the native `setup-env`
+/// and `upload` subcommands.
 #[test]
 fn extend_app_ui_help_shows_shim_children_with_summaries() {
     let assert = ags_isolated()
@@ -826,4 +834,42 @@ fn shim_help_contains_no_deprecation_language() {
             );
         }
     }
+}
+
+/// The hand-written description replaces the OpenAPI text on the shortcut
+/// page only. The canonical page keeps the spec text, so deleting
+/// `replace_operation_description` would fail this test.
+#[test]
+fn security_assessment_list_help_overrides_only_the_shortcut_page() {
+    let handwritten = SHIMS
+        .iter()
+        .find(|shim| shim.parent == Some("security-assessment") && shim.name == "list")
+        .and_then(|shim| shim.description)
+        .expect("security-assessment list must carry a hand-written description");
+
+    let extend_out = ags_isolated()
+        .env("NO_COLOR", "1")
+        .args(["extend", "security-assessment", "list", "--help"])
+        .output()
+        .unwrap();
+    let extend_help = String::from_utf8_lossy(&extend_out.stdout);
+    assert!(
+        extend_help.contains(handwritten),
+        "shortcut help must show the hand-written description:\n{extend_help}"
+    );
+
+    let csm_out = ags_isolated()
+        .env("NO_COLOR", "1")
+        .args(["csm", "security-assessment", "list", "--help"])
+        .output()
+        .unwrap();
+    let csm_help = String::from_utf8_lossy(&csm_out.stdout);
+    assert!(
+        !csm_help.contains(handwritten),
+        "canonical help must keep the spec text, not the hand-written description:\n{csm_help}"
+    );
+    assert!(
+        csm_help.contains("pen-testing"),
+        "canonical help must still show the spec wording:\n{csm_help}"
+    );
 }

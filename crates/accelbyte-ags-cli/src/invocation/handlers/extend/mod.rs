@@ -45,7 +45,7 @@ pub(crate) async fn handle_extend(
                 clone_template::handle_clone_template(sub, flags, frontend)
             }
             Some(("app-ui", sub)) => app_ui::handle_app_ui(sub, flags, frontend).await,
-            Some(("tunnel", sub)) => tunnel::handle_tunnel(sub, flags, frontend).await,
+            Some(("database-tunnel", sub)) => tunnel::handle_tunnel(sub, flags, frontend).await,
             Some(("update-secret", sub)) => {
                 update_secret::handle_update_secret(sub, flags, frontend).await
             }
