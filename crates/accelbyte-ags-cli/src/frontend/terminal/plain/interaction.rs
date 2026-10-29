@@ -251,7 +251,7 @@ fn gather_header(count: usize) -> Option<String> {
 
 /// Turn a kebab/snake/dotted input label into a Title-Case display label for
 /// the prompt (`client-name` -> `Client Name`), matching the conversational
-/// `Enter Client ID:` style of `ags auth login`.
+/// `Enter Client ID (e.g. …):` style of `ags auth login`.
 fn humanize_label(label: &str) -> String {
     label
         .split(['-', '_', '.'])

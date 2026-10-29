@@ -60,7 +60,7 @@ pub(crate) fn resolve_credentials(profile: &str) -> Credentials {
 
 /// Resolve the client ID from environment variable or stored config.
 /// Returns `None` if not set in any source.
-pub(crate) fn resolve_client_id(profile: &str) -> Option<(String, CredentialSource)> {
+pub fn resolve_client_id(profile: &str) -> Option<(String, CredentialSource)> {
     if let Ok(id) = std::env::var(crate::runtime::config::ENV_CLIENT_ID) {
         return Some((id, CredentialSource::Environment));
     }

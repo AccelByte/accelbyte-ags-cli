@@ -3,7 +3,7 @@ members = ["crates/accelbyte-ags-cli", "crates/ags-protocol", "crates/ags-runtim
 resolver = "2"
 
 [workspace.package]
-version = "0.5.3"
+version = "0.5.4"
 
 [workspace.dependencies]
 ags-protocol = { path = "crates/ags-protocol" }
@@ -52,7 +52,8 @@ serial_test = "3"
 filetime = "0.2"
 portable-pty = "0.9"
 socket2 = "0.6"
-zip = { version = "7.2", default-features = false, features = ["deflate"] }
+unicode-width = "0.2"
+zip = { version = "9.0", default-features = false, features = ["deflate"] }
 
 # The profile that 'dist' will build with
 [profile.dist]

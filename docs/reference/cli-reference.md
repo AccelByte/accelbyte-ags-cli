@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.5.3  
+Version: 0.5.4  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
@@ -1660,7 +1660,7 @@ This includes profile selection, such as:
 ```text
 AGS_PROFILE=staging
 AGS_ACCESS_TOKEN=...
-AGS_BASE_URL=https://<your-namespace>.prod.gamingservices.accelbyte.io
+AGS_BASE_URL=https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io
 AGS_CLIENT_ID=...
 AGS_CLIENT_SECRET=...
 ```
@@ -2031,6 +2031,8 @@ When enabled, the CLI sends:
 
 Authenticated users are identified by their AccelByte IAM user id (`sub` from the access token). Pre-login invocations are identified by a random anonymous install id (`anon-<random hex>`) that MUST NOT be derived from hostname, OS username, MAC address, or any hardware identifier. On first login the anonymous identity MUST be merged into the authenticated identity via an identity-merge event.
 
+Before a profile exists, telemetry keeps the anonymous ID in memory and still reports the command event. Command and workflow events in the same process share this ID. Telemetry persists it after the command creates the profile directory. If the command never creates the profile, the ID expires with the process and cannot link to later invocations.
+
 Email MUST be attached only as a **user** property (never a top-level event property).
 
 ### 21.5 Redaction
@@ -2054,6 +2056,8 @@ The telemetry pipeline MUST NOT collect:
 ### 21.7 Non-interference
 
 Telemetry MUST be fire-and-forget. It MUST NOT affect command behaviour, exit codes, or output. The flush at process exit MUST be bounded (currently 2 seconds).
+
+Telemetry MUST NOT create profile directories or create or modify profile or global configuration. It MAY read configuration and write its own install-identity and email-cache files inside an existing profile directory.
 
 ## 22. Current scope
 

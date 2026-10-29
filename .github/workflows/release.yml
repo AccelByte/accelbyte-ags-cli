@@ -136,6 +136,8 @@ jobs:
       # reviewers can download a PR build, would otherwise start compiling the
       # production key into PR artifacts with nothing to signal it.
       AGS_TELEMETRY_POSTHOG_KEY: ${{ needs.plan.outputs.publishing == 'true' && vars.AGS_TELEMETRY_POSTHOG_KEY || '' }}
+      # The Xsolla deployment's own project, used for profiles whose base URL is an Xsolla host.
+      AGS_TELEMETRY_POSTHOG_KEY_XSOLLA: ${{ needs.plan.outputs.publishing == 'true' && vars.AGS_TELEMETRY_POSTHOG_KEY_XSOLLA || '' }}
     steps:
       - name: enable windows longpaths
         run: |

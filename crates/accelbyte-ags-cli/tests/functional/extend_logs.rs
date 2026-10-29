@@ -142,6 +142,7 @@ where
         while flag_clone.load(std::sync::atomic::Ordering::Relaxed) {
             match listener.accept() {
                 Ok((mut stream, _)) => {
+                    read_request_head(&mut stream);
                     let _ = stream
                         .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n");
                     let _ = stream.flush();
@@ -157,6 +158,18 @@ where
         drop(held);
     });
     (port, flag, handle)
+}
+
+/// Read the request head before responding. hyper rejects a response that
+/// arrives before it has finished sending the request.
+fn read_request_head(stream: &mut std::net::TcpStream) {
+    let _ = stream.set_nonblocking(false);
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let mut head = Vec::new();
+    let mut byte = [0u8; 1];
+    while !head.ends_with(b"\r\n\r\n") && matches!(stream.read(&mut byte), Ok(1)) {
+        head.push(byte[0]);
+    }
 }
 
 /// Stop a TCP server thread.

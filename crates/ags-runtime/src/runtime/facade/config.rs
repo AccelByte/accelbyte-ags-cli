@@ -237,7 +237,7 @@ fn validate_base_url(value: &str) -> Result<Option<String>, RuntimeError> {
     if !config::is_valid_base_url(value) {
         return Err(validation_error(
             format!("Invalid URL: {value}"),
-            Some("base-url must be a valid URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io)"),
+            Some("base-url must be a valid URL (e.g. https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io)"),
         ));
     }
     let normalised = value.trim_end_matches('/');

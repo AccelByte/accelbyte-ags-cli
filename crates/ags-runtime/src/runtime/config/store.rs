@@ -426,18 +426,8 @@ pub fn validate_profile_name(name: &str) -> Result<String, RuntimeError> {
 
 /// Resolve the active profile name: --profile flag -> AGS_PROFILE env -> global config -> first-run default -> error
 pub fn resolve_profile_name(flag: Option<&str>) -> Result<String, RuntimeError> {
-    if let Some(name) = flag {
-        return validate_profile_name(name);
-    }
-    if let Ok(name) = std::env::var(ENV_PROFILE) {
-        if !name.is_empty() {
-            return validate_profile_name(&name);
-        }
-    }
-    if let Some(name) = GlobalConfig::load()?.active_profile {
-        if !name.is_empty() {
-            return validate_profile_name(&name);
-        }
+    if let Some(name) = resolve_configured_profile_name(flag)? {
+        return Ok(name);
     }
 
     // First run: profiles directory doesn't exist yet — create default profile
@@ -464,6 +454,16 @@ pub fn resolve_profile_name(flag: Option<&str>) -> Result<String, RuntimeError> 
     })
 }
 
+/// Resolve the profile without setup. Before first run this is the default
+/// profile `resolve_profile_name` would create; `None` when profiles exist but
+/// none is active, where `resolve_profile_name` fails.
+pub fn resolve_profile_name_read_only(flag: Option<&str>) -> Result<Option<String>, RuntimeError> {
+    if let Some(name) = resolve_configured_profile_name(flag)? {
+        return Ok(Some(name));
+    }
+    Ok((!profiles_dir()?.exists()).then(|| DEFAULT_PROFILE.to_string()))
+}
+
 /// Create the profile directory and an empty config if the profile does not exist
 pub fn ensure_profile_exists(name: &str) -> Result<(), RuntimeError> {
     let dir = profile_dir(name)?;
@@ -475,6 +475,23 @@ pub fn ensure_profile_exists(name: &str) -> Result<(), RuntimeError> {
 }
 
 // ── Filesystem Wrappers ──
+
+/// Read the selected profile in flag, environment, then global-config order.
+fn resolve_configured_profile_name(flag: Option<&str>) -> Result<Option<String>, RuntimeError> {
+    if let Some(name) = flag {
+        return validate_profile_name(name).map(Some);
+    }
+    if let Ok(name) = std::env::var(ENV_PROFILE) {
+        if !name.is_empty() {
+            return validate_profile_name(&name).map(Some);
+        }
+    }
+    GlobalConfig::load()?
+        .active_profile
+        .filter(|name| !name.is_empty())
+        .map(|name| validate_profile_name(&name))
+        .transpose()
+}
 
 /// Create a restricted directory tree and wrap filesystem errors as config runtime errors.
 fn create_dir_restricted(dir: &std::path::Path) -> Result<(), RuntimeError> {
@@ -641,6 +658,56 @@ mod tests {
         );
         let _env = TempEnvGuard::clear(ENV_PROFILE);
         assert_eq!(resolve_profile_name(None).unwrap(), "default");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_read_only_profile_resolution_preserves_precedence_without_setup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+        let _env = TempEnvGuard::clear(ENV_PROFILE);
+
+        assert_eq!(
+            resolve_profile_name_read_only(None).unwrap().as_deref(),
+            Some("default")
+        );
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
+
+        ensure_profile_exists("default").unwrap();
+        assert_eq!(resolve_profile_name_read_only(None).unwrap(), None);
+        assert!(!tmp.path().join("config.json").exists());
+
+        GlobalConfig {
+            active_profile: Some("from-config".to_string()),
+            ..Default::default()
+        }
+        .save()
+        .unwrap();
+        let before = std::fs::read(tmp.path().join("config.json")).unwrap();
+        assert_eq!(
+            resolve_profile_name_read_only(None).unwrap().as_deref(),
+            Some("from-config")
+        );
+        let _env = TempEnvGuard::set(ENV_PROFILE, "from-env");
+        assert_eq!(
+            resolve_profile_name_read_only(None).unwrap().as_deref(),
+            Some("from-env")
+        );
+        assert_eq!(
+            resolve_profile_name_read_only(Some("FROM-FLAG"))
+                .unwrap()
+                .as_deref(),
+            Some("from-flag")
+        );
+        assert!(resolve_profile_name_read_only(Some("../invalid")).is_err());
+        assert_eq!(
+            std::fs::read(tmp.path().join("config.json")).unwrap(),
+            before
+        );
+        assert_eq!(list_profiles().unwrap(), vec!["default"]);
     }
 
     /// Global config snapshots round-trip through disk.

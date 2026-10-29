@@ -1177,7 +1177,7 @@ mod tests {
         let file = std::fs::File::open(&archive_path).unwrap();
         let archive = zip::ZipArchive::new(file).unwrap();
         let mut names: Vec<String> = (0..archive.len())
-            .map(|i| archive.name_for_index(i).unwrap().to_string())
+            .map(|i| archive.name_for_index(i).unwrap().unwrap().to_string())
             .collect();
         names.sort();
 
@@ -1758,7 +1758,7 @@ mod tests {
                 let file = std::fs::File::open(&archive_path).unwrap();
                 let archive = zip::ZipArchive::new(file).unwrap();
                 let names: Vec<String> = (0..archive.len())
-                    .map(|i| archive.name_for_index(i).unwrap().to_string())
+                    .map(|i| archive.name_for_index(i).unwrap().unwrap().to_string())
                     .collect();
 
                 assert!(

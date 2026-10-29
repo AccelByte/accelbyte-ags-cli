@@ -24,7 +24,8 @@
 //!
 //! Every path here is strictly fire-and-forget: telemetry is a cheap no-op
 //! unless an API key is resolved — from [`ENV_POSTHOG_KEY`] at run time, or
-//! from [`BAKED_POSTHOG_KEY`] at compile time (see [`resolve_api_key_with`]) — and
+//! from the compile-time key for the profile's deployment (see
+//! [`baked_key_for_profile_with`] and [`resolve_api_key_with`]) — and
 //! no failure ever propagates to the caller or affects a command's behaviour
 //! or exit code.
 
@@ -47,6 +48,49 @@ pub const ENV_POSTHOG_KEY: &str = "AGS_TELEMETRY_POSTHOG_KEY";
 /// tradeoff as a Sentry DSN — not a secret that needs protecting from readers
 /// of the binary.
 const BAKED_POSTHOG_KEY: Option<&str> = option_env!("AGS_TELEMETRY_POSTHOG_KEY");
+
+/// Compile-time key for the Xsolla deployment's own PostHog project, embedded
+/// the same way as [`BAKED_POSTHOG_KEY`]. Xsolla usage is reported to a
+/// separate project from AccelByte's, so a profile pointed at Xsolla never
+/// falls back to [`BAKED_POSTHOG_KEY`]: on a build without this key, telemetry
+/// for that profile is off. A run-time [`ENV_POSTHOG_KEY`] is not
+/// profile-aware and still overrides both compile-time keys.
+const BAKED_XSOLLA_POSTHOG_KEY: Option<&str> = option_env!("AGS_TELEMETRY_POSTHOG_KEY_XSOLLA");
+
+/// Host of the Xsolla deployment. Studio subdomains of it match too.
+const XSOLLA_HOST: &str = "gamingservices.xsolla.com";
+
+/// Matches the host exactly or as a dot-delimited suffix, never as a bare
+/// substring, and ignores the trailing dot of a fully qualified host.
+/// Case-insensitive because `url::Url` lowercases hosts. A value without a
+/// scheme does not parse and is not Xsolla's; stored base URLs always have one,
+/// because `is_valid_base_url` requires `http(s)`.
+fn is_xsolla_base_url(base_url: &str) -> bool {
+    url::Url::parse(base_url).is_ok_and(|url| {
+        url.host_str().is_some_and(|host| {
+            let host = host.strip_suffix('.').unwrap_or(host);
+            host == XSOLLA_HOST || host.ends_with(&format!(".{XSOLLA_HOST}"))
+        })
+    })
+}
+
+/// The compile-time key for `profile`'s deployment, chosen by its effective
+/// base URL (`AGS_BASE_URL` wins over the stored one). A profile with no base
+/// URL yet (before `ags auth login`) counts as AccelByte's. Both keys are
+/// injected so tests can reach the shapes a local build (no keys compiled in)
+/// cannot.
+fn baked_key_for_profile_with<'a>(
+    profile: &str,
+    accelbyte_key: Option<&'a str>,
+    xsolla_key: Option<&'a str>,
+) -> Option<&'a str> {
+    let base_url = crate::runtime::auth::credentials::resolve_base_url_value(profile);
+    if base_url.as_deref().is_some_and(is_xsolla_base_url) {
+        xsolla_key
+    } else {
+        accelbyte_key
+    }
+}
 
 /// Resolve the PostHog API key to use: [`ENV_POSTHOG_KEY`] from the run-time
 /// environment when it is set to a non-empty value, else `baked` (the
@@ -193,9 +237,12 @@ pub(crate) fn decode_parent_namespace(access_token: &str) -> Option<String> {
 
 /// Gather everything needed for a `cli.command.invoked` event, ahead of
 /// command dispatch. Best-effort and fully non-fatal: returns `None` only
-/// when telemetry is disabled ([`ENV_POSTHOG_KEY`]/[`ENV_DO_NOT_TRACK`], see
-/// [`resolve_identity`]) or `command_path` is empty (a meta/builtin
-/// invocation). Every other invocation — authenticated or not — produces a
+/// when telemetry is disabled ([`ENV_POSTHOG_KEY`]/[`ENV_DO_NOT_TRACK`], or
+/// no key compiled in for the profile's deployment — see
+/// [`baked_key_for_profile_with`]), `command_path` is empty (a meta/builtin
+/// invocation), or profiles exist but none is active. Before first-run setup, the default profile name is read-only
+/// and the anonymous identity stays in memory until the profile directory exists.
+/// Every other invocation — authenticated or not — produces a
 /// context: see [`ResolvedIdentity`] for the two attribution branches.
 ///
 /// `command_path` is the raw post-global-flag argument vector; only its
@@ -217,7 +264,7 @@ pub async fn gather_context(
     workflow_id: Option<&str>,
 ) -> Option<CommandTelemetry> {
     let started_at = std::time::Instant::now();
-    if !is_enabled_by_env() {
+    if !could_be_enabled() {
         tdbg!(
             "disabled — no API key resolved (AGS_TELEMETRY_POSTHOG_KEY unset/blank and no key compiled into this build), or DO_NOT_TRACK is set"
         );
@@ -236,19 +283,37 @@ pub async fn gather_context(
         return None;
     }
 
-    let Some(identity) = resolve_identity(profile_flag).await else {
+    let Some(profile) = crate::runtime::config::resolve_profile_name_read_only(profile_flag)
+        .ok()
+        .flatten()
+    else {
+        tdbg!("skipping — profiles exist but none is active");
+        return None;
+    };
+    if !is_enabled_for(&profile) {
+        tdbg!("disabled — no API key compiled into this build for this profile's deployment");
+        return None;
+    }
+
+    let Some(identity) = resolve_identity(Some(&profile)).await else {
         tdbg!("could not resolve an identity to attribute this event to");
         return None;
     };
 
-    let namespace = crate::runtime::execution::resolve_namespace(namespace_flag, profile_flag)
-        .map(|(namespace, _source)| namespace);
+    let namespace = namespace_flag
+        .map(str::to_string)
+        .or_else(|| std::env::var(crate::runtime::config::ENV_NAMESPACE).ok())
+        .or_else(|| {
+            crate::runtime::config::ProfileConfig::load(&profile)
+                .ok()?
+                .namespace
+        });
 
     // An anonymous (pre-login) invocation has no user to look up: skip the
     // `users/me` round-trip entirely, and leave `auth_grant` `None` — there is
     // no token to classify a grant type from.
     let (email, studio, auth_grant) = match &identity {
-        ResolvedIdentity::Authenticated { .. } => resolve_authenticated_extras(profile_flag).await,
+        ResolvedIdentity::Authenticated { .. } => resolve_authenticated_extras(&profile).await,
         ResolvedIdentity::Anonymous { .. } => {
             tdbg!("anonymous — skipping the users/me email lookup, no user to look up");
             (None, None, None)
@@ -265,6 +330,7 @@ pub async fn gather_context(
     merge_global_flags(&mut flags, global_flags);
 
     Some(CommandTelemetry {
+        profile,
         distinct_id: identity.distinct_id().to_string(),
         identity: identity.label(),
         ui_surface,
@@ -304,25 +370,22 @@ pub async fn gather_context(
 /// token's own `parent_namespace` claim, decoded alongside `sub` from the
 /// same JWT the CLI already holds — see [`decode_parent_namespace`].
 async fn resolve_authenticated_extras(
-    profile_flag: Option<&str>,
+    profile: &str,
 ) -> (Option<String>, Option<String>, Option<&'static str>) {
-    let Ok(profile) = crate::runtime::config::resolve_profile_name(profile_flag) else {
-        return (None, None, None);
-    };
     // Held live only until `read_cached_email`/`fetch_email`/`decode_parent_namespace`
     // read it; `TokenData` is zeroized on drop.
-    let Ok(Some(token)) = crate::runtime::auth::store::get_token_data_async(&profile).await else {
+    let Ok(Some(token)) = crate::runtime::auth::store::get_token_data_async(profile).await else {
         return (None, None, None);
     };
-    let email = match read_cached_email(&profile, &token.access_token) {
+    let email = match read_cached_email(profile, &token.access_token) {
         Some(email) => {
             tdbg!("email cache hit for profile '{profile}'");
             Some(email)
         }
         None => {
-            let fetched = fetch_email(&profile, &token.access_token).await;
+            let fetched = fetch_email(profile, &token.access_token).await;
             if let Some(email) = &fetched {
-                write_cached_email(&profile, &token.access_token, email);
+                write_cached_email(profile, &token.access_token, email);
             }
             fetched
         }
@@ -384,10 +447,13 @@ impl ResolvedIdentity {
 /// `.await` it directly instead of backgrounding it the way `gather_context`'s
 /// email fetch is backgrounded.
 pub async fn resolve_identity(profile_flag: Option<&str>) -> Option<ResolvedIdentity> {
-    if !is_enabled_by_env() {
+    if !could_be_enabled() {
         return None;
     }
-    let profile = crate::runtime::config::resolve_profile_name(profile_flag).ok()?;
+    let profile = crate::runtime::config::resolve_profile_name_read_only(profile_flag).ok()??;
+    if !is_enabled_for(&profile) {
+        return None;
+    }
     if let Ok(Some(token)) = crate::runtime::auth::store::get_token_data_async(&profile).await {
         if let Some(sub) = decode_sub(&token.access_token) {
             return Some(ResolvedIdentity::Authenticated { sub });
@@ -409,7 +475,11 @@ const EMIT_FLUSH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2
 /// bypassing `Drop`. Bounded by [`EMIT_FLUSH_TIMEOUT`]. No-op when telemetry
 /// is disabled.
 pub async fn emit_with_outcome(ctx: &CommandTelemetry, outcome: Outcome) {
-    let client = TelemetryClient::from_env().await;
+    if ctx.identity == "anonymous" {
+        let _ = load_or_create_install_identity(&ctx.profile);
+    }
+    let api_key = ctx.send_api_key_with(BAKED_POSTHOG_KEY, BAKED_XSOLLA_POSTHOG_KEY);
+    let client = TelemetryClient::with_api_key(api_key).await;
     client.capture(build_event(ctx, &outcome));
     let _ = tokio::time::timeout(EMIT_FLUSH_TIMEOUT, client.flush()).await;
 }
@@ -509,18 +579,12 @@ pub(crate) fn read_cached_email(profile: &str, access_token: &str) -> Option<Str
 }
 
 /// Persist `email` as the cached value for `access_token`. Best-effort: any
-/// failure (directory creation, serialization, write) is silently dropped —
-/// caching is purely an optimization, never load-bearing for telemetry itself.
+/// failure (serialization, write) is silently dropped. The profile directory
+/// must already exist.
 fn write_cached_email(profile: &str, access_token: &str, email: &str) {
     let Some(path) = email_cache_path(profile) else {
         return;
     };
-    let Some(parent) = path.parent() else {
-        return;
-    };
-    if crate::support::file_system::create_dir_restricted(parent).is_err() {
-        return;
-    }
     let cache = EmailCache {
         token_fingerprint: token_fingerprint(access_token),
         email: email.to_string(),
@@ -571,6 +635,11 @@ const INSTALL_ID_PREFIX: &str = "anon-";
 /// `telemetry_email_cache.json` in the same profile directory.
 const INSTALL_IDENTITY_FILE_NAME: &str = "telemetry_install_id.json";
 
+/// Keep first-run identities shared by command and workflow tasks until they can be persisted.
+static PENDING_INSTALL_IDS: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, String>>,
+> = std::sync::OnceLock::new();
+
 /// Path to the per-profile install-identity file. `None` only when the
 /// profile directory itself cannot be resolved.
 fn install_identity_path(profile: &str) -> Option<std::path::PathBuf> {
@@ -600,28 +669,40 @@ fn new_install_id() -> String {
 
 /// Load the install identity for `profile`, creating and persisting one on
 /// first use. Returns `None` up front when telemetry is disabled
-/// ([`is_enabled_by_env`]), so a user on a build with no API key resolved (no
+/// ([`is_enabled_for`]), so a user on a build with no API key resolved (no
 /// [`ENV_POSTHOG_KEY`] set and no [`BAKED_POSTHOG_KEY`] compiled in) — or who
 /// sets [`ENV_DO_NOT_TRACK`] — never has a file written for them at all —
 /// this check happens before any path resolution or filesystem access.
 /// Best-effort otherwise: any read/parse failure is treated as "no identity
 /// yet" and a fresh one is created, exactly as the email cache treats a
 /// missing/corrupt file as a plain miss.
+/// Before the profile directory exists, the id stays in memory. A later call,
+/// including command completion, persists it without creating directories.
 pub(crate) fn load_or_create_install_identity(profile: &str) -> Option<InstallIdentity> {
-    if !is_enabled_by_env() {
+    if !is_enabled_for(profile) {
         return None;
     }
     let path = install_identity_path(profile)?;
+    let mut pending = PENDING_INSTALL_IDS
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?;
     if let Ok(json) = std::fs::read_to_string(&path) {
         if let Ok(identity) = serde_json::from_str::<InstallIdentity>(&json) {
+            pending.remove(&path);
             return Some(identity);
         }
     }
     let identity = InstallIdentity {
-        install_id: new_install_id(),
+        install_id: pending
+            .entry(path.clone())
+            .or_insert_with(new_install_id)
+            .clone(),
         merged_into_sub: None,
     };
-    write_install_identity(profile, &identity);
+    if write_install_identity(profile, &identity) {
+        pending.remove(&path);
+    }
     Some(identity)
 }
 
@@ -652,22 +733,13 @@ pub(crate) fn record_identity_merge(profile: &str, sub: &str) {
 }
 
 /// Persist `identity` for `profile` using the same restricted (0600) file
-/// helpers as the email cache. Best-effort: any failure (directory creation,
-/// serialization, write) is silently dropped — this is an optimization/cache,
-/// never load-bearing for telemetry itself.
-fn write_install_identity(profile: &str, identity: &InstallIdentity) {
+/// helpers as the email cache, only in an existing profile directory.
+fn write_install_identity(profile: &str, identity: &InstallIdentity) -> bool {
     let Some(path) = install_identity_path(profile) else {
-        return;
+        return false;
     };
-    let Some(parent) = path.parent() else {
-        return;
-    };
-    if crate::support::file_system::create_dir_restricted(parent).is_err() {
-        return;
-    }
-    if let Ok(json) = serde_json::to_string(identity) {
-        let _ = crate::support::file_system::write_file_restricted(&path, &json);
-    }
+    serde_json::to_string(identity)
+        .is_ok_and(|json| crate::support::file_system::write_file_restricted(&path, &json).is_ok())
 }
 
 /// PostHog's identity-merge event name — see [`build_identify_event`].
@@ -700,7 +772,7 @@ fn build_identify_event(sub: &str, anon_id: &str, email: Option<&str>) -> postho
 /// by [`EMIT_FLUSH_TIMEOUT`], every failure swallowed, never propagates an
 /// error or otherwise affects the caller.
 pub async fn emit_identity_merge(profile: &str, sub: &str, email: Option<&str>) {
-    emit_identity_merge_with(TelemetryClient::from_env(), profile, sub, email).await;
+    emit_identity_merge_with(TelemetryClient::for_profile(profile), profile, sub, email).await;
 }
 
 /// [`emit_identity_merge`] against a caller-supplied client, so the
@@ -709,7 +781,7 @@ pub async fn emit_identity_merge(profile: &str, sub: &str, email: Option<&str>) 
 /// environment.
 ///
 /// `client` is taken as an un-awaited future and awaited only on the branch
-/// that actually captures: `TelemetryClient::from_env` spawns a background
+/// that actually captures: `TelemetryClient::for_profile` spawns a background
 /// transport thread per instance, and every login after the first takes the
 /// skip branch, which never sends anything.
 async fn emit_identity_merge_with(
@@ -981,12 +1053,19 @@ pub fn merge_global_flags(capture: &mut FlagCapture, pairs: &[(String, Option<St
     }
 }
 
-/// Whether telemetry is switched on: an API key resolves (see
+/// Whether telemetry is switched on for `profile`: an API key resolves (see
 /// [`enabled_api_key`]) and the universal `DO_NOT_TRACK` opt-out is not set.
-/// Kept cheap so the disabled path never touches the credential store or
-/// network.
-fn is_enabled_by_env() -> bool {
-    is_enabled_with(BAKED_POSTHOG_KEY)
+/// Reads the profile's stored base URL to pick the key, but never touches the
+/// credential store or network.
+fn is_enabled_for(profile: &str) -> bool {
+    enabled_api_key(profile).is_some()
+}
+
+/// Whether any key could resolve, answered without reading config. Checked
+/// before resolving the profile, which is read-only, so a build with no key or
+/// a `DO_NOT_TRACK` user skips reading config entirely.
+fn could_be_enabled() -> bool {
+    is_enabled_with(BAKED_POSTHOG_KEY) || is_enabled_with(BAKED_XSOLLA_POSTHOG_KEY)
 }
 
 /// The API key to send with, or `None` when telemetry is off for any reason.
@@ -994,8 +1073,26 @@ fn is_enabled_by_env() -> bool {
 /// questions are answered by one pass so a caller that needs the key does not
 /// ask twice, and so a condition added here cannot apply to one caller and not
 /// another.
-fn enabled_api_key() -> Option<String> {
-    enabled_api_key_with(BAKED_POSTHOG_KEY)
+fn enabled_api_key(profile: &str) -> Option<String> {
+    if !could_be_enabled() {
+        return None;
+    }
+    enabled_api_key_for_with(profile, BAKED_POSTHOG_KEY, BAKED_XSOLLA_POSTHOG_KEY)
+}
+
+/// The body of [`enabled_api_key`] after the [`could_be_enabled`] gate, with
+/// both compile-time keys injected so tests can check that the profile's key
+/// choice, and never a fallback to AccelByte's key, reaches the key sent with.
+fn enabled_api_key_for_with(
+    profile: &str,
+    accelbyte_key: Option<&str>,
+    xsolla_key: Option<&str>,
+) -> Option<String> {
+    enabled_api_key_with(baked_key_for_profile_with(
+        profile,
+        accelbyte_key,
+        xsolla_key,
+    ))
 }
 
 /// The body of [`enabled_api_key`], with the compile-time key injected — see
@@ -1007,7 +1104,7 @@ fn enabled_api_key_with(baked: Option<&str>) -> Option<String> {
     resolve_api_key_with(baked)
 }
 
-/// The body of [`is_enabled_by_env`], with the compile-time key injected. Split out
+/// The body of [`is_enabled_for`], with the compile-time key injected. Split out
 /// for the same reason [`resolve_api_key_with`] is: `BAKED_POSTHOG_KEY` is a `const`
 /// decided when the crate is compiled, so a test cannot otherwise reach the shape that
 /// matters most — an official release binary, where the user has set nothing and the
@@ -1023,6 +1120,12 @@ const LIB_OVERRIDE: &str = "ags-cli";
 
 /// Everything gathered before dispatch; the outcome is attached at send time.
 pub struct CommandTelemetry {
+    /// The resolved profile, whose base URL picks the PostHog project the
+    /// event is sent to (see [`baked_key_for_profile_with`]). Only the name is
+    /// kept: the base URL is read again at send time, so a first
+    /// `ags auth login` that stores an Xsolla base URL sends its own event to
+    /// the Xsolla project, alongside its `$identify`.
+    pub profile: String,
     /// The PostHog `distinct_id`: the authenticated `sub`, or — pre-login —
     /// this install's anonymous id (see [`ResolvedIdentity`]).
     pub distinct_id: String,
@@ -1057,6 +1160,19 @@ pub struct CommandTelemetry {
     /// The registered workflow's id (e.g. `competitive-multiplayer`), sent
     /// verbatim. `None` for every non-workflow-run command.
     pub workflow_id: Option<String>,
+}
+
+impl CommandTelemetry {
+    /// The key [`emit_with_outcome`] sends this event with: the key for
+    /// [`Self::profile`]'s deployment, read at send time. The compile-time keys
+    /// are injected for the same reason as [`enabled_api_key_for_with`].
+    fn send_api_key_with(
+        &self,
+        accelbyte_key: Option<&str>,
+        xsolla_key: Option<&str>,
+    ) -> Option<String> {
+        enabled_api_key_for_with(&self.profile, accelbyte_key, xsolla_key)
+    }
 }
 
 /// Command result, attached to the single end-of-command event.
@@ -1527,23 +1643,29 @@ pub struct TelemetryClient {
 impl TelemetryClient {
     /// A disabled client usable from another crate's tests (e.g. the CLI
     /// crate's `ExecutionFrontendAdapter` tests) without going through the
-    /// environment. Identical to what `from_env()` returns when telemetry is
-    /// off.
+    /// environment. Identical to what `for_profile()` returns when telemetry
+    /// is off.
     pub fn disabled_for_test() -> Self {
         Self { inner: None }
     }
 
-    /// Build a client from a resolved API key (see [`enabled_api_key`]), or a
-    /// disabled no-op client when no key resolves or `DO_NOT_TRACK` is set.
-    /// Configures the ingestion host ([`DEFAULT_POSTHOG_HOST`], US by default)
-    /// so events land in the same PostHog project the Admin Portal identifies
-    /// into.
-    pub async fn from_env() -> Self {
+    /// Build a client from the API key resolved for `profile` (see
+    /// [`enabled_api_key`]), or a disabled no-op client when no key resolves or
+    /// `DO_NOT_TRACK` is set. Configures the ingestion host
+    /// ([`DEFAULT_POSTHOG_HOST`], US by default) so events land in the same
+    /// PostHog project the Admin Portal of that deployment identifies into.
+    pub async fn for_profile(profile: &str) -> Self {
         // One call answers both halves: whether telemetry is on, and which key to
         // send with. Asking separately would either duplicate the precedence rule
         // here — where it can silently diverge the first time a condition is added
         // to one and not the other — or resolve the key twice to avoid that.
-        let Some(api_key) = enabled_api_key() else {
+        Self::with_api_key(enabled_api_key(profile)).await
+    }
+
+    /// Build a client that sends with `api_key`, or a disabled no-op client
+    /// when it is `None`.
+    async fn with_api_key(api_key: Option<String>) -> Self {
+        let Some(api_key) = api_key else {
             return Self { inner: None };
         };
         let host = std::env::var(ENV_POSTHOG_HOST)
@@ -2164,7 +2286,7 @@ mod tests {
     }
 
     /// The official-release-build shape: the user has set nothing, and the key came
-    /// from the build. This is the case `is_enabled_by_env` exists to serve and the
+    /// from the build. This is the case `is_enabled_for` exists to serve and the
     /// one no test could reach before the `is_enabled_with` seam.
     #[test]
     #[serial_test::serial]
@@ -2172,6 +2294,194 @@ mod tests {
         let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
         assert!(is_enabled_with(Some("phc_baked")));
+    }
+
+    #[test]
+    fn test_is_xsolla_base_url_matches_the_host_and_its_subdomains_only() {
+        assert!(is_xsolla_base_url("https://gamingservices.xsolla.com"));
+        assert!(is_xsolla_base_url(
+            "https://studio.gamingservices.xsolla.com/"
+        ));
+        assert!(is_xsolla_base_url("https://GamingServices.Xsolla.com"));
+        assert!(is_xsolla_base_url("https://gamingservices.xsolla.com./"));
+        assert!(!is_xsolla_base_url("https://evilgamingservices.xsolla.com"));
+        assert!(!is_xsolla_base_url(
+            "https://gamingservices.xsolla.com.example.com"
+        ));
+        assert!(!is_xsolla_base_url(
+            "https://studio.prod.gamingservices.accelbyte.io"
+        ));
+        assert!(!is_xsolla_base_url("gamingservices.xsolla.com"));
+    }
+
+    /// Isolates config under a temp home and stores `base_url` (when given) for
+    /// `profile`, so key selection is exercised through the real profile lookup.
+    fn with_stored_base_url(
+        profile: &str,
+        base_url: Option<&str>,
+    ) -> (tempfile::TempDir, TempEnvGuard, TempEnvGuard) {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+        let env_base_url = TempEnvGuard::remove(crate::runtime::config::ENV_BASE_URL);
+        if let Some(base_url) = base_url {
+            crate::runtime::config::ProfileConfig::update(profile, |config| {
+                config.base_url = Some(base_url.to_string());
+                Ok(())
+            })
+            .unwrap();
+        }
+        (tmp, home, env_base_url)
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_baked_key_for_profile_routes_a_stored_xsolla_base_url_to_the_xsolla_key() {
+        let _env = with_stored_base_url("xsolla", Some("https://studio.gamingservices.xsolla.com"));
+        assert_eq!(
+            baked_key_for_profile_with("xsolla", Some("phc_ab"), Some("phc_xsolla")),
+            Some("phc_xsolla")
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_baked_key_for_profile_uses_the_accelbyte_key_for_other_or_missing_base_urls() {
+        let _env = with_stored_base_url(
+            "accelbyte",
+            Some("https://studio.prod.gamingservices.accelbyte.io"),
+        );
+        assert_eq!(
+            baked_key_for_profile_with("accelbyte", Some("phc_ab"), Some("phc_xsolla")),
+            Some("phc_ab")
+        );
+        assert_eq!(
+            baked_key_for_profile_with("no-base-url", Some("phc_ab"), Some("phc_xsolla")),
+            Some("phc_ab")
+        );
+    }
+
+    /// Xsolla usage must never land in AccelByte's project: a build carrying only
+    /// AccelByte's key turns telemetry off for an Xsolla profile instead.
+    #[test]
+    #[serial_test::serial]
+    fn test_baked_key_for_profile_never_falls_back_to_the_accelbyte_key_for_xsolla() {
+        let _env = with_stored_base_url("xsolla", Some("https://gamingservices.xsolla.com"));
+        assert_eq!(
+            baked_key_for_profile_with("xsolla", Some("phc_ab"), None),
+            None
+        );
+    }
+
+    /// The reverse: a build carrying only Xsolla's key sends nothing for an
+    /// AccelByte profile.
+    #[test]
+    #[serial_test::serial]
+    fn test_baked_key_for_profile_never_uses_the_xsolla_key_for_accelbyte() {
+        let _env = with_stored_base_url(
+            "accelbyte",
+            Some("https://studio.prod.gamingservices.accelbyte.io"),
+        );
+        assert_eq!(
+            baked_key_for_profile_with("accelbyte", None, Some("phc_xsolla")),
+            None
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_baked_key_for_profile_env_base_url_wins_over_the_stored_one() {
+        let _env = with_stored_base_url(
+            "accelbyte",
+            Some("https://studio.prod.gamingservices.accelbyte.io"),
+        );
+        let _env_base_url = TempEnvGuard::set(
+            crate::runtime::config::ENV_BASE_URL,
+            "https://gamingservices.xsolla.com",
+        );
+        assert_eq!(
+            baked_key_for_profile_with("accelbyte", Some("phc_ab"), Some("phc_xsolla")),
+            Some("phc_xsolla")
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_enabled_api_key_for_routes_a_stored_xsolla_profile_to_the_xsolla_key() {
+        let _env = with_stored_base_url("xsolla", Some("https://gamingservices.xsolla.com"));
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        assert_eq!(
+            enabled_api_key_for_with("xsolla", Some("phc_ab"), Some("phc_xsolla")).as_deref(),
+            Some("phc_xsolla")
+        );
+    }
+
+    /// The README's promise: Xsolla usage never lands in AccelByte's project.
+    #[test]
+    #[serial_test::serial]
+    fn test_enabled_api_key_for_is_none_for_an_xsolla_profile_on_an_accelbyte_only_build() {
+        let _env = with_stored_base_url("xsolla", Some("https://gamingservices.xsolla.com"));
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        assert_eq!(
+            enabled_api_key_for_with("xsolla", Some("phc_ab"), None),
+            None
+        );
+    }
+
+    /// The key is chosen when the event is sent, not when it was gathered, so a
+    /// first `ags auth login` against Xsolla sends its own event to Xsolla.
+    #[test]
+    #[serial_test::serial]
+    fn test_enabled_api_key_for_rereads_the_base_url_stored_after_gather() {
+        let _env = with_stored_base_url("fresh", None);
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        assert_eq!(
+            enabled_api_key_for_with("fresh", Some("phc_ab"), Some("phc_xsolla")).as_deref(),
+            Some("phc_ab")
+        );
+        crate::runtime::config::ProfileConfig::update("fresh", |config| {
+            config.base_url = Some("https://gamingservices.xsolla.com".to_string());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            enabled_api_key_for_with("fresh", Some("phc_ab"), Some("phc_xsolla")).as_deref(),
+            Some("phc_xsolla")
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_send_api_key_uses_the_gathered_profile() {
+        let _env = with_stored_base_url("xsolla", Some("https://gamingservices.xsolla.com"));
+        let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        let ctx = CommandTelemetry {
+            profile: "xsolla".into(),
+            distinct_id: "user-123".into(),
+            identity: "authenticated",
+            ui_surface: "plain",
+            email: None,
+            namespace: None,
+            studio: None,
+            command_path: "iam users get".into(),
+            flags: FlagCapture::default(),
+            cli_version: "1.2.3".into(),
+            auth_grant: None,
+            started_at: std::time::Instant::now(),
+            workflow_run_id: None,
+            workflow_id: None,
+        };
+        assert_eq!(
+            ctx.send_api_key_with(Some("phc_ab"), Some("phc_xsolla"))
+                .as_deref(),
+            Some("phc_xsolla")
+        );
     }
 
     /// A build with no key compiled in and nothing set stays off.
@@ -2196,15 +2506,21 @@ mod tests {
     }
 
     /// Regression for the most likely silent-regression shape called out in
-    /// review: a typo'd/inverted env-var check in `is_enabled_by_env` (or in
+    /// review: a typo'd/inverted env-var check in `is_enabled_for` (or in
     /// `gather_context`'s early-return on it) would make telemetry silently
     /// stop firing with no test catching it, since fire-and-forget swallows
     /// all failures by design.
     #[tokio::test]
     #[serial_test::serial]
     async fn test_gather_context_returns_none_when_posthog_key_is_unset() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
         let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        let _profile = TempEnvGuard::remove(crate::runtime::config::ENV_PROFILE);
 
         let ctx = gather_context(
             None,
@@ -2219,6 +2535,148 @@ mod tests {
         .await;
 
         assert!(ctx.is_none());
+        // Resolving the profile on a fresh home writes config, racing the
+        // command that runs concurrently with telemetry gathering.
+        assert!(
+            !crate::runtime::config::profiles_dir().unwrap().exists(),
+            "disabled telemetry must not resolve (and so create) a profile"
+        );
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_enabled_telemetry_leaves_fresh_home_untouched() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+        let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        let _profile = TempEnvGuard::remove(crate::runtime::config::ENV_PROFILE);
+        let _namespace = TempEnvGuard::remove(crate::runtime::config::ENV_NAMESPACE);
+        let _keychain = TempEnvGuard::set(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+
+        let identity = resolve_identity(None).await.unwrap();
+        assert_eq!(identity.label(), "anonymous");
+        assert!(!tmp.path().join("profiles").exists());
+        assert!(!tmp.path().join("config.json").exists());
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
+
+        let ctx = gather_context(
+            None,
+            None,
+            &[],
+            &args(&["auth", "status"]),
+            "1.0.0",
+            None,
+            "plain",
+            None,
+        )
+        .await
+        .expect("first-run commands must still report an event");
+
+        assert_eq!(ctx.profile, "default");
+        assert_eq!(ctx.identity, "anonymous");
+        assert_eq!(ctx.distinct_id, identity.distinct_id());
+        assert_eq!(ctx.namespace, None);
+        assert!(!tmp.path().join("profiles").exists());
+        assert!(!tmp.path().join("config.json").exists());
+
+        write_cached_email("default", "token", "dev@example.com");
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
+    }
+
+    /// With profiles but none active the command fails with "No active
+    /// profile", so telemetry must send nothing rather than guess `default`.
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_no_event_when_profiles_exist_but_none_is_active() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+        let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        let _profile = TempEnvGuard::remove(crate::runtime::config::ENV_PROFILE);
+        let _keychain = TempEnvGuard::set(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+        crate::runtime::config::ensure_profile_exists("staging").unwrap();
+
+        assert!(resolve_identity(None).await.is_none());
+        let ctx = gather_context(
+            None,
+            None,
+            &[],
+            &args(&["auth", "status"]),
+            "1.0.0",
+            None,
+            "plain",
+            None,
+        )
+        .await;
+
+        assert!(ctx.is_none());
+        assert_eq!(
+            crate::runtime::config::list_profiles().unwrap(),
+            vec!["staging"]
+        );
+        assert!(!tmp.path().join("config.json").exists());
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_first_run_command_completion_persists_the_pending_identity() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
+        let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
+        let _host = TempEnvGuard::set(ENV_POSTHOG_HOST, "http://127.0.0.1:9");
+        let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+        let _profile = TempEnvGuard::remove(crate::runtime::config::ENV_PROFILE);
+        let _namespace = TempEnvGuard::remove(crate::runtime::config::ENV_NAMESPACE);
+        let _keychain = TempEnvGuard::set(crate::runtime::config::ENV_NO_KEYCHAIN, "1");
+
+        let ctx = gather_context(
+            None,
+            None,
+            &[],
+            &args(&["auth", "status"]),
+            "1.0.0",
+            None,
+            "plain",
+            None,
+        )
+        .await
+        .unwrap();
+        let concurrent_identity = resolve_identity(None).await.unwrap();
+        assert_eq!(ctx.distinct_id, concurrent_identity.distinct_id());
+        assert_eq!(std::fs::read_dir(tmp.path()).unwrap().count(), 0);
+
+        let profile = crate::runtime::config::resolve_profile_name(None).unwrap();
+        let global_path = tmp.path().join("config.json");
+        let profile_path = crate::runtime::config::profile_config_path(&profile).unwrap();
+        let global_config = std::fs::read(&global_path).unwrap();
+        let profile_config = std::fs::read(&profile_path).unwrap();
+        emit_with_outcome(
+            &ctx,
+            Outcome {
+                status: "completed",
+                exit_code: 0,
+                error_class: None,
+                http_status: None,
+                error_code: None,
+            },
+        )
+        .await;
+
+        let persisted = load_or_create_install_identity(&profile).unwrap();
+        assert_eq!(persisted.install_id, ctx.distinct_id);
+        assert!(install_identity_path(&profile).unwrap().is_file());
+        assert_eq!(std::fs::read(global_path).unwrap(), global_config);
+        assert_eq!(std::fs::read(profile_path).unwrap(), profile_config);
     }
 
     /// `DO_NOT_TRACK` must win even when a PostHog key is present — the
@@ -2226,8 +2684,14 @@ mod tests {
     #[tokio::test]
     #[serial_test::serial]
     async fn test_gather_context_returns_none_when_do_not_track_overrides_posthog_key() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(
+            crate::runtime::config::ENV_HOME,
+            tmp.path().to_str().unwrap(),
+        );
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "test-key");
         let _dnt = TempEnvGuard::set(ENV_DO_NOT_TRACK, "1");
+        let _profile = TempEnvGuard::remove(crate::runtime::config::ENV_PROFILE);
 
         let ctx = gather_context(
             None,
@@ -2242,6 +2706,10 @@ mod tests {
         .await;
 
         assert!(ctx.is_none());
+        assert!(
+            !crate::runtime::config::profiles_dir().unwrap().exists(),
+            "a DO_NOT_TRACK user must not have a profile created for them"
+        );
     }
 
     /// A meta/builtin invocation (`command_path` starts with a flag, so
@@ -2312,29 +2780,29 @@ mod tests {
 
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_telemetry_client_from_env_is_disabled_when_key_is_unset() {
+    async fn test_telemetry_client_for_profile_is_disabled_when_key_is_unset() {
         let _key = TempEnvGuard::remove(ENV_POSTHOG_KEY);
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
 
-        let client = TelemetryClient::from_env().await;
+        let client = TelemetryClient::for_profile("default").await;
 
         assert!(client.inner.is_none());
     }
 
     #[tokio::test]
     #[serial_test::serial]
-    async fn test_telemetry_client_from_env_is_disabled_when_do_not_track_is_set() {
+    async fn test_telemetry_client_for_profile_is_disabled_when_do_not_track_is_set() {
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "test-key");
         let _dnt = TempEnvGuard::set(ENV_DO_NOT_TRACK, "1");
 
-        let client = TelemetryClient::from_env().await;
+        let client = TelemetryClient::for_profile("default").await;
 
         assert!(client.inner.is_none());
     }
 
     /// `DO_NOT_TRACK` must disable every enablement entry point
     /// (`gather_context`, `resolve_identity`, `load_or_create_install_identity`,
-    /// `TelemetryClient::from_env`) identically in the same run — and the two
+    /// `TelemetryClient::for_profile`) identically in the same run — and the two
     /// workflow-run capture entry points must be no-ops against that same
     /// disabled client (never bypassing it to build their own), so a silent
     /// regression in any one of them can't slip past this opt-out coverage.
@@ -2365,7 +2833,7 @@ mod tests {
         .await;
         let identity = resolve_identity(None).await;
         let install_identity = load_or_create_install_identity("default");
-        let client = TelemetryClient::from_env().await;
+        let client = TelemetryClient::for_profile("default").await;
 
         assert!(ctx.is_none(), "gather_context must be disabled");
         assert!(identity.is_none(), "resolve_identity must be disabled");
@@ -2379,7 +2847,7 @@ mod tests {
         );
         assert!(
             client.inner.is_none(),
-            "TelemetryClient::from_env must be disabled"
+            "TelemetryClient::for_profile must be disabled"
         );
 
         let run_ctx = WorkflowStepContext {
@@ -2438,6 +2906,8 @@ mod tests {
             tmp.path().to_str().unwrap(),
         );
 
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
+
         write_cached_email("default", "token-abc", "dev@example.com");
 
         assert_eq!(
@@ -2457,6 +2927,8 @@ mod tests {
             crate::runtime::config::ENV_HOME,
             tmp.path().to_str().unwrap(),
         );
+
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
 
         write_cached_email("default", "token-old", "dev@example.com");
 
@@ -2484,6 +2956,8 @@ mod tests {
             crate::runtime::config::ENV_HOME,
             tmp.path().to_str().unwrap(),
         );
+
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
 
         write_cached_email("default", "token-abc", "dev@example.com");
         assert!(read_cached_email("default", "token-abc").is_some());
@@ -2517,6 +2991,8 @@ mod tests {
         );
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
 
         let first = load_or_create_install_identity("default").expect("identity must be created");
         assert!(first.install_id.starts_with("anon-"));
@@ -2563,6 +3039,8 @@ mod tests {
         );
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
+
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
 
         let first = load_or_create_install_identity("default").unwrap();
         record_identity_merge("default", "user-a");
@@ -2661,6 +3139,8 @@ mod tests {
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
 
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
+
         let seeded = load_or_create_install_identity("default").unwrap();
         record_identity_merge("default", "user-a");
 
@@ -2700,6 +3180,8 @@ mod tests {
         let _key = TempEnvGuard::set(ENV_POSTHOG_KEY, "phc_test");
         let _dnt = TempEnvGuard::remove(ENV_DO_NOT_TRACK);
 
+        crate::runtime::config::ensure_profile_exists("default").unwrap();
+
         let before = load_or_create_install_identity("default").expect("identity must be created");
         assert_eq!(
             before.merged_into_sub, None,
@@ -2729,6 +3211,7 @@ mod tests {
     #[test]
     fn test_build_event_includes_duration_ms_elapsed_since_started_at() {
         let ctx = CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-123".into(),
             identity: "authenticated",
             ui_surface: "plain",
@@ -2768,6 +3251,7 @@ mod tests {
     #[test]
     fn test_build_event_attaches_namespace_and_studio_as_groups() {
         let ctx = CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-123".into(),
             identity: "authenticated",
             ui_surface: "plain",
@@ -2811,6 +3295,7 @@ mod tests {
     #[test]
     fn test_build_event_is_constructible() {
         let ctx = CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-123".into(),
             identity: "authenticated",
             ui_surface: "fullscreen",
@@ -2842,6 +3327,7 @@ mod tests {
     #[test]
     fn test_build_event_includes_workflow_id_http_status_and_error_code_on_failure() {
         let ctx = CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-1".into(),
             identity: "authenticated",
             ui_surface: "fullscreen",
@@ -2882,6 +3368,7 @@ mod tests {
     #[test]
     fn test_build_event_omits_workflow_id_http_status_and_error_code_on_success() {
         let ctx = CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-1".into(),
             identity: "authenticated",
             ui_surface: "plain",

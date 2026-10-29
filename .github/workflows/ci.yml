@@ -121,15 +121,17 @@ jobs:
             errors=$((errors + 1))
           }
 
-          # Verify the PostHog key is gated on publishing (hand-edit #4)
-          posthog_line=$(grep 'AGS_TELEMETRY_POSTHOG_KEY' .github/workflows/release.yml || true)
-          if [ -z "$posthog_line" ]; then
-            echo "::error::AGS_TELEMETRY_POSTHOG_KEY line is missing from release.yml"
-            errors=$((errors + 1))
-          elif ! echo "$posthog_line" | grep -q "publishing == 'true'"; then
-            echo "::error::AGS_TELEMETRY_POSTHOG_KEY must be gated on publishing == 'true', not the bare vars. form"
-            errors=$((errors + 1))
-          fi
+          # Verify both PostHog keys are gated on publishing (hand-edit #4)
+          for posthog_var in AGS_TELEMETRY_POSTHOG_KEY AGS_TELEMETRY_POSTHOG_KEY_XSOLLA; do
+            posthog_line=$(grep "^ *${posthog_var}:" .github/workflows/release.yml || true)
+            if [ -z "$posthog_line" ]; then
+              echo "::error::${posthog_var} line is missing from release.yml"
+              errors=$((errors + 1))
+            elif ! echo "$posthog_line" | grep -q "publishing == 'true'"; then
+              echo "::error::${posthog_var} must be gated on publishing == 'true', not the bare vars. form"
+              errors=$((errors + 1))
+            fi
+          done
 
           # Verify plan output filters to gate-only fields, not full manifest (hand-edit #5)
           if grep -q 'jq -c "\."' .github/workflows/release.yml; then

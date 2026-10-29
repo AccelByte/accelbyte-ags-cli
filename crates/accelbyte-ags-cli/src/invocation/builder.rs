@@ -1828,7 +1828,7 @@ fn build_login_subcommand() -> Command {
         .arg(
             Arg::new("base-url")
                 .long("base-url")
-                .help("Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io)")
+                .help("Base URL (e.g. https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io)")
                 .value_name("URL"),
         )
         .arg(

@@ -262,7 +262,7 @@ its own login:
 
 ```bash
 curl -H "Authorization: Bearer $(ags auth token)" \
-  "https://<your-namespace>.prod.gamingservices.accelbyte.io/iam/v3/admin/namespaces/my-game/users"
+  "https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io/iam/v3/admin/namespaces/<studio-id>-<title-id>/users"
 ```
 
 The token is resolved exactly as an API call resolves it: `AGS_ACCESS_TOKEN`
@@ -547,6 +547,8 @@ Set `DO_NOT_TRACK=1` to disable telemetry (the [Console Do Not Track](https://do
 When enabled, the CLI sends: which command was run (`iam users list`, not positional values or bodies), which flags were present (values redacted by default — only `--namespace`, `--format`, `--ui`, `--user-id`, `--client-id` transmit values), CLI version, outcome, duration, and error classification on failure. For workflow runs, step-level timing, outcome counts, and how inputs were provided (counts, not values) are also sent. Authenticated users are identified by their AccelByte IAM user id; pre-login invocations use a random anonymous id (never derived from hostname, hardware, or OS username). Email is attached as a user property for lookup, never as a per-event property.
 
 No IP geolocation (explicitly disabled), no file paths, no raw HTTP request or response bodies, no credential values, and no hostname or hardware identifiers are ever collected. On failed workflow steps, structured input field metadata (names, sources, and non-sensitive values for bundled workflows) is sent to aid debugging — field values are redacted when the name matches a sensitive pattern (`secret`, `password`, `token`, `key`, etc.). Set `AGS_TELEMETRY_NO_INPUT_VALUES` to suppress all input values entirely. Every event is fire-and-forget and never affects command behaviour or exit codes.
+
+Events from a profile whose effective base URL is on `gamingservices.xsolla.com` go to a separate PostHog project from AccelByte's. `AGS_BASE_URL` wins over the profile's stored base URL, and commands run before the first `ags auth login` count as AccelByte's. A build without that project's key sends no telemetry for those profiles; it never falls back to AccelByte's project. A run-time `AGS_TELEMETRY_POSTHOG_KEY` overrides this for every profile.
 
 
 ## Contributing

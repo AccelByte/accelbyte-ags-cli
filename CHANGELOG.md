@@ -5,6 +5,42 @@ earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-
 
 ## Unreleased
 
+## 0.5.4 — 2026-10-28
+
+### Fixed
+
+- `ags auth login` checks the client ID with IAM before the browser step. A client name or a
+  mistyped ID is reported in the terminal, and at the prompt you are asked again. A client ID
+  from `--client-id`, `AGS_CLIENT_ID` or the profile ends with an error that names where it
+  came from. The CLI also warns when the client's redirect URI does not lead back to the login.
+- The waiting line of `ags auth login`, and every other progress line, now fits the terminal
+  width. On terminals narrower than the line, it used to repeat itself on every redraw.
+- Telemetry no longer creates profiles or writes configuration alongside first-run commands,
+  preventing intermittent auth and config failures. First-run command events keep an anonymous
+  ID in memory until the command creates the profile; telemetry persists the ID only in an
+  existing profile directory.
+
+### Changed
+
+- The `ags auth login` prompts show examples: the Base URL example shows the game's Namespace
+  ID from the Admin Portal (`<studio-id>-<title-id>`), and the Client ID prompt shows an
+  example ID and says to leave it empty to create a new client. The CLI prints which IAM
+  client it signs in with, and asks for the new client's ID with its own prompt after the
+  create link.
+- Telemetry from a profile whose effective base URL (`AGS_BASE_URL`, else the stored one) is
+  on `gamingservices.xsolla.com` goes to a separate PostHog project from AccelByte's. Release
+  builds compile in that project's key from the `AGS_TELEMETRY_POSTHOG_KEY_XSOLLA` repository
+  variable; a build without it sends nothing for Xsolla profiles.
+
+### Security
+
+- Updated `rustls` from 0.23.45 to 0.23.46 for published advisories.
+- Updated `rustls-webpki` from 0.103.14 to 0.103.16 and `webpki-roots` from 1.0.9 to
+  1.0.11 for published advisories: certificate checks now reject chains through the
+  distrusted emSign intermediates.
+- Updated `tokio` from 1.53.1 to 1.53.3 for a published advisory.
+- Updated `zip` from 7.2.0 to 9.0.5 for published advisories.
+
 ## 0.5.3 — 2026-10-19
 
 ### Changed

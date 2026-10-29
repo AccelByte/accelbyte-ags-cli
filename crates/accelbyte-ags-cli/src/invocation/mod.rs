@@ -1277,6 +1277,7 @@ mod interrupt_telemetry_tests {
     /// values are arbitrary — only the handoff is under test.
     fn sample_context() -> ags_runtime::runtime::telemetry::CommandTelemetry {
         ags_runtime::runtime::telemetry::CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-1".to_string(),
             identity: "authenticated",
             ui_surface: "plain",
@@ -1556,6 +1557,7 @@ mod finalized_ui_surface_tests {
     /// `gather_context` produces before any route has run.
     fn gathered_with_ui_surface(ui_surface: &'static str) -> CommandTelemetry {
         CommandTelemetry {
+            profile: "default".into(),
             distinct_id: "user-1".into(),
             identity: "authenticated",
             ui_surface,

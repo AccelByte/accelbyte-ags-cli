@@ -305,18 +305,10 @@ pub(crate) async fn route_workflow_run(
     // resolution overlaps with compiling the workflow and the auth/base-URL
     // prologue instead of adding to this run's startup latency.
     let telemetry_task = workflow_run_id.map(|run_id| {
-        let run_id = run_id.to_string();
-        let profile = flags.profile.clone();
-        tokio::spawn(async move {
-            match ags_runtime::runtime::telemetry::resolve_identity(profile.as_deref()).await {
-                Some(identity) => Some((
-                    run_id,
-                    identity.distinct_id().to_string(),
-                    ags_runtime::runtime::telemetry::TelemetryClient::from_env().await,
-                )),
-                None => None,
-            }
-        })
+        tokio::spawn(resolve_workflow_telemetry(
+            run_id.to_string(),
+            flags.profile.clone(),
+        ))
     });
 
     // Compile the workflow and parse its own `--<input>` flags BEFORE the
@@ -344,6 +336,28 @@ pub(crate) async fn route_workflow_run(
         telemetry_task,
     )
     .await
+}
+
+/// Resolve the run id, distinct id, and client for a workflow run's telemetry.
+/// Runs concurrently with the run's own prologue, which may create the default
+/// profile on first run, so it resolves the profile read-only.
+async fn resolve_workflow_telemetry(
+    run_id: String,
+    profile_flag: Option<String>,
+) -> Option<(
+    String,
+    String,
+    ags_runtime::runtime::telemetry::TelemetryClient,
+)> {
+    let profile =
+        ags_runtime::runtime::config::resolve_profile_name_read_only(profile_flag.as_deref())
+            .ok()??;
+    let identity = ags_runtime::runtime::telemetry::resolve_identity(Some(&profile)).await?;
+    Some((
+        run_id,
+        identity.distinct_id().to_string(),
+        ags_runtime::runtime::telemetry::TelemetryClient::for_profile(&profile).await,
+    ))
 }
 
 /// Shared back half of `route_workflow_run` (and the `extend docker-login`
@@ -764,6 +778,59 @@ mod tests {
         ConsumerKind, FrontendContext, InteractionPolicy, TerminalCapabilities,
     };
     use ags_protocol::request::OutputFormat;
+
+    /// Restores an environment variable when dropped. Tests using it must be
+    /// `#[serial_test::serial]`.
+    struct TempEnvGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl TempEnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let original = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, original }
+        }
+
+        fn clear(key: &'static str) -> Self {
+            let original = std::env::var(key).ok();
+            std::env::remove_var(key);
+            Self { key, original }
+        }
+    }
+
+    impl Drop for TempEnvGuard {
+        fn drop(&mut self) {
+            match &self.original {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_workflow_telemetry_leaves_fresh_home_untouched() {
+        use ags_runtime::runtime::{config, telemetry};
+
+        let home = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set(config::ENV_HOME, home.path().to_str().unwrap());
+        let _key = TempEnvGuard::set(telemetry::ENV_POSTHOG_KEY, "phc_test");
+        let _host = TempEnvGuard::set(telemetry::ENV_POSTHOG_HOST, "http://127.0.0.1:9");
+        let _dnt = TempEnvGuard::clear(telemetry::ENV_DO_NOT_TRACK);
+        let _profile = TempEnvGuard::clear(config::ENV_PROFILE);
+        let _keychain = TempEnvGuard::set(config::ENV_NO_KEYCHAIN, "1");
+
+        let (run_id, distinct_id, _client) = resolve_workflow_telemetry("run-1".to_string(), None)
+            .await
+            .expect("first-run workflow telemetry must still resolve");
+
+        assert_eq!(run_id, "run-1");
+        assert!(distinct_id.starts_with("anon-"), "got: {distinct_id}");
+        assert!(!home.path().join("profiles").exists());
+        assert!(!home.path().join("config.json").exists());
+    }
 
     #[test]
     fn test_workflow_help_omits_registered_workflows_block() {

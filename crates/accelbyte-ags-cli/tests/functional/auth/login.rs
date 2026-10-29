@@ -52,6 +52,19 @@ fn test_auth_login_help_shows_new_flags() {
         .stdout(predicate::str::contains("--port"));
 }
 
+/// The --base-url help text shows the game-namespace example so users see what
+/// a real Base URL looks like.
+#[test]
+fn test_auth_login_help_base_url_example_names_game_namespace() {
+    ags()
+        .args(["auth", "login", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Base URL (e.g. https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io)",
+        ));
+}
+
 /// Password-based auth was removed; help must not advertise --username/--password
 #[test]
 fn test_auth_login_help_no_password_flags() {
@@ -1021,6 +1034,307 @@ async fn test_login_json_proceeds_when_client_id_differs() {
     assert!(
         error.contains("requires browser interaction"),
         "expected JSON error to mention 'requires browser interaction', got: {error}"
+    );
+}
+
+// ── Client check functional tests ──
+
+/// An unknown client ID stops before the browser step with a usage error
+/// naming where the ID came from.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_login_unknown_client_id_stops_before_browser() {
+    let server = MockServer::start().await;
+
+    // Stub the authorize endpoint to return a 302 with "client not found".
+    Mock::given(method("GET"))
+        .and(path("/iam/v3/oauth/authorize"))
+        .respond_with(ResponseTemplate::new(302).insert_header(
+            "Location",
+            format!(
+                "{}/auth/?error=unauthorized_client&error_description=client+not+found&state=s",
+                server.uri()
+            ),
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let output = ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            &server.uri(),
+            "--client-id",
+            "scott-cli",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "expected failure, got {:?}\nstdout: {}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("IAM has no client with ID \"scott-cli\" (from --client-id)."),
+        "expected client-not-found error in stderr, got:\n{stderr}"
+    );
+    // Must NOT reach the browser step or the non-interactive refusal.
+    assert!(
+        !stderr.contains("requires browser interaction"),
+        "must not reach browser-interaction refusal:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("Open this URL"),
+        "must not print the sign-in link:\n{stderr}"
+    );
+}
+
+/// A known client ID passes the check and proceeds to the browser step.
+/// With --no-input, the command ends at "requires browser interaction".
+#[tokio::test]
+#[serial_test::serial]
+async fn test_login_known_client_id_passes_check() {
+    let server = MockServer::start().await;
+
+    // Stub the authorize endpoint to return a 302 to a login page.
+    Mock::given(method("GET"))
+        .and(path("/iam/v3/oauth/authorize"))
+        .respond_with(
+            ResponseTemplate::new(302).insert_header(
+                "Location",
+                format!(
+                    "{}/auth/?client_id=good-id&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080&request_id=r",
+                    server.uri()
+                ),
+            ),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let output = ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            &server.uri(),
+            "--client-id",
+            "good-id",
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("requires browser interaction"),
+        "expected browser-interaction refusal, got:\n{stderr}"
+    );
+    // The client check error must NOT appear.
+    assert!(
+        !stderr.contains("IAM has no client"),
+        "must not show client-not-found error:\n{stderr}"
+    );
+}
+
+/// When the check cannot reach IAM, the CLI warns and continues.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_login_check_unreachable_continues() {
+    // Bind a port, read it, then drop the listener so nothing listens.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let closed_port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let base_url = format!("http://127.0.0.1:{closed_port}");
+
+    let output = ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            &base_url,
+            "--client-id",
+            "any-id",
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Could not check the client ID with IAM"),
+        "expected unreachable warning, got:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("code_challenge"),
+        "unreachable warning must not repeat the authorize URL with its query:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("error sending request."),
+        "unreachable warning should include the underlying network cause, not just the top-level text:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("requires browser interaction"),
+        "expected browser-interaction refusal (login continues after warning), got:\n{stderr}"
+    );
+}
+
+/// When the client's registered redirect URI points to 127.0.0.1 but on
+/// a different port, the CLI warns about the mismatch and suggests the
+/// correct --port value. The older guessing warning ("The login callback
+/// will use port ...") is skipped because IAM already named the URI.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_login_redirect_port_mismatch_warns() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/iam/v3/oauth/authorize"))
+        .respond_with(
+            ResponseTemplate::new(302).insert_header(
+                "Location",
+                format!(
+                    "{}/auth/?client_id=good-id&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080&request_id=r",
+                    server.uri()
+                ),
+            ),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let output = ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            &server.uri(),
+            "--client-id",
+            "good-id",
+            "--port",
+            "9000",
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "Your IAM client sends the browser to http://127.0.0.1:8080, but this login listens on port 9000."
+        ),
+        "expected port-mismatch warning, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains(
+            "Run with --port 8080, or add http://127.0.0.1:9000 to the client's redirect URIs."
+        ),
+        "expected port-mismatch tip, got:\n{stderr}"
+    );
+    // The older guessing warning must be skipped when IAM named the redirect URI.
+    assert!(
+        !stderr.contains("The login callback will use port 9000"),
+        "older guessing warning must be suppressed when the redirect URI is known:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("requires browser interaction"),
+        "expected login to continue past the check, got:\n{stderr}"
+    );
+}
+
+/// When the client's registered redirect URI is not a loopback address,
+/// the CLI warns that the sign-in cannot return to the CLI and suggests
+/// adding a loopback URI.
+#[tokio::test]
+#[serial_test::serial]
+async fn test_login_redirect_not_loopback_warns() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/iam/v3/oauth/authorize"))
+        .respond_with(
+            ResponseTemplate::new(302).insert_header(
+                "Location",
+                format!(
+                    "{}/auth/?client_id=good-id&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&request_id=r",
+                    server.uri()
+                ),
+            ),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let output = ags_isolated()
+        .args([
+            "--no-input",
+            "auth",
+            "login",
+            "--base-url",
+            &server.uri(),
+            "--client-id",
+            "good-id",
+        ])
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "Your IAM client sends the browser to https://example.com/callback, so the sign-in cannot return to the CLI."
+        ),
+        "expected non-loopback warning, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("Add http://127.0.0.1:8080 to the client's redirect URIs."),
+        "expected non-loopback tip, got:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("requires browser interaction"),
+        "expected login to continue past the check, got:\n{stderr}"
     );
 }
 

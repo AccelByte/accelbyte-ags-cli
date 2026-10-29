@@ -39,7 +39,7 @@ pub(crate) enum AdapterMode {
 
 /// Upper bound on flushing the step-telemetry client. `posthog-rs`'s default
 /// client has no request-timeout override configured by
-/// `TelemetryClient::from_env()`, so a black-holed connection could otherwise
+/// `TelemetryClient::for_profile()`, so a black-holed connection could otherwise
 /// stall a flush for a long time (its default request timeout times its
 /// default retry count) — well past the point the command has already
 /// finished all its real work. Telemetry must never delay CLI exit, so this

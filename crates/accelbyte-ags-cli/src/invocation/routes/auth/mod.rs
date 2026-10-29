@@ -23,6 +23,28 @@ use ags_runtime::runtime::auth::errors::AuthError;
 /// `--port` is not supplied.
 const DEFAULT_CALLBACK_PORT: u16 = 8080;
 
+/// Prompt shown when the user needs to enter a Base URL, in both login flows.
+const BASE_URL_PROMPT: &str =
+    "Enter Base URL (e.g. https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io): ";
+
+/// Prompt shown when the user needs to enter a Client ID in the browser flow,
+/// with the option to leave it empty to create a new one.
+const CLIENT_ID_PROMPT: &str =
+    "Enter Client ID (e.g. 2c7308eb4f3d48e3b892fa0794f14a9c, or leave empty to create a new one): ";
+
+/// Prompt shown after the create-client link, asking for the new client's ID.
+const NEW_CLIENT_ID_PROMPT: &str = "Paste the new client's Client ID: ";
+
+/// Prompt shown when the user needs to enter a Client ID in the
+/// client-credentials flow (no create option).
+const CREDENTIALS_CLIENT_ID_PROMPT: &str =
+    "Enter Client ID (e.g. 2c7308eb4f3d48e3b892fa0794f14a9c): ";
+
+/// Build the line naming which IAM client the CLI is signing in with.
+fn signing_in_line(client_id: &str) -> String {
+    format!("Signing in with IAM client {client_id}")
+}
+
 /// Run the `ags auth` command path, owning frontend construction and lifecycle.
 ///
 /// Parse/help exits happen before frontend construction; each subcommand emits
@@ -288,25 +310,35 @@ async fn handle_login_with_browser(
         flag_base_url,
         ags_runtime::runtime::auth::credentials::resolve_base_url_value(profile),
         is_prompt_blocked,
-        "Enter Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io): ",
+        BASE_URL_PROMPT,
         "Base URL is required.",
         "Provide --base-url or set AGS_BASE_URL when running non-interactively.",
     )?;
 
-    let (client_id, redirect_hint_shown) = match flag_client_id
-        .or_else(|| ags_runtime::runtime::auth::credentials::resolve_client_id_value(profile))
+    // Resolve client ID with source tracking so error messages can name
+    // where the value came from (--client-id, AGS_CLIENT_ID, or profile).
+    let (client_id, source, redirect_hint_shown) = if let Some(id) = flag_client_id {
+        (id, ClientIdSource::Flag, false)
+    } else if let Some((id, credential_source)) =
+        ags_runtime::runtime::auth::credentials::resolve_client_id(profile)
     {
-        Some(client_id) => (client_id, false),
-        None if is_prompt_blocked => {
-            return Err(CliError::Usage {
-                message: "Provide --client-id or set AGS_CLIENT_ID when running non-interactively."
-                    .to_string(),
-                metadata: None,
-            });
-        }
-        None => {
-            prompt_client_id_with_create_guide(&base_url, profile, namespace_flag, callback_port)?
-        }
+        let source = match credential_source {
+            ags_runtime::runtime::auth::credentials::CredentialSource::Environment => {
+                ClientIdSource::Environment
+            }
+            _ => ClientIdSource::Profile(profile.to_string()),
+        };
+        (id, source, false)
+    } else if is_prompt_blocked {
+        return Err(CliError::Usage {
+            message: "Provide --client-id or set AGS_CLIENT_ID when running non-interactively."
+                .to_string(),
+            metadata: None,
+        });
+    } else {
+        let (id, hint) =
+            prompt_client_id_with_create_guide(&base_url, profile, namespace_flag, callback_port)?;
+        (id, ClientIdSource::Prompt, hint)
     };
 
     // Probe BEFORE binding the callback port or printing any browser URL.
@@ -325,6 +357,29 @@ async fn handle_login_with_browser(
         return Ok(output);
     }
 
+    // Generate the PKCE pair and state before the check so the check and
+    // the browser use the same authorize URL.
+    let (code_verifier, code_challenge) = oauth::generate_pkce_pair();
+    let state = oauth::generate_state();
+
+    // Check the client ID with IAM before the browser step. A wrong
+    // client ID is the more specific error, so a non-interactive caller
+    // sees it before the "requires browser interaction" refusal.
+    let (client_id, authorize_url, skip_old_port_warning, redirect_hint_shown) =
+        verify_client_with_iam(
+            &base_url,
+            client_id,
+            &source,
+            &code_challenge,
+            &state,
+            callback_port,
+            frontend,
+            profile,
+            namespace_flag,
+            redirect_hint_shown,
+        )
+        .await?;
+
     // Probe didn't short-circuit and the browser flow needs a TTY. Reject
     // cleanly instead of opening a browser the caller can't drive.
     if is_prompt_blocked {
@@ -336,11 +391,9 @@ async fn handle_login_with_browser(
         });
     }
 
-    // The authorize URL omits redirect_uri, so IAM redirects to the client's
-    // registered URI. On a mismatched port the callback never arrives and
-    // login only ends at the callback timeout. The create-client guide
-    // already said this for a client made during this run.
-    if callback_port != DEFAULT_CALLBACK_PORT && !redirect_hint_shown {
+    // When the check returned a redirect_uri, its verdict replaces
+    // today's port warning. Otherwise, the old warning still applies.
+    if !skip_old_port_warning && callback_port != DEFAULT_CALLBACK_PORT && !redirect_hint_shown {
         frontend.render_warning(
             &format!(
                 "The login callback will use port {callback_port}. Your IAM client's redirect URI must be http://127.0.0.1:{callback_port}."
@@ -350,19 +403,15 @@ async fn handle_login_with_browser(
         );
     }
 
-    let (code_verifier, code_challenge) = oauth::generate_pkce_pair();
-    let state = oauth::generate_state();
-
-    // Build the authorize URL first so an invalid base URL fails fast,
-    // before we bind the callback port.
-    let authorize_url = oauth::build_authorize_url(&base_url, &client_id, &state, &code_challenge)
-        .map_err(ags_protocol::error::RuntimeError::from)?;
-
     // Bind callback port before printing the URL to avoid TOCTOU races.
     let listener = oauth::bind_callback_port(callback_port).await?;
 
     // The authorize-URL block writes directly to stderr — no owned login run
     // lifecycle exists yet, and stdout stays free for JSON.
+    crate::frontend::write_stderr_line(&style::info(
+        &signing_in_line(&client_id),
+        style::is_stderr_enabled(),
+    ));
     crate::frontend::write_stderr_line(""); // blank line separator
     crate::frontend::write_stderr_line(&style::info(
         "Open this URL in your browser to authenticate",
@@ -421,7 +470,7 @@ async fn handle_login_with_client_credentials(
         flag_base_url,
         ags_runtime::runtime::auth::credentials::resolve_base_url_value(profile),
         is_prompt_blocked,
-        "Enter Base URL (e.g. https://<your-namespace>.prod.gamingservices.accelbyte.io): ",
+        BASE_URL_PROMPT,
         "Base URL is required.",
         "Provide --base-url or set AGS_BASE_URL when using --no-input.",
     )?;
@@ -430,7 +479,7 @@ async fn handle_login_with_client_credentials(
         flag_client_id,
         ags_runtime::runtime::auth::credentials::resolve_client_id_value(profile),
         is_prompt_blocked,
-        "Enter Client ID: ",
+        CREDENTIALS_CLIENT_ID_PROMPT,
         "Client ID is required.",
         "Provide --client-id or set AGS_CLIENT_ID when using --no-input.",
     )?;
@@ -596,21 +645,8 @@ async fn await_callback(
     let server_handle = tokio::spawn(oauth::start_callback_server(listener, timeout_seconds));
     let start = std::time::Instant::now();
 
-    // Spinner appends "(Ctrl-C to cancel)" so the user knows
-    // the wait is interruptible.
-    let spinner_message = |remaining: u64| -> String {
-        if remaining == 0 {
-            format!(
-                "Listening on http://127.0.0.1:{callback_port} for browser callback... \
-                 waiting (Ctrl-C to cancel)"
-            )
-        } else {
-            format!(
-                "Listening on http://127.0.0.1:{callback_port} for browser callback... \
-                 {remaining}s remaining (Ctrl-C to cancel)"
-            )
-        }
-    };
+    let spinner_message =
+        |remaining: u64| -> String { login_wait_message(callback_port, remaining) };
 
     let mut status_line = progress::StatusLine::new(false);
     status_line.show(&spinner_message(timeout_seconds));
@@ -738,7 +774,7 @@ fn prompt_client_id_with_create_guide(
     namespace_flag: Option<&str>,
     callback_port: u16,
 ) -> Result<(String, bool), CliError> {
-    let client_id = read_prompt_line("Enter Client ID (or press Enter to create one): ")?;
+    let client_id = read_prompt_line(CLIENT_ID_PROMPT)?;
     if !client_id.is_empty() {
         return Ok((client_id, false));
     }
@@ -768,7 +804,7 @@ fn prompt_client_id_with_create_guide(
     crate::frontend::write_stderr_line("");
 
     let client_id = require_input(
-        read_prompt_line("Enter Client ID: ")?,
+        read_prompt_line(NEW_CLIENT_ID_PROMPT)?,
         "Client ID is required.",
     )?;
     Ok((client_id, true))
@@ -812,6 +848,18 @@ fn create_client_url(base_url: &str, namespace: &str) -> Result<String, CliError
         .map_err(ags_protocol::error::RuntimeError::from)?)
 }
 
+/// Build the login wait message for the callback spinner.
+///
+/// With the status symbol prefix (`∘ `, 2 columns), the counting-down line
+/// at port 8080 / 120 seconds is 79 columns, fitting an 80-column terminal.
+pub(crate) fn login_wait_message(callback_port: u16, remaining: u64) -> String {
+    if remaining > 0 {
+        format!("Waiting for browser sign-in on 127.0.0.1:{callback_port}... {remaining}s left (Ctrl-C to cancel)")
+    } else {
+        format!("Waiting for browser sign-in on 127.0.0.1:{callback_port}... (Ctrl-C to cancel)")
+    }
+}
+
 fn read_prompt_line(prompt: &str) -> Result<String, CliError> {
     crate::frontend::write_stderr(prompt);
     let mut input = String::new();
@@ -834,11 +882,398 @@ fn require_input(value: String, empty_error: &str) -> Result<String, CliError> {
     Ok(value)
 }
 
+// ── Client check: source tracking, messages, and decision logic ──
+
+/// Where the client ID came from, for error messages that name the source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClientIdSource {
+    Flag,
+    Environment,
+    Profile(String),
+    Prompt,
+}
+
+impl std::fmt::Display for ClientIdSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Flag => write!(f, "--client-id"),
+            Self::Environment => write!(f, "AGS_CLIENT_ID"),
+            Self::Profile(name) => write!(f, "profile \"{name}\""),
+            Self::Prompt => write!(f, "prompt"),
+        }
+    }
+}
+
+/// What the redirect URI from IAM means for this login.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RedirectUriCheck {
+    /// Loopback host on the callback port: no warning needed.
+    NoWarning,
+    /// Loopback host but on a different port.
+    PortMismatch { registered_port: u16 },
+    /// Not a loopback host: the browser cannot return to the CLI.
+    NotLoopback,
+}
+
+/// Classify a redirect URI from IAM against the login's callback port.
+fn classify_redirect_uri(redirect_uri: &str, callback_port: u16) -> RedirectUriCheck {
+    if let Ok(parsed) = reqwest::Url::parse(redirect_uri) {
+        let host = parsed.host_str().unwrap_or("");
+        let is_loopback = host == "127.0.0.1" || host == "localhost" || host == "[::1]";
+        let port = parsed.port_or_known_default().unwrap_or(80);
+        if is_loopback && port == callback_port {
+            RedirectUriCheck::NoWarning
+        } else if is_loopback {
+            RedirectUriCheck::PortMismatch {
+                registered_port: port,
+            }
+        } else {
+            RedirectUriCheck::NotLoopback
+        }
+    } else {
+        RedirectUriCheck::NotLoopback
+    }
+}
+
+// ── Client check message builders ──
+//
+// Each function builds the exact text the spec prescribes. Every
+// interpolated value passes through `terminal_safe` so the printed path
+// is clean even when IAM returns escape sequences.
+
+/// Maximum length (in characters) for values interpolated into printed
+/// messages. Longer values are truncated with a trailing ellipsis.
+const MAX_PRINTED_VALUE_CHARS: usize = 200;
+
+/// Strip terminal control sequences and cap the length of a value before
+/// interpolation into a printed message.
+fn terminal_safe(value: &str) -> String {
+    let cleaned = strip_terminal_control_sequences(value);
+    if cleaned.chars().count() > MAX_PRINTED_VALUE_CHARS {
+        let truncated: String = cleaned.chars().take(MAX_PRINTED_VALUE_CHARS - 1).collect();
+        format!("{truncated}\u{2026}")
+    } else {
+        cleaned
+    }
+}
+
+/// Warning shown at the prompt when IAM has no client with the entered ID.
+fn client_not_found_warning_message(id: &str) -> String {
+    let id = terminal_safe(id);
+    format!("IAM has no client with ID \"{id}\".")
+}
+
+const CLIENT_NOT_FOUND_WARNING_TIP: &str =
+    "A client ID looks like 2c7308eb4f3d48e3b892fa0794f14a9c. It is not the client name.";
+
+/// Warning shown at the prompt when IAM rejects the entered client for another reason.
+fn client_rejected_warning_message(id: &str, error: &str) -> String {
+    let id = terminal_safe(id);
+    let error = terminal_safe(error);
+    format!("IAM rejected client \"{id}\": {error}.")
+}
+
+const CHECK_CLIENT_ID_TIP: &str = "Check the client ID in the Admin Portal.";
+
+/// Usage error for a configured client ID that IAM does not know, naming where the ID came from.
+fn client_not_found_error_message(id: &str, source: &ClientIdSource) -> String {
+    let id = terminal_safe(id);
+    format!("IAM has no client with ID \"{id}\" (from {source}).")
+}
+
+const CLIENT_NOT_FOUND_ERROR_SUGGESTION: &str = "Use the client ID shown in the Admin Portal. It looks like 2c7308eb4f3d48e3b892fa0794f14a9c, not the client name.";
+
+/// Usage error for a configured client ID that IAM rejects for another reason, naming where the ID came from.
+fn client_rejected_error_message(id: &str, source: &ClientIdSource, error: &str) -> String {
+    let id = terminal_safe(id);
+    let error = terminal_safe(error);
+    format!("IAM rejected client \"{id}\" (from {source}): {error}.")
+}
+
+const NO_VALID_CLIENT_MESSAGE: &str = "No valid client ID after 3 attempts.";
+
+const NO_VALID_CLIENT_SUGGESTION: &str =
+    "Run 'ags auth login' again, or leave the Client ID prompt empty to create a new client.";
+
+/// Warning when the client's registered redirect URI is on another loopback port than this login.
+fn redirect_port_mismatch_message(redirect_uri: &str, callback_port: u16) -> String {
+    let redirect_uri = terminal_safe(redirect_uri);
+    format!("Your IAM client sends the browser to {redirect_uri}, but this login listens on port {callback_port}.")
+}
+
+/// Tip that names both ways to fix a redirect port mismatch.
+fn redirect_port_mismatch_tip(registered_port: u16, callback_port: u16) -> String {
+    format!("Run with --port {registered_port}, or add http://127.0.0.1:{callback_port} to the client's redirect URIs.")
+}
+
+/// Warning when the client's registered redirect URI is not a loopback address.
+fn redirect_not_loopback_message(redirect_uri: &str) -> String {
+    let redirect_uri = terminal_safe(redirect_uri);
+    format!("Your IAM client sends the browser to {redirect_uri}, so the sign-in cannot return to the CLI.")
+}
+
+/// Tip that names the redirect URI to add for this login's callback port.
+fn redirect_not_loopback_tip(callback_port: u16) -> String {
+    format!("Add http://127.0.0.1:{callback_port} to the client's redirect URIs.")
+}
+
+/// Warning when the client check cannot reach IAM; the login continues.
+fn check_unreachable_message(base_url: &str, reason: &str) -> String {
+    let base_url = terminal_safe(base_url);
+    let reason = terminal_safe(reason);
+    format!("Could not check the client ID with IAM at {base_url}: {reason}.")
+}
+
+const CHECK_UNREACHABLE_TIP: &str =
+    "The login continues. If the browser shows an error, check the Base URL and the client ID.";
+
+/// Status line shown on a terminal while the client check waits for IAM.
+const CLIENT_CHECK_STATUS: &str = "Checking the client ID with IAM...";
+
+/// Effects needed by the client-check loop, injected so unit tests can
+/// drive the loop with scripted check results, canned answers, and
+/// recorded warnings.
+trait ClientCheckIo {
+    /// Send one GET to the authorize URL and classify IAM's redirect.
+    fn check(
+        &mut self,
+        authorize_url: &str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = oauth::ClientCheck> + '_>>;
+    /// Ask the user for a new client ID (with the create guide).
+    /// Returns the new ID and whether the create guide was shown.
+    fn ask_again(&mut self) -> Result<(String, bool), CliError>;
+    /// Print a warning to the frontend.
+    fn warn(&mut self, message: &str, reason: Option<&str>, tip: Option<&str>);
+}
+
+/// A unified rejection from the client check, carrying all the text needed
+/// for both the warning (interactive ask-again path) and the usage error
+/// (configured-ID stop path).
+struct Rejection {
+    warning_message: String,
+    warning_reason: Option<String>,
+    warning_tip: &'static str,
+    configured_error_message: String,
+    configured_error_suggestion: &'static str,
+    configured_error_detail: Option<String>,
+}
+
+/// Run the client-check loop: check the client ID with IAM, and on
+/// rejection either ask again (up to three attempts for a prompted ID) or
+/// stop with a usage error (for a configured ID).
+///
+/// Returns `(final_client_id, authorize_url, skip_old_port_warning, redirect_hint_shown)`.
+#[allow(clippy::too_many_arguments)]
+async fn run_client_check_loop(
+    io: &mut impl ClientCheckIo,
+    base_url: &str,
+    initial_client_id: String,
+    source: &ClientIdSource,
+    code_challenge: &str,
+    state: &str,
+    callback_port: u16,
+    initial_redirect_hint_shown: bool,
+) -> Result<(String, String, bool, bool), CliError> {
+    let is_prompted = *source == ClientIdSource::Prompt;
+    let mut client_id = initial_client_id;
+    let mut redirect_hint_shown = initial_redirect_hint_shown;
+    let mut attempt: usize = 1;
+
+    loop {
+        let authorize_url = oauth::build_authorize_url(base_url, &client_id, state, code_challenge)
+            .map_err(ags_protocol::error::RuntimeError::from)?;
+
+        let check = io.check(&authorize_url).await;
+
+        // NotFound and Rejected both map to a Rejection value so the
+        // ask-again-or-stop decision is written once.
+        let rejection = match &check {
+            oauth::ClientCheck::NotFound => Some(Rejection {
+                warning_message: client_not_found_warning_message(&client_id),
+                warning_reason: None,
+                warning_tip: CLIENT_NOT_FOUND_WARNING_TIP,
+                configured_error_message: client_not_found_error_message(&client_id, source),
+                configured_error_suggestion: CLIENT_NOT_FOUND_ERROR_SUGGESTION,
+                configured_error_detail: None,
+            }),
+            oauth::ClientCheck::Rejected { error, description } => {
+                let clean_desc = description.as_deref().map(terminal_safe);
+                Some(Rejection {
+                    warning_message: client_rejected_warning_message(&client_id, error),
+                    warning_reason: clean_desc.clone(),
+                    warning_tip: CHECK_CLIENT_ID_TIP,
+                    configured_error_message: client_rejected_error_message(
+                        &client_id, source, error,
+                    ),
+                    configured_error_suggestion: CHECK_CLIENT_ID_TIP,
+                    configured_error_detail: clean_desc,
+                })
+            }
+            _ => None,
+        };
+
+        if let Some(rej) = rejection {
+            if is_prompted && attempt < 3 {
+                io.warn(
+                    &rej.warning_message,
+                    rej.warning_reason.as_deref(),
+                    Some(rej.warning_tip),
+                );
+                let (new_id, guide_shown) = io.ask_again()?;
+                client_id = new_id;
+                redirect_hint_shown = redirect_hint_shown || guide_shown;
+                attempt += 1;
+                continue;
+            }
+            if is_prompted {
+                return Err(CliError::Usage {
+                    message: NO_VALID_CLIENT_MESSAGE.to_string(),
+                    metadata: Some(Box::new(crate::errors::ErrorMetadata::with_suggestion(
+                        NO_VALID_CLIENT_SUGGESTION,
+                    ))),
+                });
+            }
+            let mut meta =
+                crate::errors::ErrorMetadata::with_suggestion(rej.configured_error_suggestion);
+            meta.detail = rej.configured_error_detail;
+            return Err(CliError::Usage {
+                message: rej.configured_error_message,
+                metadata: Some(Box::new(meta)),
+            });
+        }
+
+        match check {
+            oauth::ClientCheck::Accepted { redirect_uri } => {
+                let mut skip_port_warning = false;
+                if let Some(ref uri) = redirect_uri {
+                    match classify_redirect_uri(uri, callback_port) {
+                        RedirectUriCheck::NoWarning => {
+                            skip_port_warning = true;
+                        }
+                        RedirectUriCheck::PortMismatch { registered_port } => {
+                            let msg = redirect_port_mismatch_message(uri, callback_port);
+                            let tip = redirect_port_mismatch_tip(registered_port, callback_port);
+                            io.warn(&msg, None, Some(&tip));
+                            skip_port_warning = true;
+                        }
+                        RedirectUriCheck::NotLoopback => {
+                            let msg = redirect_not_loopback_message(uri);
+                            let tip = redirect_not_loopback_tip(callback_port);
+                            io.warn(&msg, None, Some(&tip));
+                            skip_port_warning = true;
+                        }
+                    }
+                }
+                return Ok((
+                    client_id,
+                    authorize_url,
+                    skip_port_warning,
+                    redirect_hint_shown,
+                ));
+            }
+            oauth::ClientCheck::Inconclusive => {
+                return Ok((client_id, authorize_url, false, redirect_hint_shown));
+            }
+            oauth::ClientCheck::Unreachable { reason } => {
+                let msg = check_unreachable_message(base_url, &reason);
+                io.warn(&msg, None, Some(CHECK_UNREACHABLE_TIP));
+                return Ok((client_id, authorize_url, false, redirect_hint_shown));
+            }
+            // NotFound and Rejected are handled above via the rejection path.
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// Check the client ID with IAM before the browser step.
+///
+/// For a prompted client ID that IAM rejects, warns and asks again
+/// (up to three answers total). For a configured client ID, returns a
+/// usage error. The check never blocks a login that would otherwise work:
+/// an unreachable IAM or an inconclusive response continues as today.
+///
+/// Returns `(final_client_id, authorize_url, skip_old_port_warning, redirect_hint_shown)`.
+#[allow(clippy::too_many_arguments)]
+async fn verify_client_with_iam(
+    base_url: &str,
+    client_id: String,
+    source: &ClientIdSource,
+    code_challenge: &str,
+    state: &str,
+    callback_port: u16,
+    frontend: &mut dyn crate::frontend::Frontend,
+    profile: &str,
+    namespace_flag: Option<&str>,
+    redirect_hint_shown: bool,
+) -> Result<(String, String, bool, bool), CliError> {
+    struct ProductionIo<'a> {
+        frontend: &'a mut dyn crate::frontend::Frontend,
+        base_url: &'a str,
+        profile: &'a str,
+        namespace_flag: Option<&'a str>,
+        callback_port: u16,
+    }
+
+    impl<'a> ClientCheckIo for ProductionIo<'a> {
+        fn check(
+            &mut self,
+            authorize_url: &str,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = oauth::ClientCheck> + '_>> {
+            let url = authorize_url.to_string();
+            Box::pin(async move {
+                // Cleared before returning, so no warning, prompt or sign-in
+                // link is printed while the line is still on screen.
+                let mut status_line = progress::StatusLine::new(false);
+                status_line.show(CLIENT_CHECK_STATUS);
+                let check = oauth::check_client(&url).await;
+                status_line.clear();
+                check
+            })
+        }
+        fn ask_again(&mut self) -> Result<(String, bool), CliError> {
+            prompt_client_id_with_create_guide(
+                self.base_url,
+                self.profile,
+                self.namespace_flag,
+                self.callback_port,
+            )
+        }
+        fn warn(&mut self, message: &str, reason: Option<&str>, tip: Option<&str>) {
+            self.frontend.render_warning(message, reason, tip);
+        }
+    }
+
+    let mut io = ProductionIo {
+        frontend,
+        base_url,
+        profile,
+        namespace_flag,
+        callback_port,
+    };
+    run_client_check_loop(
+        &mut io,
+        base_url,
+        client_id,
+        source,
+        code_challenge,
+        state,
+        callback_port,
+        redirect_hint_shown,
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        create_client_form_fields, create_client_port_warning, create_client_url, is_tip_due,
-        TIP_AFTER_SECS,
+        check_unreachable_message, classify_redirect_uri, client_not_found_error_message,
+        client_not_found_warning_message, client_rejected_error_message,
+        client_rejected_warning_message, create_client_form_fields, create_client_port_warning,
+        create_client_url, is_tip_due, redirect_not_loopback_message, redirect_not_loopback_tip,
+        redirect_port_mismatch_message, redirect_port_mismatch_tip, ClientIdSource,
+        RedirectUriCheck, CHECK_CLIENT_ID_TIP, CLIENT_CHECK_STATUS,
+        CLIENT_NOT_FOUND_ERROR_SUGGESTION, CLIENT_NOT_FOUND_WARNING_TIP, NO_VALID_CLIENT_MESSAGE,
+        NO_VALID_CLIENT_SUGGESTION, TIP_AFTER_SECS,
     };
     use crate::errors::CliError;
 
@@ -893,6 +1328,43 @@ mod tests {
         assert!(warning.contains("http://127.0.0.1:9000"), "{warning}");
     }
 
+    #[test]
+    fn test_login_wait_message_fits_80_columns() {
+        use unicode_width::UnicodeWidthStr;
+
+        let counting = super::login_wait_message(8080, 120);
+        assert_eq!(
+            counting,
+            "Waiting for browser sign-in on 127.0.0.1:8080... 120s left (Ctrl-C to cancel)"
+        );
+        // With the status symbol prefix "∘ " (2 columns), the line is 79 columns.
+        let with_prefix = format!("\u{2218} {counting}");
+        assert_eq!(
+            UnicodeWidthStr::width(with_prefix.as_str()),
+            79,
+            "counting-down line with prefix must be 79 columns: {with_prefix:?}"
+        );
+
+        let zero = super::login_wait_message(8080, 0);
+        assert_eq!(
+            zero,
+            "Waiting for browser sign-in on 127.0.0.1:8080... (Ctrl-C to cancel)"
+        );
+    }
+
+    #[test]
+    fn test_client_check_status_text() {
+        use unicode_width::UnicodeWidthStr;
+
+        assert_eq!(CLIENT_CHECK_STATUS, "Checking the client ID with IAM...");
+        // With the status symbol prefix "∘ " (2 columns), the line fits an 80-column terminal.
+        let with_prefix = format!("\u{2218} {CLIENT_CHECK_STATUS}");
+        assert!(
+            UnicodeWidthStr::width(with_prefix.as_str()) <= 79,
+            "client check status line with prefix must be at most 79 columns: {with_prefix:?}"
+        );
+    }
+
     /// `..` would otherwise drop the namespace from the link's path
     #[test]
     fn test_create_client_url_rejects_invalid_namespace() {
@@ -907,6 +1379,576 @@ mod tests {
                 other => panic!("expected usage error for '{namespace}', got {other:?}"),
             }
         }
+    }
+
+    #[test]
+    fn test_base_url_prompt_names_game_namespace() {
+        assert_eq!(
+            super::BASE_URL_PROMPT,
+            "Enter Base URL (e.g. https://<studio-id>-<title-id>.prod.gamingservices.accelbyte.io): "
+        );
+    }
+
+    #[test]
+    fn test_client_id_prompt_shows_example_and_empty_option() {
+        assert_eq!(
+            super::CLIENT_ID_PROMPT,
+            "Enter Client ID (e.g. 2c7308eb4f3d48e3b892fa0794f14a9c, or leave empty to create a new one): "
+        );
+    }
+
+    #[test]
+    fn test_new_client_id_prompt_text() {
+        assert_eq!(
+            super::NEW_CLIENT_ID_PROMPT,
+            "Paste the new client's Client ID: "
+        );
+    }
+
+    #[test]
+    fn test_client_credentials_client_id_prompt_text() {
+        assert_eq!(
+            super::CREDENTIALS_CLIENT_ID_PROMPT,
+            "Enter Client ID (e.g. 2c7308eb4f3d48e3b892fa0794f14a9c): "
+        );
+    }
+
+    #[test]
+    fn test_signing_in_line_names_client() {
+        assert_eq!(
+            super::signing_in_line("abc123"),
+            "Signing in with IAM client abc123"
+        );
+    }
+
+    // ── Client check message and decision tests ──
+
+    #[test]
+    fn test_client_not_found_messages_whole_text() {
+        // Interactive (prompted) case
+        assert_eq!(
+            client_not_found_warning_message("scott-cli"),
+            "IAM has no client with ID \"scott-cli\"."
+        );
+        assert_eq!(
+            CLIENT_NOT_FOUND_WARNING_TIP,
+            "A client ID looks like 2c7308eb4f3d48e3b892fa0794f14a9c. It is not the client name."
+        );
+        // Configured (flag/env/profile) case
+        assert_eq!(
+            client_not_found_error_message("scott-cli", &ClientIdSource::Flag),
+            "IAM has no client with ID \"scott-cli\" (from --client-id)."
+        );
+        assert_eq!(
+            client_not_found_error_message("scott-cli", &ClientIdSource::Environment),
+            "IAM has no client with ID \"scott-cli\" (from AGS_CLIENT_ID)."
+        );
+        assert_eq!(
+            client_not_found_error_message(
+                "scott-cli",
+                &ClientIdSource::Profile("work".to_string())
+            ),
+            "IAM has no client with ID \"scott-cli\" (from profile \"work\")."
+        );
+        assert_eq!(
+            CLIENT_NOT_FOUND_ERROR_SUGGESTION,
+            "Use the client ID shown in the Admin Portal. It looks like 2c7308eb4f3d48e3b892fa0794f14a9c, not the client name."
+        );
+        // Rejected (non-not-found) cases
+        assert_eq!(
+            client_rejected_warning_message("bad-id", "invalid_scope"),
+            "IAM rejected client \"bad-id\": invalid_scope."
+        );
+        assert_eq!(
+            CHECK_CLIENT_ID_TIP,
+            "Check the client ID in the Admin Portal."
+        );
+        assert_eq!(
+            client_rejected_error_message("bad-id", &ClientIdSource::Flag, "invalid_scope"),
+            "IAM rejected client \"bad-id\" (from --client-id): invalid_scope."
+        );
+        assert_eq!(
+            CHECK_CLIENT_ID_TIP,
+            "Check the client ID in the Admin Portal."
+        );
+        // Max-attempts case
+        assert_eq!(
+            NO_VALID_CLIENT_MESSAGE,
+            "No valid client ID after 3 attempts."
+        );
+        assert_eq!(
+            NO_VALID_CLIENT_SUGGESTION,
+            "Run 'ags auth login' again, or leave the Client ID prompt empty to create a new client."
+        );
+    }
+
+    #[test]
+    fn test_redirect_port_mismatch_warning_text() {
+        assert_eq!(
+            redirect_port_mismatch_message("http://127.0.0.1:9090", 8080),
+            "Your IAM client sends the browser to http://127.0.0.1:9090, but this login listens on port 8080."
+        );
+        assert_eq!(
+            redirect_port_mismatch_tip(9090, 8080),
+            "Run with --port 9090, or add http://127.0.0.1:8080 to the client's redirect URIs."
+        );
+    }
+
+    #[test]
+    fn test_redirect_not_loopback_warning_text() {
+        assert_eq!(
+            redirect_not_loopback_message("https://example.com/callback"),
+            "Your IAM client sends the browser to https://example.com/callback, so the sign-in cannot return to the CLI."
+        );
+        assert_eq!(
+            redirect_not_loopback_tip(8080),
+            "Add http://127.0.0.1:8080 to the client's redirect URIs."
+        );
+    }
+
+    #[test]
+    fn test_redirect_on_callback_port_needs_no_warning() {
+        assert_eq!(
+            classify_redirect_uri("http://127.0.0.1:8080", 8080),
+            RedirectUriCheck::NoWarning,
+        );
+        assert_eq!(
+            classify_redirect_uri("http://localhost:8080", 8080),
+            RedirectUriCheck::NoWarning,
+        );
+        assert_eq!(
+            classify_redirect_uri("http://[::1]:8080", 8080),
+            RedirectUriCheck::NoWarning,
+        );
+        // https without explicit port uses 443
+        assert_eq!(
+            classify_redirect_uri("https://localhost/callback", 443),
+            RedirectUriCheck::NoWarning,
+        );
+        // Different port
+        assert_eq!(
+            classify_redirect_uri("http://127.0.0.1:9090", 8080),
+            RedirectUriCheck::PortMismatch {
+                registered_port: 9090,
+            },
+        );
+        // Not loopback
+        assert_eq!(
+            classify_redirect_uri("https://example.com/callback", 8080),
+            RedirectUriCheck::NotLoopback,
+        );
+    }
+
+    /// A prompted client ID that is rejected gets asked again for the first
+    /// and second answers; the third rejected answer stops. Exercised
+    /// through the real loop with a scripted fake.
+    #[test]
+    fn test_prompted_id_rejected_asks_again() {
+        let mut io = FakeCheckIo::new(
+            vec![
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::Accepted { redirect_uri: None },
+            ],
+            vec![("second".to_string(), false), ("third".to_string(), false)],
+        );
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = rt.block_on(super::run_client_check_loop(
+            &mut io,
+            "https://demo.accelbyte.io",
+            "first".to_string(),
+            &ClientIdSource::Prompt,
+            "challenge",
+            "state",
+            8080,
+            false,
+        ));
+        assert!(result.is_ok(), "should have accepted on third answer");
+        assert_eq!(io.warnings.len(), 2, "two ask-again warnings");
+    }
+
+    /// A configured client ID stops at the first rejection without asking
+    /// again. Exercised through the real loop with a scripted fake.
+    #[test]
+    fn test_configured_id_rejected_stops() {
+        for source in [
+            ClientIdSource::Flag,
+            ClientIdSource::Environment,
+            ClientIdSource::Profile("p".to_string()),
+        ] {
+            let mut io = FakeCheckIo::new(vec![super::oauth::ClientCheck::NotFound], vec![]);
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .build()
+                .unwrap();
+            let result = rt.block_on(super::run_client_check_loop(
+                &mut io,
+                "https://demo.accelbyte.io",
+                "bad".to_string(),
+                &source,
+                "challenge",
+                "state",
+                8080,
+                false,
+            ));
+            assert!(result.is_err(), "configured source {source} should stop");
+            assert!(
+                io.warnings.is_empty(),
+                "configured source {source} should not warn"
+            );
+        }
+    }
+
+    /// Each message builder strips terminal control sequences from every
+    /// value it interpolates. The test gives each builder RAW values and
+    /// compares the result whole against the clean text.
+    #[test]
+    fn test_iam_values_are_stripped_before_printing() {
+        // RAW values containing ANSI SGR, reset, and BEL.
+        let dirty_id = "scott\x1b[31m-cli\x1b[0m\x07";
+        let dirty_error = "invalid\x1b[31m_scope\x1b[0m\x07";
+        let dirty_uri = "http://evil\x1b[31m.example\x1b[0m.com\x07:9090";
+        let dirty_reason = "connection \x1b[31mrefused\x1b[0m\x07";
+        let dirty_base = "https://demo\x1b[31m.accelbyte\x1b[0m.io\x07";
+
+        // 1. client_not_found_warning_message
+        assert_eq!(
+            client_not_found_warning_message(dirty_id),
+            "IAM has no client with ID \"scott-cli\"."
+        );
+
+        // 2. client_rejected_warning_message
+        assert_eq!(
+            client_rejected_warning_message(dirty_id, dirty_error),
+            "IAM rejected client \"scott-cli\": invalid_scope."
+        );
+
+        // 3. client_not_found_error_message
+        assert_eq!(
+            client_not_found_error_message(dirty_id, &ClientIdSource::Flag),
+            "IAM has no client with ID \"scott-cli\" (from --client-id)."
+        );
+
+        // 4. client_rejected_error_message
+        assert_eq!(
+            client_rejected_error_message(dirty_id, &ClientIdSource::Flag, dirty_error),
+            "IAM rejected client \"scott-cli\" (from --client-id): invalid_scope."
+        );
+
+        // 5. redirect_port_mismatch_message
+        assert_eq!(
+            redirect_port_mismatch_message(dirty_uri, 8080),
+            "Your IAM client sends the browser to http://evil.example.com:9090, but this login listens on port 8080."
+        );
+
+        // 6. redirect_not_loopback_message
+        assert_eq!(
+            redirect_not_loopback_message(dirty_uri),
+            "Your IAM client sends the browser to http://evil.example.com:9090, so the sign-in cannot return to the CLI."
+        );
+
+        // 7. check_unreachable_message
+        assert_eq!(
+            check_unreachable_message(dirty_base, dirty_reason),
+            "Could not check the client ID with IAM at https://demo.accelbyte.io: connection refused."
+        );
+    }
+
+    #[test]
+    fn test_printed_values_are_capped() {
+        let long_error = "e".repeat(1000);
+        let result = client_rejected_warning_message("x", &long_error);
+        let capped_error = format!("{}\u{2026}", "e".repeat(199));
+        assert_eq!(
+            result,
+            format!("IAM rejected client \"x\": {capped_error}.")
+        );
+    }
+
+    #[test]
+    fn test_check_unreachable_tip_whole_text() {
+        assert_eq!(
+            super::CHECK_UNREACHABLE_TIP,
+            "The login continues. If the browser shows an error, check the Base URL and the client ID."
+        );
+    }
+
+    // ── Client check loop tests ──
+
+    /// Scripted fake for [`super::ClientCheckIo`] that drives the loop with
+    /// queued check results, queued prompt answers, and recorded warnings.
+    struct FakeCheckIo {
+        checks: std::collections::VecDeque<super::oauth::ClientCheck>,
+        answers: std::collections::VecDeque<(String, bool)>,
+        warnings: Vec<(String, Option<String>, Option<String>)>,
+    }
+
+    impl FakeCheckIo {
+        /// Build a fake whose check results and prompt answers are returned in the given order.
+        fn new(checks: Vec<super::oauth::ClientCheck>, answers: Vec<(String, bool)>) -> Self {
+            Self {
+                checks: checks.into(),
+                answers: answers.into(),
+                warnings: Vec::new(),
+            }
+        }
+    }
+
+    impl super::ClientCheckIo for FakeCheckIo {
+        fn check(
+            &mut self,
+            _authorize_url: &str,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = super::oauth::ClientCheck> + '_>>
+        {
+            let result = self
+                .checks
+                .pop_front()
+                .expect("FakeCheckIo: no more check results in queue");
+            Box::pin(std::future::ready(result))
+        }
+        fn ask_again(&mut self) -> Result<(String, bool), CliError> {
+            let answer = self
+                .answers
+                .pop_front()
+                .expect("FakeCheckIo: no more answers in queue");
+            Ok(answer)
+        }
+        fn warn(&mut self, message: &str, reason: Option<&str>, tip: Option<&str>) {
+            self.warnings.push((
+                message.to_string(),
+                reason.map(|s| s.to_string()),
+                tip.map(|s| s.to_string()),
+            ));
+        }
+    }
+
+    #[test]
+    fn test_check_loop_asks_again_then_accepts() {
+        let mut io = FakeCheckIo::new(
+            vec![
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::Rejected {
+                    error: "invalid_scope".to_string(),
+                    description: Some("Scope not allowed".to_string()),
+                },
+                super::oauth::ClientCheck::Accepted {
+                    redirect_uri: Some("http://127.0.0.1:8080".to_string()),
+                },
+            ],
+            vec![("second".to_string(), false), ("third".to_string(), false)],
+        );
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = rt.block_on(super::run_client_check_loop(
+            &mut io,
+            "https://demo.accelbyte.io",
+            "first".to_string(),
+            &ClientIdSource::Prompt,
+            "challenge",
+            "state",
+            8080,
+            false,
+        ));
+        let (client_id, _url, skip_port, _hint) = result.unwrap();
+        assert_eq!(client_id, "third");
+        assert!(
+            skip_port,
+            "matching redirect_uri should suppress the old port warning"
+        );
+        assert_eq!(io.answers.len(), 0, "both answers should be consumed");
+        assert_eq!(io.warnings.len(), 2);
+        assert_eq!(
+            io.warnings[0],
+            (
+                "IAM has no client with ID \"first\".".to_string(),
+                None,
+                Some(
+                    "A client ID looks like 2c7308eb4f3d48e3b892fa0794f14a9c. It is not the client name."
+                        .to_string()
+                ),
+            )
+        );
+        assert_eq!(
+            io.warnings[1],
+            (
+                "IAM rejected client \"second\": invalid_scope.".to_string(),
+                Some("Scope not allowed".to_string()),
+                Some("Check the client ID in the Admin Portal.".to_string()),
+            )
+        );
+    }
+
+    #[test]
+    fn test_check_loop_stops_after_three_rejections() {
+        let mut io = FakeCheckIo::new(
+            vec![
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::NotFound,
+            ],
+            vec![("second".to_string(), false), ("third".to_string(), false)],
+        );
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = rt.block_on(super::run_client_check_loop(
+            &mut io,
+            "https://demo.accelbyte.io",
+            "first".to_string(),
+            &ClientIdSource::Prompt,
+            "challenge",
+            "state",
+            8080,
+            false,
+        ));
+        match result {
+            Err(CliError::Usage { message, .. }) => {
+                assert_eq!(message, "No valid client ID after 3 attempts.");
+            }
+            other => panic!("expected Usage error, got {other:?}"),
+        }
+        assert_eq!(io.answers.len(), 0, "should have asked again twice");
+    }
+
+    #[test]
+    fn test_check_loop_configured_id_stops_at_once() {
+        let mut io = FakeCheckIo::new(vec![super::oauth::ClientCheck::NotFound], vec![]);
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = rt.block_on(super::run_client_check_loop(
+            &mut io,
+            "https://demo.accelbyte.io",
+            "scott-cli".to_string(),
+            &ClientIdSource::Flag,
+            "challenge",
+            "state",
+            8080,
+            false,
+        ));
+        match result {
+            Err(CliError::Usage { message, .. }) => {
+                assert_eq!(
+                    message,
+                    "IAM has no client with ID \"scott-cli\" (from --client-id)."
+                );
+            }
+            other => panic!("expected Usage error, got {other:?}"),
+        }
+        assert!(
+            io.warnings.is_empty(),
+            "configured ID should not print a warning"
+        );
+    }
+
+    #[test]
+    fn test_check_loop_caps_iam_description() {
+        let long_desc = "d".repeat(1000);
+        let expected_capped = format!("{}\u{2026}", "d".repeat(199));
+
+        // With ClientIdSource::Flag the loop returns a Usage error whose
+        // detail is the capped description.
+        {
+            let mut io = FakeCheckIo::new(
+                vec![super::oauth::ClientCheck::Rejected {
+                    error: "invalid_request".to_string(),
+                    description: Some(long_desc.clone()),
+                }],
+                vec![],
+            );
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .build()
+                .unwrap();
+            let result = rt.block_on(super::run_client_check_loop(
+                &mut io,
+                "https://demo.accelbyte.io",
+                "flagged-id".to_string(),
+                &ClientIdSource::Flag,
+                "challenge",
+                "state",
+                8080,
+                false,
+            ));
+            match result {
+                Err(CliError::Usage { metadata, .. }) => {
+                    let meta = metadata.expect("metadata should be present");
+                    assert_eq!(
+                        meta.detail.as_deref(),
+                        Some(expected_capped.as_str()),
+                        "Flag path: detail must equal the capped description"
+                    );
+                }
+                other => panic!("expected Usage error, got {other:?}"),
+            }
+        }
+
+        // With ClientIdSource::Prompt and answers that end in acceptance,
+        // the recorded warning's reason is the capped description.
+        {
+            let mut io = FakeCheckIo::new(
+                vec![
+                    super::oauth::ClientCheck::Rejected {
+                        error: "invalid_request".to_string(),
+                        description: Some(long_desc),
+                    },
+                    super::oauth::ClientCheck::Accepted {
+                        redirect_uri: Some("http://127.0.0.1:8080".to_string()),
+                    },
+                ],
+                vec![("good-id".to_string(), false)],
+            );
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .build()
+                .unwrap();
+            let result = rt.block_on(super::run_client_check_loop(
+                &mut io,
+                "https://demo.accelbyte.io",
+                "first".to_string(),
+                &ClientIdSource::Prompt,
+                "challenge",
+                "state",
+                8080,
+                false,
+            ));
+            assert!(result.is_ok(), "should succeed on second attempt");
+            assert_eq!(io.warnings.len(), 1);
+            assert_eq!(
+                io.warnings[0].1.as_deref(),
+                Some(expected_capped.as_str()),
+                "Prompt path: warning reason must equal the capped description"
+            );
+        }
+    }
+
+    #[test]
+    fn test_check_loop_keeps_create_guide_flag() {
+        let mut io = FakeCheckIo::new(
+            vec![
+                super::oauth::ClientCheck::NotFound,
+                super::oauth::ClientCheck::Accepted { redirect_uri: None },
+            ],
+            vec![("second".to_string(), true)],
+        );
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let result = rt.block_on(super::run_client_check_loop(
+            &mut io,
+            "https://demo.accelbyte.io",
+            "first".to_string(),
+            &ClientIdSource::Prompt,
+            "challenge",
+            "state",
+            8080,
+            false,
+        ));
+        let (_id, _url, _skip, hint_shown) = result.unwrap();
+        assert!(
+            hint_shown,
+            "the create-guide flag from the re-prompt should be preserved"
+        );
     }
 }
 

@@ -10,6 +10,7 @@ use tokio::net::TcpListener;
 
 use ags_protocol::error::RuntimeError;
 use ags_runtime::runtime::auth::errors::AuthError;
+use ags_runtime::runtime::dispatch::http::build_http_client;
 
 /// PKCE `code_verifier` length in characters (RFC 7636 allows 43–128; we use
 /// the maximum for entropy).
@@ -191,6 +192,131 @@ pub async fn bind_callback_port(port: u16) -> Result<TcpListener, RuntimeError> 
     TcpListener::bind(format!("127.0.0.1:{port}"))
         .await
         .map_err(|_| RuntimeError::from(AuthError::PortInUse(port)))
+}
+
+// ── Client check ──
+
+/// Result of checking a client ID against IAM's authorize endpoint.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClientCheck {
+    /// IAM does not know this client ID.
+    NotFound,
+    /// IAM rejected the client with an error other than "not found".
+    Rejected {
+        error: String,
+        description: Option<String>,
+    },
+    /// IAM accepted the client and redirected to the login page.
+    Accepted { redirect_uri: Option<String> },
+    /// The response was not a redirect or had no Location header.
+    Inconclusive,
+    /// The request to IAM failed (connection, DNS, timeout).
+    Unreachable { reason: String },
+}
+
+/// Classify IAM's response to an authorize request from its status code
+/// and Location header. A relative Location is resolved against the
+/// authorize URL. Query values are read percent-decoded.
+pub fn classify_authorize_redirect(
+    authorize_url: &str,
+    status: u16,
+    location: Option<&str>,
+) -> ClientCheck {
+    let loc = match location {
+        Some(l) if (300..400).contains(&status) => l,
+        _ => return ClientCheck::Inconclusive,
+    };
+
+    let resolved = match reqwest::Url::parse(loc) {
+        Ok(url) => url,
+        Err(_) => match reqwest::Url::parse(authorize_url).and_then(|base| base.join(loc)) {
+            Ok(url) => url,
+            Err(_) => return ClientCheck::Inconclusive,
+        },
+    };
+
+    let pairs: Vec<(String, String)> = resolved
+        .query_pairs()
+        .map(|(k, v)| (k.into_owned(), v.into_owned()))
+        .collect();
+
+    let find = |name: &str| -> Option<String> {
+        pairs
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+    };
+
+    if let Some(error) = find("error") {
+        let description = find("error_description");
+        // Measured 2026-10-22 against production IAM 7.43.4: an unknown client_id
+        // answers 302 with error=unauthorized_client&error_description=client+not+found.
+        // Any other description falls back to Rejected, which prints IAM's own text.
+        let is_not_found = error == "unauthorized_client"
+            && description
+                .as_deref()
+                .map(|d| {
+                    let normalized = d.trim().to_ascii_lowercase();
+                    let normalized = normalized.strip_suffix('.').unwrap_or(&normalized);
+                    normalized.contains("not found")
+                })
+                .unwrap_or(false);
+        if is_not_found {
+            ClientCheck::NotFound
+        } else {
+            ClientCheck::Rejected { error, description }
+        }
+    } else {
+        ClientCheck::Accepted {
+            redirect_uri: find("redirect_uri"),
+        }
+    }
+}
+
+/// Join an error and each of its `source()` errors with `: `, skipping
+/// consecutive duplicates (some error chains repeat the same text at two
+/// levels).
+fn error_chain_text(error: &dyn std::error::Error) -> String {
+    let mut parts = vec![error.to_string()];
+    let mut current = error.source();
+    while let Some(cause) = current {
+        let text = cause.to_string();
+        if parts.last() != Some(&text) {
+            parts.push(text);
+        }
+        current = cause.source();
+    }
+    parts.join(": ")
+}
+
+/// Send one GET to the authorize URL and classify IAM's redirect response.
+///
+/// Creates its own HTTP client with `build_http_client(Some(10))` -- a 10-second
+/// timeout and no redirect following -- so the caller doesn't need to manage one.
+pub async fn check_client(authorize_url: &str) -> ClientCheck {
+    let client = match build_http_client(Some(10)) {
+        Ok(c) => c,
+        Err(e) => {
+            return ClientCheck::Unreachable {
+                reason: e.to_string(),
+            }
+        }
+    };
+    let response = match client.get(authorize_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return ClientCheck::Unreachable {
+                reason: error_chain_text(&e.without_url()),
+            }
+        }
+    };
+    let status = response.status().as_u16();
+    let location = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    classify_authorize_redirect(authorize_url, status, location.as_deref())
 }
 
 #[cfg(test)]
@@ -466,5 +592,174 @@ mod tests {
         let request = "GET /callback?error=server_error HTTP/1.1\r\n\r\n";
         let result = parse_callback_request(request);
         assert!(result.is_err());
+    }
+
+    // ── classify_authorize_redirect tests ──
+
+    #[test]
+    fn test_classify_redirect_client_not_found() {
+        let auth_url = "https://demo.accelbyte.io/iam/v3/oauth/authorize?response_type=code&client_id=bad&state=s&code_challenge=c&code_challenge_method=S256";
+        let location = "https://demo.accelbyte.io/auth/?error=unauthorized_client&error_description=client+not+found&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(location)),
+            ClientCheck::NotFound,
+        );
+        // Title-cased description (case-insensitive match).
+        let title_case = "https://demo.accelbyte.io/auth/?error=unauthorized_client&error_description=Client+Not+Found&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(title_case)),
+            ClientCheck::NotFound,
+        );
+        // Trailing full stop is tolerated.
+        let with_dot = "https://demo.accelbyte.io/auth/?error=unauthorized_client&error_description=Client+not+found.&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(with_dot)),
+            ClientCheck::NotFound,
+        );
+        // Extra wording around "not found" is tolerated.
+        let verbose = "https://demo.accelbyte.io/auth/?error=unauthorized_client&error_description=client+id+not+found&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(verbose)),
+            ClientCheck::NotFound,
+        );
+        // A different unauthorized_client description is Rejected, not NotFound.
+        let other_desc = "https://demo.accelbyte.io/auth/?error=unauthorized_client&error_description=grant+type+not+allowed&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(other_desc)),
+            ClientCheck::Rejected {
+                error: "unauthorized_client".to_string(),
+                description: Some("grant type not allowed".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn test_classify_redirect_other_error_is_rejected() {
+        let auth_url = "https://demo.accelbyte.io/iam/v3/oauth/authorize?response_type=code&client_id=x&state=s&code_challenge=c&code_challenge_method=S256";
+        let location = "https://demo.accelbyte.io/auth/?error=invalid_scope&error_description=Scope+not+allowed&state=s";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(location)),
+            ClientCheck::Rejected {
+                error: "invalid_scope".to_string(),
+                description: Some("Scope not allowed".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn test_classify_redirect_reads_redirect_uri() {
+        let auth_url = "https://demo.accelbyte.io/iam/v3/oauth/authorize?response_type=code&client_id=ok&state=s&code_challenge=c&code_challenge_method=S256";
+        let location = "https://demo.accelbyte.io/auth/?client_id=ok&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080&request_id=r";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(location)),
+            ClientCheck::Accepted {
+                redirect_uri: Some("http://127.0.0.1:8080".to_string()),
+            },
+        );
+        // Redirect with no redirect_uri query parameter.
+        let no_redir = "https://demo.accelbyte.io/auth/?client_id=ok&request_id=r";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(no_redir)),
+            ClientCheck::Accepted { redirect_uri: None },
+        );
+    }
+
+    #[test]
+    fn test_classify_redirect_resolves_relative_location() {
+        let auth_url = "https://demo.accelbyte.io/iam/v3/oauth/authorize?response_type=code&client_id=ok&state=s&code_challenge=c&code_challenge_method=S256";
+        let location = "/auth/?client_id=ok&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, Some(location)),
+            ClientCheck::Accepted {
+                redirect_uri: Some("http://127.0.0.1:8080".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn test_error_chain_text_includes_every_source() {
+        #[derive(Debug)]
+        struct Inner;
+        impl std::fmt::Display for Inner {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "inner")
+            }
+        }
+        impl std::error::Error for Inner {}
+
+        #[derive(Debug)]
+        struct Outer(Inner);
+        impl std::fmt::Display for Outer {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "outer")
+            }
+        }
+        impl std::error::Error for Outer {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                Some(&self.0)
+            }
+        }
+
+        assert_eq!(error_chain_text(&Outer(Inner)), "outer: inner");
+    }
+
+    #[test]
+    fn test_error_chain_text_skips_repeated_text() {
+        // Three-level chain where the middle level repeats the top level's
+        // text. The duplicate should be collapsed so the output is "same: root"
+        // rather than "same: same: root".
+        #[derive(Debug)]
+        struct Root;
+        impl std::fmt::Display for Root {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "root")
+            }
+        }
+        impl std::error::Error for Root {}
+
+        #[derive(Debug)]
+        struct Middle(Root);
+        impl std::fmt::Display for Middle {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "same")
+            }
+        }
+        impl std::error::Error for Middle {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                Some(&self.0)
+            }
+        }
+
+        #[derive(Debug)]
+        struct Top(Middle);
+        impl std::fmt::Display for Top {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "same")
+            }
+        }
+        impl std::error::Error for Top {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                Some(&self.0)
+            }
+        }
+
+        assert_eq!(error_chain_text(&Top(Middle(Root))), "same: root");
+    }
+
+    #[test]
+    fn test_classify_non_redirect_is_inconclusive() {
+        let auth_url = "https://demo.accelbyte.io/iam/v3/oauth/authorize?response_type=code&client_id=x&state=s&code_challenge=c&code_challenge_method=S256";
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 200, None),
+            ClientCheck::Inconclusive,
+        );
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 400, Some("https://example.com")),
+            ClientCheck::Inconclusive,
+        );
+        assert_eq!(
+            classify_authorize_redirect(auth_url, 302, None),
+            ClientCheck::Inconclusive,
+        );
     }
 }
