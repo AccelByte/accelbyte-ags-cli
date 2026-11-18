@@ -67,6 +67,14 @@ install-updater = false
 # Tag-vs-version guard: cargo-dist natively validates that the git tag matches
 # the Cargo.toml version (dist host --steps=create errors if they disagree),
 # so a separate "check tag matches package version" CI step is not needed.
+# cargo-dist 0.32.0 builds aarch64-apple-darwin on macos-14 by default, and GitHub retired the
+# macos-14 runner images on 2026-11-02: the job is cancelled when it is queued, so `host` never
+# runs and the release publishes nothing. The runner's macOS doesn't raise the minimum macOS the
+# binary needs: rustc still targets macOS 11.0 for aarch64-apple-darwin. Remove this entry once
+# cargo-dist's own default is no longer macos-14.
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+
 [dist.github-action-commits]
 "actions/checkout"          = "d23441a48e516b6c34aea4fa41551a30e30af803"  # = v6
 "actions/upload-artifact"   = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"  # = v7
