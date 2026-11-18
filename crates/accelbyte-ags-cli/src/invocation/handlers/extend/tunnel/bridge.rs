@@ -11,6 +11,8 @@ use tokio::sync::oneshot;
 use tokio_tungstenite::tungstenite;
 use tokio_util::sync::CancellationToken;
 
+use crate::invocation::interrupt_listener::InterruptListener;
+
 /// Configuration for a tunnel bridge instance.
 pub struct TunnelConfig {
     /// Derived from the base URL: host plus port when the base URL carries one.
@@ -32,6 +34,9 @@ pub struct TunnelConfig {
 pub enum TunnelError {
     Bind(std::io::Error),
     Auth(String),
+    /// The Ctrl-C listener could not be registered. Returned before the port
+    /// is bound, so no tunnel runs that Ctrl-C cannot stop.
+    Interrupt(std::io::Error),
     Cancelled,
 }
 
@@ -40,6 +45,7 @@ impl std::fmt::Display for TunnelError {
         match self {
             TunnelError::Bind(e) => write!(f, "failed to bind local port: {e}"),
             TunnelError::Auth(msg) => write!(f, "{msg}"),
+            TunnelError::Interrupt(e) => write!(f, "failed to listen for Ctrl-C: {e}"),
             TunnelError::Cancelled => write!(f, "tunnel cancelled"),
         }
     }
@@ -409,6 +415,10 @@ async fn handle_client_connection(
 ///   bound. No ready-signal line is written — the caller owns that write.
 /// - `None` (standalone `tunnel` command): writes the ready signal to stderr
 ///   via the session log after binding.
+///
+/// The Ctrl-C listener is registered before the port is bound, so a Ctrl-C
+/// sent as soon as readiness is signalled ends the loop with `Ok(())` even if
+/// the loop has not started waiting yet.
 pub async fn run_tunnel(
     cfg: TunnelConfig,
     listener_ready: Option<oneshot::Sender<()>>,
@@ -416,6 +426,12 @@ pub async fn run_tunnel(
     profile: Option<&str>,
     session_log: super::super::session_log::SessionLog,
 ) -> Result<(), TunnelError> {
+    // Register before binding, and so before either readiness signal below:
+    // a Ctrl-C that arrives between readiness and the loop's first wait is
+    // then held for the loop instead of lost. If registration fails, return
+    // before binding rather than run a tunnel that Ctrl-C cannot stop.
+    let mut interrupt = InterruptListener::register().map_err(TunnelError::Interrupt)?;
+
     let addr = build_bind_addr(cfg.local_port);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
@@ -482,7 +498,7 @@ pub async fn run_tunnel(
                     }
                 }
             }
-            _ = tokio::signal::ctrl_c() => {
+            _ = interrupt.recv() => {
                 break Ok(());
             }
             _ = cancel.cancelled() => {
@@ -837,8 +853,13 @@ mod tests {
     }
 
     // ── Test F-2a: Some(sender) fires once listener is bound ──
+    //
+    // Serial: the tunnel loop listens for SIGINT, and a test in this process
+    // raises SIGINT (interrupt_listener.rs). Overlapping it would end this
+    // loop with Ok(()) instead of Cancelled.
 
     #[tokio::test]
+    #[serial_test::serial]
     async fn test_run_tunnel_some_sender_fires_on_bind() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cancel = CancellationToken::new();
@@ -878,8 +899,11 @@ mod tests {
     }
 
     // ── Test F-2b: None path enters accept loop without sender ──
+    //
+    // Serial for the same reason as F-2a: the loop listens for SIGINT.
 
     #[tokio::test]
+    #[serial_test::serial]
     async fn test_run_tunnel_none_enters_accept_loop_without_sender() {
         // When listener_ready is None, the function writes the ready signal
         // to stderr instead of firing a sender. Prove the function binds
@@ -915,6 +939,53 @@ mod tests {
             matches!(result, Err(TunnelError::Cancelled)),
             "cancelled tunnel must return TunnelError::Cancelled"
         );
+    }
+
+    // ── Ctrl-C registration failure stops the tunnel before it binds ──
+
+    /// When the Ctrl-C listener cannot be registered, `run_tunnel` returns
+    /// `TunnelError::Interrupt` before it binds and never signals readiness,
+    /// so no tunnel runs that Ctrl-C cannot stop. The port is already taken:
+    /// a tunnel that bound before registering would fail with `Bind` instead.
+    #[tokio::test]
+    async fn test_run_tunnel_registration_failure_returns_before_binding() {
+        let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = occupied.local_addr().unwrap().port();
+
+        let (tx, rx) = oneshot::channel();
+        let cfg = TunnelConfig {
+            host: "example.com".to_string(),
+            namespace: "test-ns".to_string(),
+            resource_name: "test-app".to_string(),
+            local_port: port,
+            pod_name: None,
+        };
+        let session_log = crate::invocation::handlers::extend::session_log::SessionLog::new(
+            ags_protocol::request::Verbosity::Quiet,
+            false,
+        );
+
+        // Thread-local: run_tunnel is awaited on this thread, not spawned.
+        crate::invocation::interrupt_listener::fail_next_registration_on_this_thread();
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            run_tunnel(cfg, Some(tx), CancellationToken::new(), None, session_log),
+        )
+        .await
+        .expect("run_tunnel must return, not enter the accept loop");
+
+        match result {
+            Err(e @ TunnelError::Interrupt(_)) => assert_eq!(
+                e.to_string(),
+                "failed to listen for Ctrl-C: Ctrl-C registration failure requested by a test"
+            ),
+            other => panic!("expected TunnelError::Interrupt, got: {other:?}"),
+        }
+        assert!(
+            rx.await.is_err(),
+            "readiness must not be signalled when Ctrl-C registration fails"
+        );
+        drop(occupied);
     }
 
     // ── Finding 1: spawned connections aborted on cancel ──

@@ -12,6 +12,7 @@ pub mod errors;
 mod first_run;
 pub mod flags;
 pub mod handlers;
+pub(crate) mod interrupt_listener;
 mod phase_execution;
 pub mod policy;
 pub mod resolve;
@@ -241,7 +242,7 @@ fn interrupt_requested() -> bool {
 /// correct because the work completed. The second Ctrl-C force-quit
 /// remains available.
 ///
-/// Commands that install their own `ctrl_c()` watcher (e.g. `tunnel`,
+/// Commands that install their own Ctrl-C watcher (e.g. `tunnel`,
 /// `remote-debug connect`) call [`declare_command_owns_interrupt_path`]
 /// before entering their signal-sensitive scope.
 static COMMAND_OWNS_INTERRUPT_PATH: std::sync::atomic::AtomicBool =
@@ -397,17 +398,48 @@ fn report_telemetry_debug(line: &str) {
     crate::frontend::write_stderr_line(line);
 }
 
+/// The kind of command a route passes to `try_emit_first_run_hint`. One enum
+/// instead of two adjacent `bool`s, so a call site names its case and the two
+/// cannot be swapped. Auth subcommands are never meta, so the cases do not
+/// overlap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HintCommand {
+    /// A meta-builtin (`--version`, `--help`): the hint does not show.
+    Meta,
+    /// An `ags auth` subcommand: the hint omits its `Next: ags auth login` line.
+    Auth,
+    /// Any other command.
+    Other,
+}
+
 /// Try to emit the one-time first-run onboarding hint after the surface
 /// has been finalized. Delegates to the single `should_show_first_run_hint`
 /// predicate, passing the disk-read as a lazy closure so it only runs when
-/// all cheap in-memory checks pass.
+/// all cheap in-memory checks pass. Whether-to-show is unaffected by auth
+/// state; only the hint's content changes (the `Next: ags auth login` line
+/// is omitted for an `ags auth` subcommand or an already signed-in caller).
+///
+/// `command` says what kind of command is running (see `HintCommand`).
+/// `profile_flag` is the raw `--profile` value (`flags.profile.as_deref()`),
+/// used to check whether the caller is already signed in.
 ///
 /// Call alongside `register_reporter_if_plain` after `finalize_surface` in
 /// each route handler, or after frontend construction in routes that do not
 /// call `finalize_surface` (auth, builtin).
-pub(crate) fn try_emit_first_run_hint(ctx: &context::FrontendContext, is_meta: bool) {
+pub(crate) fn try_emit_first_run_hint(
+    ctx: &context::FrontendContext,
+    command: HintCommand,
+    profile_flag: Option<&str>,
+) {
+    let is_meta = matches!(command, HintCommand::Meta);
     if first_run::should_show_first_run_hint(ctx, first_run::is_first_run_hint_seen, is_meta) {
-        first_run::emit_first_run_hint();
+        // `is_signed_in` fails closed: if the profile or config cannot be
+        // read, the caller counts as not signed in and keeps the `Next:` line.
+        let is_auth_command = matches!(command, HintCommand::Auth);
+        let omit_next_line = first_run::should_omit_next_line(is_auth_command, || {
+            first_run::is_signed_in(profile_flag)
+        });
+        first_run::emit_first_run_hint(omit_next_line);
     }
 }
 

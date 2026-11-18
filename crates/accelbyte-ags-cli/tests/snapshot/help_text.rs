@@ -30,31 +30,32 @@ fn test_root_help() {
       workflow       Run a registered multi-step workflow
 
     Services (API groups):
-      achievement        Player achievements, badges, and progression tracking
-      ams                Multiplayer server fleet management and orchestration
-      basic              User profiles, namespaces, and file uploads
-      challenge          Challenge definitions, goals, schedules, and player progression
-      chat               Chat messaging, moderation, inbox, and profanity filtering
-      cloud-save         Cloud save records for games and players (binary and JSON)
-      csm                Custom service management, deployments, and container images
-      ehs                Extend helper container image registry credentials and gRPC reflection
-      game-telemetry     Game telemetry event ingestion and querying
-      gdpr               GDPR data deletion, retrieval, and platform account closure
-      group              Player groups, memberships, roles, and join requests
-      iam                Identity, authentication, authorization, and user management
-      inventory          Player inventories, items, item types, and tags
-      leaderboard        Leaderboard configuration, data, and user rankings
-      legal              Legal agreements, policies, eligibility, and consent tracking
-      lobby              Lobby connections, friends, presence, party, and notifications
-      login-queue        Login queue management and ticket processing
-      matchmaking        Matchmaking pools, rulesets, tickets, and backfill
-      platform           Store, items, entitlements, wallets, payments, and IAP
-      reporting          Player reporting, moderation rules, reasons, and tickets
-      season-pass        Season passes, tiers, rewards, and seasonal content
-      session            Game sessions, parties, matchmaking templates, and DS config
-      session-history    Session analytics and X-Ray diagnostics
-      social             Stats, stat cycles, game profiles, and social slots
-      ugc                User-generated content: uploads, moderation, and discovery
+      achievement         Player achievements, badges, and progression tracking
+      ams                 Multiplayer server fleet management and orchestration
+      basic               User profiles, namespaces, and file uploads
+      challenge           Challenge definitions, goals, schedules, and player progression
+      chat                Chat messaging, moderation, inbox, and profanity filtering
+      cloud-save          Cloud save records for games and players (binary and JSON)
+      csm                 Custom service management, deployments, and container images
+      ehs                 Extend helper container image registry credentials and gRPC reflection
+      game-telemetry      Game telemetry event ingestion and querying
+      gdpr                GDPR data deletion, retrieval, and platform account closure
+      group               Player groups, memberships, roles, and join requests
+      iam                 Identity, authentication, authorization, and user management
+      inventory           Player inventories, items, item types, and tags
+      leaderboard         Leaderboard configuration, data, and user rankings
+      legal               Legal agreements, policies, eligibility, and consent tracking
+      lobby               Lobby connections, friends, presence, party, and notifications
+      login-queue         Login queue management and ticket processing
+      matchmaking         Matchmaking pools, rulesets, tickets, and backfill
+      namespace-config    Namespace config on the AGS backend: CORS, config values, and email senders
+      platform            Store, items, entitlements, wallets, payments, and IAP
+      reporting           Player reporting, moderation rules, reasons, and tickets
+      season-pass         Season passes, tiers, rewards, and seasonal content
+      session             Game sessions, parties, matchmaking templates, and DS config
+      session-history     Session analytics and X-Ray diagnostics
+      social              Stats, stat cycles, game profiles, and social slots
+      ugc                 User-generated content: uploads, moderation, and discovery
 
     Flags:
           --dry-run                  Show HTTP request without executing

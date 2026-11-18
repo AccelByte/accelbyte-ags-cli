@@ -153,11 +153,17 @@ impl crate::runtime::Runtime {
         &self,
         output: Option<&Path>,
     ) -> Result<WorkflowTemplateOutput, RuntimeError> {
-        let yaml = WORKFLOW_TEMPLATE_SKELETON.replacen(
-            "{{WORKFLOW_PROTOCOL_VERSION}}",
-            ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
-            1,
-        );
+        let yaml = WORKFLOW_TEMPLATE_SKELETON
+            .replacen(
+                "{{WORKFLOW_PROTOCOL_VERSION}}",
+                ags_protocol::workflow::WORKFLOW_PROTOCOL_VERSION,
+                1,
+            )
+            .replacen(
+                "{{LOCAL_ACTION_NAMES}}",
+                &crate::runtime::workflows::local_actions::known_production_names().join(", "),
+                1,
+            );
         let destination = match output {
             None => BinaryWrittenDestination::Stdout,
             Some(path) => {
@@ -728,6 +734,80 @@ inputs: []
             "the placeholder must be fully substituted: {}",
             output.yaml
         );
+    }
+
+    #[test]
+    fn test_workflow_template_documents_local_action_kind() {
+        let output = test_runtime().workflow_template(None).unwrap();
+        assert!(
+            output.yaml.contains("kind: local"),
+            "template must document the `kind: local` step mechanism: {}",
+            output.yaml
+        );
+        assert!(
+            output.yaml.contains("# action:"),
+            "template must document the `action:` field: {}",
+            output.yaml
+        );
+        for name in crate::runtime::workflows::local_actions::known_production_names() {
+            assert!(
+                output.yaml.contains(name),
+                "template must list local action '{name}': {}",
+                output.yaml
+            );
+        }
+        assert!(
+            !output.yaml.contains("test-echo"),
+            "template must not leak test-only local action names: {}",
+            output.yaml
+        );
+        assert!(
+            !output.yaml.contains("test-fail"),
+            "template must not leak test-only local action names: {}",
+            output.yaml
+        );
+        assert!(
+            !output.yaml.contains("{{LOCAL_ACTION_NAMES}}"),
+            "the placeholder must be fully substituted: {}",
+            output.yaml
+        );
+    }
+
+    /// Exhaustive match — no wildcard arm — so a new `StepFieldLocation`
+    /// variant fails to compile this test until it's added both here and to
+    /// the template's `location:` comment below. Prevents the drift that
+    /// already happened once (the comment was missing `form_data` after
+    /// multipart/form-data support shipped).
+    #[test]
+    fn test_template_documents_all_step_field_locations() {
+        fn variant_name(location: ags_protocol::workflow::StepFieldLocation) -> &'static str {
+            use ags_protocol::workflow::StepFieldLocation;
+            match location {
+                StepFieldLocation::Path => "path",
+                StepFieldLocation::Query => "query",
+                StepFieldLocation::Header => "header",
+                StepFieldLocation::Body => "body",
+                StepFieldLocation::FormData => "form_data",
+            }
+        }
+        use ags_protocol::workflow::StepFieldLocation;
+        let location_line = WORKFLOW_TEMPLATE_SKELETON
+            .lines()
+            .find(|line| line.trim_start().starts_with("# location:"))
+            .expect("template must have a `# location:` comment line");
+        for location in [
+            StepFieldLocation::Path,
+            StepFieldLocation::Query,
+            StepFieldLocation::Header,
+            StepFieldLocation::Body,
+            StepFieldLocation::FormData,
+        ] {
+            let name = variant_name(location);
+            assert!(
+                location_line.contains(name),
+                "template's `# location:` comment line must mention '{name}': {location_line}"
+            );
+        }
     }
 
     #[test]

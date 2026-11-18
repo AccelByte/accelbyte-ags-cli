@@ -146,6 +146,7 @@ crates/accelbyte-ags-cli/
 │   │   ├── first_run.rs         # One-time first-run onboarding hint: gate predicate, emitter, seen-flag read
 │   │   ├── flags.rs             # GlobalFlags, pre-scan, namespace resolution
 │   │   ├── context.rs           # Frontend context: consumer kind + interaction surface resolution
+│   │   ├── interrupt_listener.rs # Ctrl-C listener registered when created, for commands that own their interrupt path
 │   │   ├── policy.rs            # (route, shape) → base surface decision matrix
 │   │   ├── shape.rs             # Interaction-shape classification
 │   │   ├── workflows.rs         # Bridge between parsed CLI commands and the workflow executor

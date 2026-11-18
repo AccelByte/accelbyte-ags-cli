@@ -41,6 +41,7 @@ pub(crate) static BUNDLED_SPECS: &[(&str, &[u8])] = &[
         include_bytes!("../../specs/loginqueue.json.gz"),
     ),
     ("match2", include_bytes!("../../specs/match2.json.gz")),
+    ("config", include_bytes!("../../specs/config.json.gz")),
     ("platform", include_bytes!("../../specs/platform.json.gz")),
     ("reporting", include_bytes!("../../specs/reporting.json.gz")),
     (
@@ -113,7 +114,7 @@ mod tests {
     /// registrations that would otherwise pass the per-table count checks.
     #[test]
     fn test_bundled_specs_count() {
-        assert_eq!(BUNDLED_SPECS.len(), 25);
+        assert_eq!(BUNDLED_SPECS.len(), 26);
         assert_eq!(
             BUNDLED_SPECS.len(),
             super::super::manifest::SERVICES.len(),

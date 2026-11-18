@@ -403,6 +403,22 @@ pub struct OptionsSource {
     pub filter: Option<OptionFilter>,
 }
 
+/// Which filesystem entries a `FilePickerSpec`-driven picker resolves to.
+/// `File` (the default) is the original, still-most-common shape: browsing
+/// ends by selecting a file, and `extensions` may narrow which files are
+/// selectable. `Directory` hides ordinary files from the listing entirely
+/// (browsing is folder-to-folder only) and adds a "select this folder"
+/// affordance that commits the currently browsed directory itself; `extensions`
+/// has no meaning in this mode and is rejected at compile time if present
+/// (see `validate_file_pickers`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FilePickerKind {
+    #[default]
+    File,
+    Directory,
+}
+
 /// Declares that this (string-typed) input's value is chosen by browsing the
 /// local filesystem in a picker, instead of the user typing a raw path.
 /// Purely an interactive affordance — never required to produce a value.
@@ -422,6 +438,15 @@ pub struct FilePickerSpec {
     /// that will eventually gather inputs).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_dir: Option<String>,
+    /// Whether this picker resolves to a file or a directory. Defaults to
+    /// `File` — every `file_picker` block written before this field existed
+    /// keeps working unchanged.
+    #[serde(default, skip_serializing_if = "is_file_kind")]
+    pub kind: FilePickerKind,
+}
+
+fn is_file_kind(kind: &FilePickerKind) -> bool {
+    *kind == FilePickerKind::File
 }
 
 /// Source for an `OptionsSource` label detail (the bracketed value in a picker).
@@ -679,7 +704,7 @@ pub struct CompletionStep {
 /// whenever the YAML schema changes in a way workflow authors should know
 /// about — entirely independent of this crate's own Cargo.toml version or
 /// the CLI's release cadence.
-pub const WORKFLOW_PROTOCOL_VERSION: &str = "1.0.0";
+pub const WORKFLOW_PROTOCOL_VERSION: &str = "1.1.0";
 
 /// Author-input shape. Mirrors the v1.0 YAML workflow document one-to-one
 /// (subset). Produced by Rust literals (v2) or by a future YAML loader.
@@ -2508,6 +2533,7 @@ mod tests {
         let spec = FilePickerSpec {
             extensions: Some(vec!["png".to_string(), "jpg".to_string()]),
             start_dir: Some("/tmp/assets".to_string()),
+            kind: FilePickerKind::File,
         };
         let json = serde_json::to_string(&spec).unwrap();
         let round_tripped: FilePickerSpec = serde_json::from_str(&json).unwrap();
@@ -2519,10 +2545,66 @@ mod tests {
         let spec = FilePickerSpec {
             extensions: None,
             start_dir: None,
+            kind: FilePickerKind::File,
         };
         let json = serde_json::to_string(&spec).unwrap();
         let round_tripped: FilePickerSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, round_tripped);
+    }
+
+    #[test]
+    fn test_file_picker_kind_defaults_to_file() {
+        assert_eq!(FilePickerKind::default(), FilePickerKind::File);
+    }
+
+    #[test]
+    fn test_file_picker_spec_kind_directory_round_trip() {
+        let spec = FilePickerSpec {
+            extensions: None,
+            start_dir: None,
+            kind: FilePickerKind::Directory,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        assert!(json.contains("\"kind\":\"directory\""), "got: {json}");
+        let round_tripped: FilePickerSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(spec, round_tripped);
+    }
+
+    #[test]
+    fn test_file_picker_spec_kind_omitted_from_json_when_file() {
+        let spec = FilePickerSpec {
+            extensions: None,
+            start_dir: None,
+            kind: FilePickerKind::File,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        assert!(!json.contains("kind"), "got: {json}");
+    }
+
+    #[test]
+    fn test_file_picker_spec_kind_directory_parses_from_yaml() {
+        let yaml = r#"
+name: buildPath
+required: true
+schema: {type: string}
+file_picker:
+  kind: directory
+"#;
+        let input: WorkflowInputSpec = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(input.file_picker.unwrap().kind, FilePickerKind::Directory);
+    }
+
+    #[test]
+    fn test_file_picker_spec_kind_defaults_when_absent_from_yaml() {
+        let yaml = r#"
+name: iconFile
+required: true
+schema: {type: string}
+file_picker:
+  extensions: [png]
+"#;
+        let input: WorkflowInputSpec = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(input.file_picker.unwrap().kind, FilePickerKind::File);
     }
 
     #[test]

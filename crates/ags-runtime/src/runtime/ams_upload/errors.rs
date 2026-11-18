@@ -53,7 +53,13 @@ pub enum AmsUploadError {
         trace: Option<Box<ags_protocol::output_views::ExecutionTrace>>,
     },
     #[error("Upload of part {part_number} failed: {reason}")]
-    PartUploadFailed { part_number: usize, reason: String },
+    PartUploadFailed {
+        part_number: usize,
+        reason: String,
+        /// What to do next, from the error that ended the transfer. `None`
+        /// falls back to a plain retry hint.
+        hint: Option<String>,
+    },
     #[error("The storage service did not return an ETag for part {0}")]
     MissingETag(usize),
     #[error("{context}: {source}")]
@@ -216,15 +222,8 @@ impl From<AmsUploadError> for RuntimeError {
                 hint: api_call_guidance(status, operation).fix.map(str::to_string),
                 trace: trace.clone(),
             },
-            AmsUploadError::PartUploadFailed { .. } | AmsUploadError::MissingETag(_) => {
-                RuntimeError {
-                    kind: RuntimeErrorKind::Network,
-                    message,
-                    details: None,
-                    hint: Some("Retry the upload.".to_string()),
-                    trace: None,
-                }
-            }
+            AmsUploadError::PartUploadFailed { hint, .. } => transfer_failure(message, hint),
+            AmsUploadError::MissingETag(_) => transfer_failure(message, None),
             AmsUploadError::Io { ref source, .. } => validation(message, None, io_fix(source)),
         }
     }
@@ -380,6 +379,18 @@ fn io_fix(source: &std::io::Error) -> Option<&'static str> {
     }
 }
 
+/// Build the error for a transfer of image bytes that failed, with `hint` from
+/// the error that ended it, or "Retry the upload." when that error had none.
+fn transfer_failure(message: String, hint: Option<String>) -> RuntimeError {
+    RuntimeError {
+        kind: RuntimeErrorKind::Network,
+        message,
+        details: None,
+        hint: Some(hint.unwrap_or_else(|| "Retry the upload.".to_string())),
+        trace: None,
+    }
+}
+
 /// Build a pre-flight validation error with an optional reason and fix line.
 fn validation(message: String, reason: Option<String>, suggestion: Option<&str>) -> RuntimeError {
     RuntimeError {
@@ -499,6 +510,7 @@ mod tests {
             source: Box::new(AmsUploadError::PartUploadFailed {
                 part_number: 3,
                 reason: "connection reset".to_string(),
+                hint: None,
             }),
         }
         .into();
@@ -514,6 +526,35 @@ mod tests {
         let (headline, notice) = error.message.split_once('\n').expect("two lines");
         assert!(headline.contains("part 3"), "{headline}");
         assert!(notice.contains("incomplete"), "{notice}");
+    }
+
+    /// A part upload that stalls after the image record exists must still tell
+    /// the user to check their network. The orphan wrapper converts the part
+    /// failure it carries, so that failure's own hint has to survive the
+    /// wrapping instead of turning into a bare "Retry the upload.".
+    #[test]
+    fn test_orphaned_image_keeps_the_hint_of_the_part_failure() {
+        let error: RuntimeError = AmsUploadError::OrphanedImage {
+            image_name: "my-server".to_string(),
+            image_id: "img_abc123".to_string(),
+            source: Box::new(AmsUploadError::PartUploadFailed {
+                part_number: 3,
+                reason: "The upload stopped because no data moved for 120 seconds.".to_string(),
+                hint: Some("Check your network connection, then run the upload again.".to_string()),
+            }),
+        }
+        .into();
+
+        assert_eq!(
+            error.hint.as_deref(),
+            Some("Check your network connection, then run the upload again.")
+        );
+        let (headline, notice) = error.message.split_once('\n').expect("two lines");
+        assert_eq!(
+            headline,
+            "Upload of part 3 failed: The upload stopped because no data moved for 120 seconds."
+        );
+        assert_eq!(notice, orphan_notice("my-server", "img_abc123"));
     }
 
     /// Wrapping must not cost the underlying diagnosis — a 403 that orphans an

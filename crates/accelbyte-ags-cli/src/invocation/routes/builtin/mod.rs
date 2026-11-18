@@ -37,7 +37,15 @@ pub(crate) async fn route_builtin(
 
     // The first-run hint fires after the frontend is constructed (surface
     // known) and uses `is_meta_builtin` to suppress for --version / --help.
-    crate::invocation::try_emit_first_run_hint(frontend_context, is_meta_builtin);
+    crate::invocation::try_emit_first_run_hint(
+        frontend_context,
+        if is_meta_builtin {
+            crate::invocation::HintCommand::Meta
+        } else {
+            crate::invocation::HintCommand::Other
+        },
+        flags.profile.as_deref(),
+    );
 
     // Root help/version exits are lifecycle-free; other builtin commands are not.
     let lifecycle_free = is_lifecycle_free_root(raw_args, remaining);

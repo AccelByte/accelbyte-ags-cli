@@ -54,7 +54,15 @@ pub(crate) async fn route_extend_image_upload(
     // Emit the first-run onboarding hint and register the lock-contention
     // reporter for plain surfaces, mirroring the docker-login route.
     let is_meta = false;
-    crate::invocation::try_emit_first_run_hint(frontend_context, is_meta);
+    crate::invocation::try_emit_first_run_hint(
+        frontend_context,
+        if is_meta {
+            crate::invocation::HintCommand::Meta
+        } else {
+            crate::invocation::HintCommand::Other
+        },
+        flags.profile.as_deref(),
+    );
     crate::invocation::register_reporter_if_plain(frontend_context);
 
     // Extract parameters.

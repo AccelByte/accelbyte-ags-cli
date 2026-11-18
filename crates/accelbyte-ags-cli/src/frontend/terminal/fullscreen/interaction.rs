@@ -488,6 +488,15 @@ fn drive_file_picker_modal_inner(
             (KeyCode::Esc, _) => break Ok(None),
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => break Ok(None),
             (KeyCode::Enter, _) => {
+                // Directory-mode commit: the synthetic "select this folder"
+                // row (present only when the modal is in Directory mode)
+                // commits the currently browsed directory itself, checked
+                // ahead of the ordinary directory/file/no-match dispatch
+                // below (which never matches this row, since it has no
+                // backing `FileEntry`).
+                if modal.selected_is_directory_commit() {
+                    break Ok(Some(modal.current_dir().to_string_lossy().into_owned()));
+                }
                 // Directory-aware commit: a highlighted directory drills in;
                 // a highlighted file commits its absolute path; with zero
                 // matches, the typed filter commits as a literal value.
@@ -754,7 +763,7 @@ fn drive_inputs_panel_form_inner(
                 let title = form.fields[idx].label.clone();
                 let extensions = picker.extensions.clone();
                 match crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal::new(
-                    title, start_dir, extensions,
+                    title, start_dir, extensions, picker.kind,
                 ) {
                     Ok(modal) => {
                         let area = surface.borrow().terminal_area();
@@ -1584,8 +1593,13 @@ mod tests {
         use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("icon.png"), b"").unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            dir.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         // Entries are `[.., icon.png]`, so one Down moves off the initial ".."
         // selection onto the file before Enter selects it.
@@ -1610,8 +1624,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         std::fs::create_dir(root.path().join("sub")).unwrap();
         std::fs::write(root.path().join("sub").join("icon.png"), b"").unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         // "sub" sorts before nothing else at this dir (only ".." and "sub"), so
         // one Down from the initial ".." selection lands on it.
@@ -1639,11 +1658,82 @@ mod tests {
     }
 
     #[test]
+    fn test_drive_file_picker_modal_inner_commits_select_here_entry() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("sub")).unwrap();
+        let modal = FilePickerModal::new(
+            "build-path".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // Entries are `[.., <select-here>, sub]`; one Down from the initial ".."
+        // selection lands on the "Select this folder" entry.
+        let mut keys = vec![key(KeyCode::Down), key(KeyCode::Enter)].into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            Ok(keys.next().unwrap())
+        })
+        .unwrap();
+        assert_eq!(result, Some(root.path().to_string_lossy().into_owned()));
+    }
+
+    #[test]
+    fn test_drive_file_picker_modal_inner_directory_mode_still_drills_into_subdirectory() {
+        use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
+
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("sub")).unwrap();
+        let modal = FilePickerModal::new(
+            "build-path".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
+        // Entries are `[.., <select-here>, sub]`; two Downs from ".." land on
+        // "sub". Enter there must drill in (not commit). "sub" has no
+        // subdirectories of its own, so once inside it the entries are
+        // `[.., <select-here>]`; one more Down lands on that synthetic entry
+        // and Enter commits it. Asserting the committed value equals "sub"'s
+        // absolute path proves both that Enter on a real directory drills in
+        // rather than commits, and that the drill-in actually navigated the
+        // modal's current_dir into "sub" (not just that no commit fired).
+        let mut keys = vec![
+            key(KeyCode::Down),  // -> "<select this folder>"
+            key(KeyCode::Down),  // -> "sub"
+            key(KeyCode::Enter), // drill in
+            key(KeyCode::Down),  // -> "<select this folder>" (inside "sub")
+            key(KeyCode::Enter), // commit
+        ]
+        .into_iter();
+        let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
+            keys.next()
+                .ok_or_else(|| crate::errors::CliError::Internal(anyhow::anyhow!("no more keys")))
+        })
+        .unwrap();
+        assert_eq!(
+            result,
+            Some(root.path().join("sub").to_string_lossy().into_owned()),
+            "committed value must reflect having navigated into \"sub\""
+        );
+    }
+
+    #[test]
     fn test_drive_file_picker_modal_inner_esc_cancels() {
         use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
         let dir = tempfile::tempdir().unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            dir.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         let mut keys = vec![key(KeyCode::Esc)].into_iter();
         let result = super::drive_file_picker_modal_inner(&mut surface, modal, move || {
@@ -1659,8 +1749,13 @@ mod tests {
         use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("icon.png"), b"").unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            dir.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         let handle = surface.area_override_handle();
         // On the key read that would submit, first shrink the terminal below
@@ -1687,7 +1782,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let sub = root.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
-        let modal = FilePickerModal::new("icon-file".to_string(), sub.clone(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            sub.clone(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         // Backspace with an empty filter navigates up to `root`, then selecting
         // "icon.png" (only visible from `root`) proves the navigation happened.
@@ -1716,8 +1817,13 @@ mod tests {
         let sub = root.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
         std::fs::write(sub.join("icon.png"), b"").unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         let typed: Vec<KeyEvent> = "sub".chars().map(|c| key(KeyCode::Char(c))).collect();
         let mut keys = typed
@@ -1750,6 +1856,7 @@ mod tests {
         let picker = ags_protocol::workflow::FilePickerSpec {
             extensions: None,
             start_dir: Some("src".to_string()),
+            kind: ags_protocol::workflow::FilePickerKind::File,
         };
         let resolved = super::resolve_file_picker_start_dir(&picker);
         assert!(
@@ -1771,6 +1878,7 @@ mod tests {
         let picker = ags_protocol::workflow::FilePickerSpec {
             extensions: None,
             start_dir: Some("this-path-should-not-exist-xyz-123".to_string()),
+            kind: ags_protocol::workflow::FilePickerKind::File,
         };
         let resolved = super::resolve_file_picker_start_dir(&picker);
         assert!(resolved.is_absolute());
@@ -1809,8 +1917,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         std::fs::write(root.path().join("icon.png"), b"").unwrap();
         std::fs::write(root.path().join("zzz.png"), b"").unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), root.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         let typed: Vec<KeyEvent> = "icon.png".chars().map(|c| key(KeyCode::Char(c))).collect();
         // Tab jumps to the typed file's parent (== the same dir here) and
@@ -1837,8 +1950,13 @@ mod tests {
     fn test_drive_file_picker_modal_inner_zero_match_enter_commits_typed_text() {
         use crate::frontend::terminal::fullscreen::phases::file_picker::FilePickerModal;
         let dir = tempfile::tempdir().unwrap();
-        let modal =
-            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "icon-file".to_string(),
+            dir.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut surface = FullscreenSurface::without_terminal_sized(100, 30);
         // Typing a string that matches zero entries (the directory is empty
         // besides "..") and pressing Enter must fall through to the
@@ -1896,6 +2014,7 @@ mod tests {
             file_picker: Some(ags_protocol::workflow::FilePickerSpec {
                 extensions: Some(vec!["png".to_string()]),
                 start_dir: Some(dir.path().to_string_lossy().into_owned()),
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
         };
         // `.with_submit_focusable(true)` mirrors production's

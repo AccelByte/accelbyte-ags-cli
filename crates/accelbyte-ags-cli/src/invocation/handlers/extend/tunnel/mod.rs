@@ -82,7 +82,7 @@ pub(crate) async fn handle_tunnel(
     );
 
     // Declare that this command owns its signal path, so the global Ctrl-C
-    // handler defers to the tunnel's own `ctrl_c()` watcher, letting it
+    // handler defers to the tunnel's own interrupt listener, letting it
     // exit 0 instead of 130. Set once before the signal-sensitive scope;
     // never cleared (the flag is a one-way sticky declaration).
     crate::invocation::declare_command_owns_interrupt_path();
@@ -117,6 +117,12 @@ pub(crate) async fn handle_tunnel(
                 "Choose a different --local-port or free the port in use",
             ))),
         }),
+        // The operating system refused the Ctrl-C handler. No input or
+        // credential change fixes that, so it is an internal failure (exit 5),
+        // like a runtime that cannot start.
+        Err(TunnelError::Interrupt(e)) => Err(CliError::Internal(anyhow::anyhow!(
+            "Failed to listen for Ctrl-C, so the tunnel was not started: {e}"
+        ))),
         Err(TunnelError::Auth(ref msg)) if msg.starts_with(FORBIDDEN_PREFIX) => {
             // HTTP 403: permission error, not an auth error. Re-auth
             // cannot fix a permission gap; exit 3 (Api) so scripts do
@@ -360,6 +366,54 @@ mod tests {
             Err(_) => {
                 panic!("handler did not validate namespace — reached run_tunnel and hung");
             }
+        }
+    }
+
+    // ── Ctrl-C registration failure → CliError::Internal (exit 5) ──
+    //
+    // Process-wide env mutation: AGS_HOME, AGS_BASE_URL.
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_ctrl_c_registration_failure_is_internal_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let _home = TempEnvGuard::set("AGS_HOME", tmp.path().to_str().unwrap());
+        let _base_url = TempEnvGuard::set("AGS_BASE_URL", "https://example.com");
+
+        let matches = clap::Command::new("tunnel")
+            .arg(clap::Arg::new("resource-name").long("resource-name"))
+            .arg(
+                clap::Arg::new("local-port")
+                    .long("local-port")
+                    .value_parser(clap::value_parser!(u16)),
+            )
+            .try_get_matches_from(["tunnel", "--resource-name", "my-app", "--local-port", "0"])
+            .unwrap();
+        let flags = GlobalFlags {
+            namespace: Some("test-ns".to_string()),
+            ..Default::default()
+        };
+        let mut frontend = NullFrontend;
+
+        // Thread-local: handle_tunnel is awaited on this thread, not spawned.
+        crate::invocation::interrupt_listener::fail_next_registration_on_this_thread();
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            handle_tunnel(&matches, &flags, &mut frontend),
+        )
+        .await
+        .expect("handler must return, not run a tunnel that Ctrl-C cannot stop");
+
+        match result {
+            Err(err @ CliError::Internal(_)) => {
+                assert_eq!(err.exit_code(), 5);
+                assert_eq!(
+                    err.to_string(),
+                    "Failed to listen for Ctrl-C, so the tunnel was not started: \
+                     Ctrl-C registration failure requested by a test"
+                );
+            }
+            other => panic!("expected CliError::Internal, got: {other:?}"),
         }
     }
 }

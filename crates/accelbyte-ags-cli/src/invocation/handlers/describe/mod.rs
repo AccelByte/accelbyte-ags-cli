@@ -14,6 +14,7 @@ use crate::invocation::builder;
 use crate::invocation::clap_helpers;
 use crate::invocation::flags::GlobalFlags;
 use crate::invocation::handlers::extend::service_shims::{self, SHIMS};
+use crate::invocation::routes::builtin::is_builtin_command;
 use crate::invocation::InvocationOutcome;
 use ags_protocol::output::CommandOutput;
 use ags_protocol::workflow::WorkflowId;
@@ -110,7 +111,8 @@ fn describe_root() -> Value {
 
     // Sort alphabetically by name, consistent with every other catalogue
     // builder in this module. Services already arrive in declaration order
-    // (alphabetical) and `workflow` sorts last, so this is order-preserving
+    // (alphabetical by display name, enforced by a manifest test) and
+    // `workflow` sorts last, so this is order-preserving
     // today — it makes the contract explicit rather than relying on the
     // manifest's declaration order.
     children.sort_by(|a, b| a.name.cmp(&b.name));
@@ -808,19 +810,25 @@ fn invalid_extend_path_error(sub: &str, extra: &str) -> Value {
 // ── Helpers ──
 
 /// Resolve a user-supplied service name (display or internal) to its internal id, or build an unknown-service error envelope.
+///
+/// A name that is also a built-in command never resolves: `config` is the
+/// internal id of `namespace-config`, but `ags config` runs the CLI's own
+/// settings command, so describing it as that service would mislead.
 fn resolve_service(service_arg: &str) -> Result<&'static str, Value> {
-    Catalogue::internal_name(service_arg).ok_or_else(|| {
-        let candidates: Vec<&str> = Catalogue::service_ids()
-            .map(Catalogue::display_name_or_panic)
-            .collect();
-        let suggestions = envelope::find_suggestions(service_arg, &candidates);
-        error_envelope(
-            vec![service_arg.to_string()],
-            "unknown_service",
-            format!("Unknown service: '{service_arg}'"),
-            suggestions,
-        )
-    })
+    Catalogue::internal_name(service_arg)
+        .filter(|_| !is_builtin_command(service_arg))
+        .ok_or_else(|| {
+            let candidates: Vec<&str> = Catalogue::service_ids()
+                .map(Catalogue::display_name_or_panic)
+                .collect();
+            let suggestions = envelope::find_suggestions(service_arg, &candidates);
+            error_envelope(
+                vec![service_arg.to_string()],
+                "unknown_service",
+                format!("Unknown service: '{service_arg}'"),
+                suggestions,
+            )
+        })
 }
 
 /// Build an error envelope `Value` to return as the command output.

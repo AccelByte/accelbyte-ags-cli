@@ -607,6 +607,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     /// A bundled workflow's field carries its real (redacted-if-needed) value.
     fn test_build_step_input_fields_bundled_reports_real_values() {
         let flag_names = BTreeSet::new();

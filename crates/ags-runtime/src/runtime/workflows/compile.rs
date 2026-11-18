@@ -7,8 +7,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ags_protocol::error::RuntimeError;
 use ags_protocol::workflow::{
-    ArithmeticOperand, BindingSource, CompiledStep, CompiledWorkflow, ReferenceTarget,
-    TransformKind, WorkflowDefinition, WorkflowInputSpec,
+    ArithmeticOperand, BindingSource, CompiledStep, CompiledWorkflow, FilePickerKind,
+    ReferenceTarget, TransformKind, WorkflowDefinition, WorkflowInputSpec,
 };
 #[cfg(test)]
 use ags_protocol::workflow::{FilePickerSpec, StepDefinition};
@@ -1128,6 +1128,16 @@ fn validate_file_pickers(resolved_inputs: &[WorkflowInputSpec]) -> Result<(), Ru
                     )));
                 }
             }
+        }
+
+        // Rule 3b: extensions never apply to a directory-mode picker — reject
+        // the combination outright rather than silently ignoring it.
+        if picker.kind == FilePickerKind::Directory && picker.extensions.is_some() {
+            return Err(RuntimeError::internal(format!(
+                "input '{}' file_picker sets 'extensions' with kind: directory; \
+                 extensions only apply to file-mode pickers (the default kind)",
+                input.name
+            )));
         }
 
         // Rule 4: start_dir, if present, must be non-empty. Existence on disk
@@ -2628,6 +2638,7 @@ mod tests {
             file_picker: Some(FilePickerSpec {
                 extensions: None,
                 start_dir: None,
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
             location: ags_protocol::workflow::StepFieldLocation::Body,
         });
@@ -2652,6 +2663,7 @@ mod tests {
         img_id_input.file_picker = Some(FilePickerSpec {
             extensions: None,
             start_dir: None,
+            kind: ags_protocol::workflow::FilePickerKind::File,
         });
         def.inputs = vec![workflow_input("namespace"), img_id_input];
         let err = compile_workflow(&def, &mut cat).unwrap_err();
@@ -2679,6 +2691,7 @@ mod tests {
             file_picker: Some(FilePickerSpec {
                 extensions: Some(vec![".png".to_string()]),
                 start_dir: None,
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
             location: ags_protocol::workflow::StepFieldLocation::Body,
         });
@@ -2688,6 +2701,57 @@ mod tests {
             "got: {}",
             err.message
         );
+    }
+
+    #[test]
+    fn test_compile_workflow_file_picker_extensions_with_directory_kind_errors() {
+        let op = default_operation("Op");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "Op")]);
+        def.inputs.push(WorkflowInputSpec {
+            name: "buildPath".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "string"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(FilePickerSpec {
+                extensions: Some(vec!["png".to_string()]),
+                start_dir: None,
+                kind: FilePickerKind::Directory,
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        });
+        let err = compile_workflow(&def, &mut cat).unwrap_err();
+        assert!(
+            err.message.contains("extensions") && err.message.contains("directory"),
+            "got: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn test_compile_workflow_valid_directory_file_picker_compiles() {
+        let op = default_operation("Op");
+        let mut cat = catalogue_with_svc(service_with(vec![op]));
+        let mut def = simple_definition(vec![simple_step("s1", "Op")]);
+        def.inputs.push(WorkflowInputSpec {
+            name: "buildPath".to_string(),
+            description: None,
+            schema: Some(serde_json::json!({"type": "string"})),
+            required: true,
+            default: None,
+            sensitive: false,
+            options_source: None,
+            file_picker: Some(FilePickerSpec {
+                extensions: None,
+                start_dir: Some("/tmp".to_string()),
+                kind: FilePickerKind::Directory,
+            }),
+            location: ags_protocol::workflow::StepFieldLocation::Body,
+        });
+        compile_workflow(&def, &mut cat).expect("valid directory-mode file_picker input compiles");
     }
 
     #[test]
@@ -2706,6 +2770,7 @@ mod tests {
             file_picker: Some(FilePickerSpec {
                 extensions: Some(vec!["png".to_string(), "jpg".to_string()]),
                 start_dir: Some("/tmp".to_string()),
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
             location: ags_protocol::workflow::StepFieldLocation::Body,
         });

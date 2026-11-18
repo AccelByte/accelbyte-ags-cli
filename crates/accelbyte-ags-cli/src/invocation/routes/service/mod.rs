@@ -211,7 +211,11 @@ pub(crate) async fn route_service(
     // Help exits before finalization, so a service command here is never meta.
     // The hint only fires here because prologue/synth/compile succeeded; see
     // the first_run module doc for the deferral trade-off on early errors.
-    crate::invocation::try_emit_first_run_hint(&frontend_context, false);
+    crate::invocation::try_emit_first_run_hint(
+        &frontend_context,
+        crate::invocation::HintCommand::Other,
+        flags.profile.as_deref(),
+    );
 
     // The prologue/synth/compile all succeeded — construct the phase surfaces
     // now. For `--ui=inline`/`--ui=fullscreen` this is the single terminal

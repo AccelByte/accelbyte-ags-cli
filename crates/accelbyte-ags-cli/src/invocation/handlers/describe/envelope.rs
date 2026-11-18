@@ -675,6 +675,7 @@ mod tests {
             file_picker: Some(FilePickerSpec {
                 extensions: None,
                 start_dir: None,
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
         };
         let without_picker = WorkflowInputSpec {

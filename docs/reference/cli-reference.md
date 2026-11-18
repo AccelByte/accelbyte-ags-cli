@@ -1,6 +1,6 @@
 # AGS CLI Reference
 
-Version: 0.5.4  
+Version: 0.5.5  
 Status: Released  
 Scope: Normative product and engineering reference for the AGS CLI
 
@@ -1087,17 +1087,18 @@ A `file_picker` input opens a directory-browsing picker in the fullscreen surfac
 
 **Fields:**
 
-- `extensions` — optional. A list of allowed file extensions (e.g. `[png, jpg, jpeg]`). Omit to allow any file.
+- `kind` — optional. `file` (default) or `directory`. Under `kind: directory`, `extensions` is rejected at compile time — extension filtering only makes sense for file selection.
+- `extensions` — optional. A list of allowed file extensions (e.g. `[png, jpg, jpeg]`). Omit to allow any file. Only valid under `kind: file`.
 - `start_dir` — optional. The initial directory when the picker opens (e.g. `/path/to/assets`). Defaults to the current working directory if unset or if the path doesn't exist at gather time.
 
 **Rendering:**
 
-- **Fullscreen surface:** renders as a directory-browsing modal picker.
+- **Fullscreen surface:** renders as a directory-browsing modal picker. Under `kind: directory`, ordinary files are hidden from the browser entirely at every depth, and a "select this folder" entry is added right after `..` to commit the currently browsed directory instead of drilling further.
 - **Inline surface:** renders as a plain text field (no picker widget).
 - **Plain surface:** renders as a plain text field.
 - **Non-interactive mode:** the value must be supplied via its `--<flag>` on the command line; no picker is shown.
 
-**Resolved value:** always the file's absolute path as a string, suitable for passing to subsequent workflow steps or API requests. If the typed filter matches no entries, pressing Enter commits the typed text instead — the same manual-entry escape hatch `options_source` offers — resolved to an absolute path against the picker's current directory, but *not* checked against `extensions` or filesystem existence.
+**Resolved value:** always the file's (or, under `kind: directory`, the directory's) absolute path as a string, suitable for passing to subsequent workflow steps or API requests. If the typed filter matches no entries, pressing Enter commits the typed text instead — the same manual-entry escape hatch `options_source` offers — resolved to an absolute path against the picker's current directory, but *not* checked against `extensions` or filesystem existence.
 
 **Mutual exclusivity:** A single input MUST NOT declare both `options_source` and `file_picker`.
 
@@ -1882,6 +1883,8 @@ The first-run hint:
 
 - MUST NOT block command execution
 - MUST NOT appear in non-interactive mode
+- MUST NOT direct an already signed-in user, or a caller running an `ags auth`
+  subcommand, to `ags auth login` — the rest of the hint still appears
 - SHOULD be short
 - SHOULD point users to profile setup, auth login, auth status, and help
 

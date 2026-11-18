@@ -259,15 +259,9 @@ async fn upload_whole(
             put_file_range(upload_client, &url, &range)
                 .await
                 .map(|_| ())
-                .map_err(|error| AmsUploadError::PartUploadFailed {
-                    part_number: 1,
-                    reason: error.into_runtime_error().message,
-                })
+                .map_err(|error| part_upload_failed(1, error))
         }
-        Err(error) => Err(AmsUploadError::PartUploadFailed {
-            part_number: 1,
-            reason: error.into_runtime_error().message,
-        }),
+        Err(error) => Err(part_upload_failed(1, error)),
     }
 }
 
@@ -334,6 +328,7 @@ async fn upload_in_parts(
         let (part_number, etag) = joined.map_err(|error| AmsUploadError::PartUploadFailed {
             part_number: 0,
             reason: error.to_string(),
+            hint: None,
         })??;
         etags[part_number - 1] = Some(etag);
     }
@@ -372,19 +367,23 @@ async fn upload_part(
                 .await?;
             put_file_range(upload_client, &url, range)
                 .await
-                .map_err(|error| AmsUploadError::PartUploadFailed {
-                    part_number,
-                    reason: error.into_runtime_error().message,
-                })?
+                .map_err(|error| part_upload_failed(part_number, error))?
         }
-        Err(error) => {
-            return Err(AmsUploadError::PartUploadFailed {
-                part_number,
-                reason: error.into_runtime_error().message,
-            })
-        }
+        Err(error) => return Err(part_upload_failed(part_number, error)),
     };
     outcome.etag.ok_or(AmsUploadError::MissingETag(part_number))
+}
+
+/// The error for a part whose transfer failed. It keeps both the message and
+/// the hint of the error that ended the transfer, so a stall still says to
+/// check the network and a URL rejected after the re-sign still says so.
+fn part_upload_failed(part_number: usize, error: BinaryPutError) -> AmsUploadError {
+    let error = error.into_runtime_error();
+    AmsUploadError::PartUploadFailed {
+        part_number,
+        reason: error.message,
+        hint: error.hint,
+    }
 }
 
 /// How many multipart parts an archive of `archive_bytes` splits into.
@@ -428,6 +427,65 @@ fn archive_stem(image_name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::dispatch::http::upload_stall_error;
+    use ags_protocol::error::{RuntimeError, RuntimeErrorKind};
+    use std::time::Duration;
+
+    /// A failed part keeps the hint of the error that ended its transfer: a
+    /// stalled upload still tells the user to check their network, and a
+    /// URL rejected again after the re-sign still says so, instead of
+    /// both being reduced to "Retry the upload.".
+    #[test]
+    fn test_part_upload_failure_keeps_the_hint_of_the_failed_transfer() {
+        let stalled = RuntimeError::from(part_upload_failed(
+            3,
+            BinaryPutError::Failed(upload_stall_error(Duration::from_secs(120))),
+        ));
+        assert_eq!(stalled.kind, RuntimeErrorKind::Network);
+        assert_eq!(
+            stalled.message,
+            "Upload of part 3 failed: The upload stopped because no data moved for 120 seconds."
+        );
+        assert_eq!(
+            stalled.hint.as_deref(),
+            Some("Check your network connection, then run the upload again.")
+        );
+
+        let rejected = RuntimeError::from(part_upload_failed(
+            3,
+            BinaryPutError::Unauthorized { status: 403 },
+        ));
+        assert_eq!(
+            rejected.hint.as_deref(),
+            Some(
+                "The storage service also rejected a second pre-signed URL. Run the upload again."
+            )
+        );
+    }
+
+    /// A failed part whose transfer error carries no hint, such as a storage
+    /// error status, still tells the user what to do next.
+    #[test]
+    fn test_part_upload_failure_without_a_hint_says_retry_the_upload() {
+        let status_error = RuntimeError {
+            kind: RuntimeErrorKind::Upstream {
+                status: 400,
+                code: None,
+            },
+            message: "The storage service rejected the upload (HTTP 400)".to_string(),
+            details: None,
+            hint: None,
+            trace: None,
+        };
+
+        let error = RuntimeError::from(part_upload_failed(2, BinaryPutError::Failed(status_error)));
+
+        assert_eq!(
+            error.message,
+            "Upload of part 2 failed: The storage service rejected the upload (HTTP 400)"
+        );
+        assert_eq!(error.hint.as_deref(), Some("Retry the upload."));
+    }
 
     #[test]
     fn test_part_count_uses_the_multipart_threshold() {

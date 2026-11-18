@@ -309,11 +309,8 @@ fn stored_snapshot_to_view(
             login_type,
             refresh_token,
         } => {
+            let can_refresh = refresh_token.is_usable();
             let render_refresh = refresh_token_to_render(refresh_token);
-            let can_refresh = matches!(
-                render_refresh,
-                TokenState::Valid { .. } | TokenState::Present
-            );
             AuthView::RequiresAttention(AuthStatusData {
                 source: AuthSource::Stored,
                 base_url: Some(base_url),

@@ -43,12 +43,21 @@ inputs:
     schema: {type: string}
     # default: null            # optional — used when no flag/gather value is supplied
     # sensitive: false          # optional, default false — masks the value in previews/logs
-    # location: body            # optional: path | query | header | body (default body)
+    # location: body            # optional: path | query | header | body | form_data (default body)
 
   - name: userId
     description: The AccelByte user ID to look up
     required: true
     schema: {type: string}
+
+  # A static-enum input presents a fixed set of choices in the interactive
+  # form, with no API call involved, just standard JSON Schema `enum`.
+  # Values supplied by flag are not checked against the list. Uncomment
+  # and adapt to add one of your own.
+  # - name: mode
+  #   description: Match mode
+  #   required: true
+  #   schema: {type: string, enum: [RANKED, CASUAL]}
 
   # A dynamic-enum input fetches its choices at runtime instead of the user
   # typing a raw value. Uncomment and adapt to add one of your own — note the
@@ -82,14 +91,31 @@ inputs:
   #   required: true
   #   schema: {type: string}
   #   file_picker:
-  #     extensions: [png, jpg, jpeg]   # optional; omit to allow any file
+  #     kind: file                     # optional; "file" (default) or "directory"
+  #     extensions: [png, jpg, jpeg]   # optional; omit to allow any file. Only
+  #                                      # valid with kind: file — rejected at
+  #                                      # compile time under kind: directory.
   #     # start_dir: "/path/to/assets"  # optional; falls back to CWD if unset
   #                                      # or if it doesn't exist at gather time
+  #
+  # A directory-picker example (browses folders only, no extensions allowed):
+  # - name: buildPath
+  #   description: Pick the build output directory
+  #   required: true
+  #   schema: {type: string}
+  #   file_picker:
+  #     kind: directory
 
 steps:
   - id: my-step
     description: Human-facing step description
+    # kind: api                 # optional, default: api. `api` steps call an operation
+    #                              (below) through the catalogue. `local` steps instead
+    #                              run a registered local action — set `action:` below to
+    #                              one of the current names, and omit `operation:` entirely.
+    #                              Current local actions: {{LOCAL_ACTION_NAMES}}
     operation: {service: iam, operation: iam/admin/users/v3/get}   # replace with a real x-operationId
+    # action: docker-login      # required instead of `operation:` when `kind: local` — see above
     # dependencies: []          # optional — other step ids that must complete first
     # confirm: false            # optional — true pauses for an explicit yes/no before dispatch
     # is_optional: false        # optional — true lets the user skip this step at its pause gate

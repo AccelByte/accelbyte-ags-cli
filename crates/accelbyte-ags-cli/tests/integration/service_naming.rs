@@ -1,11 +1,11 @@
 //! Regression guards for user-facing service names in Clap-generated errors.
 //!
-//! Six services are renamed between their OpenAPI spec id and the CLI
+//! Seven services are renamed between their OpenAPI spec id and the CLI
 //! display name (e.g. `cloudsave` → `cloud-save`, `match2` → `matchmaking`).
 //! Error messages produced by Clap must use the display name — not the
 //! internal id — so users see the same name they typed.
 
-use predicates::prelude::PredicateBooleanExt;
+use predicates::prelude::{Predicate, PredicateBooleanExt};
 use predicates::str::contains;
 
 use crate::common::cli_helpers::ags_isolated;
@@ -18,7 +18,16 @@ const RENAMED_SERVICES: &[(&str, &str)] = &[
     ("season-pass", "seasonpass"),
     ("session-history", "sessionhistory"),
     ("game-telemetry", "gametelemetry"),
+    ("namespace-config", "config"),
 ];
+
+/// Matches `internal` only as a whole service name. `config` occurs inside
+/// `namespace-config`, so a plain substring check cannot tell the two apart;
+/// the name must not be joined to a word character or `-` on either side.
+fn standalone(internal: &str) -> impl Predicate<str> {
+    let escaped = regex::escape(internal);
+    predicates::str::is_match(format!(r"(^|[^\w-]){escaped}($|[^\w-])")).unwrap()
+}
 
 // `test_missing_required_arg_error_uses_display_name` was removed in the
 // workflow-executor migration (Plan D, Task 5): service-command args are no
@@ -37,7 +46,7 @@ fn test_unknown_subcommand_error_uses_display_name() {
             .args([display, "no-such-resource"])
             .assert()
             .failure()
-            .stderr(contains(*display).and(contains(*internal).not()));
+            .stderr(contains(*display).and(standalone(internal).not()));
     }
 }
 

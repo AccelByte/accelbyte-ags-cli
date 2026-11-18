@@ -29,7 +29,7 @@ DEFAULT_OUTPUT = os.path.join(
 
 SERVICES = [
     "achievement", "ams", "basic", "challenge", "chat", "cloudsave",
-    "csm", "ehs", "gametelemetry", "gdpr", "group", "iam", "inventory",
+    "config", "csm", "ehs", "gametelemetry", "gdpr", "group", "iam", "inventory",
     "leaderboard", "legal", "lobby", "loginqueue", "match2",
     "platform", "reporting", "seasonpass", "session", "sessionhistory",
     "social", "ugc",
@@ -37,6 +37,7 @@ SERVICES = [
 
 DISPLAY_NAMES = {
     "cloudsave": "cloud-save",
+    "config": "namespace-config",
     "gametelemetry": "game-telemetry",
     "loginqueue": "login-queue",
     "match2": "matchmaking",

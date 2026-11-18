@@ -5,6 +5,48 @@ earlier versions see the [releases page](https://github.com/AccelByte/accelbyte-
 
 ## Unreleased
 
+## 0.5.5 — 2026-11-18
+
+### Added
+
+- A workflow `file_picker` input can set `kind: directory` to choose a folder instead of a file.
+  The fullscreen picker then shows only folders and offers a "Select this folder" row.
+  `kind` defaults to `file`, so existing workflows are unchanged. `ags workflow add` rejects
+  `extensions` together with `kind: directory`, since extensions only apply to files.
+- `ags namespace-config` manages namespace configuration on the AGS backend
+  (`justice-config-service`): config values such as `CORS`, account-profile configs, email
+  senders and their domain authentication, email API-key accounts, and email templates. It
+  is a separate service from `ags config`, which holds the CLI's own settings.
+  `ags namespace-config configs update` replaces the stored value in full and does not merge
+  it, so send the complete value: for `CORS`, every field you want to keep, since a field
+  left out falls back to the parent namespace's value or is dropped.
+
+### Changed
+
+- The skeleton from `ags workflow template` now shows how to write a local-action step
+  (`kind: local` with `action:`) and lists the current action names. It also shows a
+  fixed-choice (`enum`) input and lists `form_data` among the field locations.
+- The workflow protocol version is now 1.1.0, for the new `kind` field. Workflows that declare
+  1.0.0 still run unchanged, but `ags workflow run` notes the version difference until the file
+  declares 1.1.0. Earlier versions of `ags` warn when they run a 1.1.0 workflow, and they ignore
+  `kind: directory`, so their picker selects files.
+- The `--help` of `ags iam clients create`, `update` and `bulk-update` now explains what
+  `baseUri` does, in the words of IAM 7.43.3: it names the client as a token recipient for
+  audience (`aud`) checks, and has no effect on redirect URIs or CORS.
+
+### Fixed
+
+- The first-run welcome hint no longer tells you to run `ags auth login` when you are already
+  signed in, including with an expired session that will refresh on the next call, or when
+  the command is itself an `ags auth` subcommand. The rest of the hint is unchanged.
+- `ags extend database-tunnel` (and its old name, `ags extend tunnel`) stops on one Ctrl-C
+  pressed right after it starts listening. Before, a Ctrl-C at that moment could be missed,
+  and the tunnel kept running until you pressed Ctrl-C again.
+- `ags ams upload` no longer fails a large upload just because it takes longer than two
+  minutes. An upload now runs for as long as data keeps moving and stops when no data has
+  moved for 120 seconds, with an error that says so. A storage error at the end of a long
+  transfer is now retried, as it is early in the transfer, instead of ending the upload.
+
 ## 0.5.4 — 2026-10-28
 
 ### Fixed

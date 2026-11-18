@@ -23,6 +23,12 @@ ignore = [
     # and the file `ags workflow add` validates before installing it
     # (facade/workflow.rs). Revisit when serde_yaml_ng is replaced.
     "RUSTSEC-2024-0449",
+    # chrono is unmaintained (RUSTSEC-2026-0543). The advisory is
+    # informational, not a vulnerability, and lists no patched version. The CLI
+    # does not use chrono directly: posthog-rs 0.14 pulls it in for telemetry.
+    # posthog-rs 1.0 drops it but is a major upgrade onto a different crate.
+    # Revisit when posthog-rs is upgraded.
+    "RUSTSEC-2026-0543",
 ]
 db-urls = ["https://github.com/rustsec/advisory-db"]
 

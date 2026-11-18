@@ -57,6 +57,27 @@ fn test_workflow_template_output_writes_file() {
     assert!(content.contains("id: my-workflow"));
 }
 
+// The skeleton is meant to teach correct syntax, but nothing else in this
+// suite proves the generated file itself passes `workflow add
+// --validate-only` — the other template tests only check for a substring
+// like "id: my-workflow". Run the skeleton through real validation so a
+// future edit that breaks its YAML is caught here instead of by a user
+// following the template.
+#[test]
+fn test_workflow_template_output_validates() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("skeleton.yaml");
+    ags_isolated()
+        .args(["workflow", "template", "--output", path.to_str().unwrap()])
+        .assert()
+        .success();
+
+    ags_isolated()
+        .args(["workflow", "add", path.to_str().unwrap(), "--validate-only"])
+        .assert()
+        .success();
+}
+
 #[test]
 fn test_workflow_add_then_list_then_run_dry_run() {
     let src_dir = tempfile::tempdir().unwrap();

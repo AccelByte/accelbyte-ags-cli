@@ -142,6 +142,15 @@ pub enum RefreshTokenState {
     Missing,
 }
 
+impl RefreshTokenState {
+    /// Whether the next API call can refresh an expired access token with
+    /// this refresh token. Shared by `ags auth status` and the first-run
+    /// hint so the two never disagree on "signed in".
+    pub fn is_usable(&self) -> bool {
+        matches!(self, Self::Valid { .. } | Self::Present)
+    }
+}
+
 /// Perform a client-credentials grant login. The caller is responsible for
 /// calling [`probe_existing_session`] first so we don't issue a redundant
 /// grant when a usable session already exists.

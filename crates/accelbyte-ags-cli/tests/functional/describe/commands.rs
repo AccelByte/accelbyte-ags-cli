@@ -263,6 +263,28 @@ fn test_unknown_service_returns_error() {
     assert_eq!(json["data"]["code"], "unknown_service");
 }
 
+/// `config` is the internal id of `namespace-config`, but `ags config` is the
+/// CLI's own settings command, so `describe config` must not describe the
+/// service. It returns `unknown_service` and points at the display name.
+#[test]
+fn test_builtin_command_name_is_not_a_service() {
+    let output = ags_isolated()
+        .args(["describe", "config"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["kind"], "error");
+    assert_eq!(json["data"]["code"], "unknown_service");
+    let suggestions = json["data"]["suggestions"].as_array().unwrap();
+    assert!(
+        suggestions.iter().any(|s| s == "namespace-config"),
+        "should suggest the display name: {suggestions:?}"
+    );
+}
+
 /// Unknown resource returns an error envelope
 #[test]
 fn test_unknown_resource_returns_error() {

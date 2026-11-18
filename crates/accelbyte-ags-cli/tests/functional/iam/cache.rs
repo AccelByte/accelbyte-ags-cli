@@ -253,3 +253,16 @@ fn test_refresh_specs_unknown_service() {
         .stderr(predicate::str::contains("Unknown service"))
         .stderr(predicate::str::contains("Valid services"));
 }
+
+/// `ags refresh-specs config` is a usage error: `config` is the internal id of
+/// `namespace-config`, but it names the CLI's own settings command.
+#[test]
+fn test_refresh_specs_rejects_builtin_command_name() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    ags_with_cache_dir(tmp.path())
+        .args(["refresh-specs", "config"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Unknown service: 'config'"));
+}

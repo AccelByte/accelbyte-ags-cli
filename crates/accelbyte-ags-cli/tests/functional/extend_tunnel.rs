@@ -148,7 +148,9 @@ fn spawn_tunnel_capture_stdout(
 
 /// Wait until the tunnel emits its ready line on stderr. Handles both
 /// the human format (`listening on`) and JSON format (`"event":"listening"`).
-fn wait_for_ready(rx: &std::sync::mpsc::Receiver<String>) {
+/// If no ready line arrives within 15 s, it kills and reaps `child` before
+/// failing the test, so a failed wait leaves no `ags` running.
+fn wait_for_ready(child: &mut std::process::Child, rx: &std::sync::mpsc::Receiver<String>) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
     let mut lines = Vec::new();
     while std::time::Instant::now() < deadline {
@@ -165,10 +167,44 @@ fn wait_for_ready(rx: &std::sync::mpsc::Receiver<String>) {
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
+    let _ = child.kill();
+    let _ = child.wait();
     panic!(
         "tunnel did not emit ready signal within 15 s; stderr so far:\n{}",
         lines.join("\n")
     );
+}
+
+/// How long a SIGINT test waits for the tunnel to exit before it fails.
+#[cfg(unix)]
+const SIGINT_EXIT_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Wait for the tunnel to exit after SIGINT, for at most
+/// [`SIGINT_EXIT_DEADLINE`]. A tunnel that missed the signal keeps running,
+/// so instead of blocking in `child.wait()` until the CI job limit, this
+/// kills it, reaps it, and fails the test. `context` names the run in the
+/// failure message.
+#[cfg(unix)]
+fn wait_with_deadline(child: &mut std::process::Child, context: &str) -> std::process::ExitStatus {
+    let deadline = std::time::Instant::now() + SIGINT_EXIT_DEADLINE;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status,
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!(
+                        "the tunnel did not exit within {} s after SIGINT ({context}); \
+                         it was killed",
+                        SIGINT_EXIT_DEADLINE.as_secs()
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(e) => panic!("failed to wait for ags ({context}): {e}"),
+        }
+    }
 }
 
 /// Wait until the port is accepting TCP connections (for quiet-mode
@@ -299,7 +335,7 @@ fn stop_upstream(
 fn test_tunnel_exits_zero_after_sigint() {
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel(port);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     // Send SIGINT to the child process.
     let pid = child.id() as libc::pid_t;
@@ -307,13 +343,41 @@ fn test_tunnel_exits_zero_after_sigint() {
         libc::kill(pid, libc::SIGINT);
     }
 
-    let status = child.wait().expect("failed to wait for ags");
+    let status = wait_with_deadline(&mut child, "human format");
 
     assert_eq!(
         status.code(),
         Some(0),
         "tunnel must exit 0 after SIGINT, got {status:?}",
     );
+}
+
+/// SIGINT sent the moment the listening line appears stops the tunnel with
+/// exit code 0, ten runs in a row. The tunnel must already be listening for
+/// Ctrl-C when it prints that line: a listener that registers later misses a
+/// signal landing in between, and the tunnel keeps running. Each run uses a
+/// fresh port.
+#[cfg(unix)]
+#[test]
+fn test_tunnel_exits_zero_on_sigint_right_after_listening_repeatedly() {
+    const RUNS: usize = 10;
+    for run in 1..=RUNS {
+        let port = free_port();
+        let (mut child, rx, _tmp) = spawn_tunnel(port);
+        wait_for_ready(&mut child, &rx);
+
+        let pid = child.id() as libc::pid_t;
+        unsafe {
+            libc::kill(pid, libc::SIGINT);
+        }
+
+        let status = wait_with_deadline(&mut child, &format!("run {run} of {RUNS}"));
+        assert_eq!(
+            status.code(),
+            Some(0),
+            "run {run} of {RUNS}: tunnel must exit 0 after SIGINT, got {status:?}",
+        );
+    }
 }
 
 // ── F-03: Crypto provider is installed at the binary level ──
@@ -336,7 +400,7 @@ fn test_tunnel_no_crypto_panic_on_tcp_connection() {
 
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel_with_base_url(port, &base_url);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     // Connect TCP to the tunnel's local port, which triggers the
     // upstream TLS dial in the accept loop.
@@ -375,7 +439,7 @@ fn test_tunnel_client_connected_event_on_stderr() {
 
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel_with_base_url(port, &base_url);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     // Connect a TCP client to the tunnel.
     let _client = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
@@ -413,7 +477,7 @@ fn test_tunnel_connection_lifecycle_event_on_stderr() {
 
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel_with_base_url(port, &base_url);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     {
         // Connect and immediately drop to trigger the lifecycle.
@@ -455,7 +519,7 @@ fn test_tunnel_event_lines_carry_elapsed_prefix() {
 
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel_with_base_url(port, &base_url);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     let _client = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
 
@@ -527,7 +591,7 @@ fn test_tunnel_json_format_events() {
 
     let port = free_port();
     let (mut child, rx, _tmp) = spawn_tunnel_with_args(port, &base_url, &["--format", "json"]);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     let _client = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
 
@@ -572,7 +636,7 @@ fn test_tunnel_stdout_is_empty() {
     {
         let port = free_port();
         let (mut child, rx, stdout, _tmp) = spawn_tunnel_capture_stdout(port, &base_url, &[]);
-        wait_for_ready(&rx);
+        wait_for_ready(&mut child, &rx);
 
         let _client = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -595,7 +659,7 @@ fn test_tunnel_stdout_is_empty() {
         let port = free_port();
         let (mut child, rx, stdout, _tmp) =
             spawn_tunnel_capture_stdout(port, &base_url, &["--format", "json"]);
-        wait_for_ready(&rx);
+        wait_for_ready(&mut child, &rx);
 
         let _client = std::net::TcpStream::connect(format!("127.0.0.1:{port}"));
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -636,7 +700,7 @@ fn test_tunnel_stopped_event_in_json_after_sigint() {
     let port = free_port();
     let (mut child, rx, _tmp) =
         spawn_tunnel_with_args(port, "http://localhost:1", &["--format", "json"]);
-    wait_for_ready(&rx);
+    wait_for_ready(&mut child, &rx);
 
     // Send SIGINT for a graceful shutdown.
     let pid = child.id() as libc::pid_t;
@@ -644,7 +708,7 @@ fn test_tunnel_stopped_event_in_json_after_sigint() {
         libc::kill(pid, libc::SIGINT);
     }
 
-    let status = child.wait().expect("failed to wait for ags");
+    let status = wait_with_deadline(&mut child, "JSON format");
 
     assert_eq!(
         status.code(),

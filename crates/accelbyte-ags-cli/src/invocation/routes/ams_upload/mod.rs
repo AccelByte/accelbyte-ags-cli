@@ -67,7 +67,7 @@ pub(crate) async fn route_ams_upload(
     // so it must not run the auth prologue either. It stays usable before a
     // first login, which is the whole point of the flag.
     if flags.is_dry_run {
-        let mut frontend = self_owned_frontend(backend, options, frontend_context)?;
+        let mut frontend = self_owned_frontend(flags, backend, options, frontend_context)?;
         frontend.on_event(&crate::frontend::FrontendEvent::RunStarted {
             workflow_banner: None,
         });
@@ -83,7 +83,7 @@ pub(crate) async fn route_ams_upload(
     }
 
     let (context, http_client) = super::run_prologue(flags, frontend_context, &options).await?;
-    let mut frontend = self_owned_frontend(backend, options, frontend_context)?;
+    let mut frontend = self_owned_frontend(flags, backend, options, frontend_context)?;
     frontend.on_event(&crate::frontend::FrontendEvent::RunStarted {
         workflow_banner: None,
     });
@@ -105,13 +105,18 @@ pub(crate) async fn route_ams_upload(
 /// Upload is single-shot and gathers no input, so it takes the plain/JSON
 /// surfaces rather than acquiring the terminal for a form.
 fn self_owned_frontend(
+    flags: &GlobalFlags,
     backend: PhaseBackend,
     options: crate::frontend::RenderOptions,
     frontend_context: &FrontendContext,
 ) -> Result<Box<dyn crate::frontend::Frontend>, CliError> {
     let frontend = crate::frontend::frontend_for_surface(backend, options)?;
     crate::invocation::register_reporter_if_plain(frontend_context);
-    crate::invocation::try_emit_first_run_hint(frontend_context, false);
+    crate::invocation::try_emit_first_run_hint(
+        frontend_context,
+        crate::invocation::HintCommand::Other,
+        flags.profile.as_deref(),
+    );
     Ok(frontend)
 }
 

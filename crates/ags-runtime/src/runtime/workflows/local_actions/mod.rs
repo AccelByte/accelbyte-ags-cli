@@ -5,7 +5,9 @@
 //! time (`compile_workflow`).
 //!
 //! Actions are registered via [`lookup`] and enumerated via
-//! [`known_names`]. Adding a new action means adding an entry to both.
+//! [`known_production_names`]. Adding a new action means adding an entry
+//! to both — [`known_names`] derives from [`known_production_names`], so
+//! it does not need a separate entry.
 
 use ags_protocol::error::RuntimeError;
 use ags_protocol::event::ProgressSink;
@@ -48,11 +50,20 @@ pub trait LocalAction: Send + Sync {
     ) -> Result<Value, RuntimeError>;
 }
 
+/// Every production-registered action, in one place. Both [`lookup`] and
+/// [`known_production_names`] read this table, so adding an action is a
+/// single edit and the two can never drift apart.
+static PRODUCTION_ACTIONS: &[(&str, &'static dyn LocalAction)] = &[
+    ("ams/upload-image", &ams_upload::AmsUploadStep),
+    ("docker-login", &docker_login::DockerLoginAction),
+];
+
 /// Look up a local action by name. Returns `None` for unknown names.
 pub fn lookup(name: &str) -> Option<&'static dyn LocalAction> {
+    if let Some((_, action)) = PRODUCTION_ACTIONS.iter().find(|(n, _)| *n == name) {
+        return Some(*action);
+    }
     match name {
-        "docker-login" => Some(&docker_login::DockerLoginAction),
-        "ams/upload-image" => Some(&ams_upload::AmsUploadStep),
         #[cfg(test)]
         "test-echo" => Some(&test_support::TestEchoAction),
         #[cfg(test)]
@@ -64,11 +75,25 @@ pub fn lookup(name: &str) -> Option<&'static dyn LocalAction> {
 /// Return the sorted list of known action names. Used in compile-time
 /// error messages to enumerate valid choices.
 pub fn known_names() -> Vec<&'static str> {
-    let mut names = vec!["ams/upload-image", "docker-login"];
+    let mut names = known_production_names();
     #[cfg(test)]
     names.push("test-echo");
     #[cfg(test)]
     names.push("test-fail");
+    names.sort();
+    names
+}
+
+/// Return the sorted list of production-registered action names —
+/// deliberately excludes `#[cfg(test)]` registrations even when this crate
+/// itself is compiled under `cfg(test)` (i.e. `cargo test`), unlike
+/// [`known_names`]. `ags workflow template`'s self-documentation must never
+/// leak test-only action names into a user-facing skeleton, and since
+/// template generation is exercised by this crate's own test suite,
+/// `known_names()` — which intentionally reflects the *currently compiled*
+/// registry, test names included — is the wrong source for it.
+pub fn known_production_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = PRODUCTION_ACTIONS.iter().map(|(n, _)| *n).collect();
     names.sort();
     names
 }
@@ -181,6 +206,23 @@ mod tests {
         assert!(names.contains(&"docker-login"));
         assert!(names.contains(&"ams/upload-image"));
         assert!(names.contains(&"test-echo"));
+    }
+
+    #[test]
+    fn known_production_names_excludes_test_actions() {
+        let names = known_production_names();
+        assert!(!names.contains(&"test-echo"), "got: {names:?}");
+        assert!(!names.contains(&"test-fail"), "got: {names:?}");
+    }
+
+    #[test]
+    fn known_production_names_all_resolve() {
+        for name in known_production_names() {
+            assert!(
+                lookup(name).is_some(),
+                "'{name}' is in known_production_names() but does not resolve in lookup()"
+            );
+        }
     }
 
     /// Every registered action id resolves to a handler. Prevents a

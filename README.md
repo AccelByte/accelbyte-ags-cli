@@ -436,6 +436,7 @@ AGS CLI covers every AccelByte Gaming Services API. Run `ags --help` for the liv
 | Lobby | `lobby` | Friends, presence, party, and notifications |
 | Login Queue | `login-queue` | Login queue management and tickets |
 | Matchmaking | `matchmaking` | Matchmaking pools, rulesets, and tickets |
+| Namespace Config | `namespace-config` | Namespace config values, email senders, and email templates |
 | Platform | `platform` | Store, entitlements, wallets, and payments |
 | Reporting | `reporting` | Player reporting and moderation |
 | Season Pass | `season-pass` | Season passes, tiers, and rewards |

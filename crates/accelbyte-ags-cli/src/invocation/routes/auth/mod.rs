@@ -90,7 +90,11 @@ pub(crate) async fn route_auth(
     // suppresses the hint on an upgraded surface, so it never writes to stderr
     // mid terminal-acquisition. Help exits before this point, so auth
     // subcommands are never meta.
-    crate::invocation::try_emit_first_run_hint(frontend_context, false);
+    crate::invocation::try_emit_first_run_hint(
+        frontend_context,
+        crate::invocation::HintCommand::Auth,
+        flags.profile.as_deref(),
+    );
     let mut frontend: Box<dyn crate::frontend::Frontend> = if matches!(
         backend,
         crate::invocation::context::PhaseBackend::FullscreenTerminalUi

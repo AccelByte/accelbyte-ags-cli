@@ -453,7 +453,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("icon.png"), b"").unwrap();
         surface.file_picker = Some(
-            FilePickerModal::new("icon-file".to_string(), dir.path().to_path_buf(), None).unwrap(),
+            FilePickerModal::new(
+                "icon-file".to_string(),
+                dir.path().to_path_buf(),
+                None,
+                ags_protocol::workflow::FilePickerKind::File,
+            )
+            .unwrap(),
         );
         let buf = render_to_string(&mut surface, 80, 24);
         assert!(buf.contains("Select icon-file"), "modal title drawn: {buf}");

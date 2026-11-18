@@ -5,6 +5,7 @@ use crate::frontend;
 use crate::invocation::builder;
 use crate::invocation::clap_helpers;
 use crate::invocation::flags::GlobalFlags;
+use crate::invocation::routes::builtin::is_builtin_command;
 use crate::invocation::InvocationOutcome;
 use ags_protocol::output::{CommandOutput, RefreshMode, RefreshSpecsOutput};
 use ags_runtime::catalogue::Catalogue;
@@ -37,17 +38,21 @@ fn handle_refresh_single(
     flags: &GlobalFlags,
     frontend: &mut dyn frontend::Frontend,
 ) -> Result<InvocationOutcome, CliError> {
-    let internal = Catalogue::internal_name(service_arg).ok_or_else(|| {
-        let services = Catalogue::service_ids()
-            .map(Catalogue::display_name_or_panic)
-            .map(|s| format!("  {s}"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        CliError::Usage {
-            message: format!("Unknown service: '{service_arg}'\n\nValid services:\n{services}"),
-            metadata: None,
-        }
-    })?;
+    // A built-in command name is never a service here, even when it is a
+    // service's internal id (`config`, internal id of `namespace-config`).
+    let internal = Catalogue::internal_name(service_arg)
+        .filter(|_| !is_builtin_command(service_arg))
+        .ok_or_else(|| {
+            let services = Catalogue::service_ids()
+                .map(Catalogue::display_name_or_panic)
+                .map(|s| format!("  {s}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            CliError::Usage {
+                message: format!("Unknown service: '{service_arg}'\n\nValid services:\n{services}"),
+                metadata: None,
+            }
+        })?;
 
     let start = std::time::Instant::now();
     Catalogue::refresh(internal)?;

@@ -6,7 +6,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use ags_protocol::workflow::OptionChoice;
+use ags_protocol::workflow::{FilePickerKind, OptionChoice};
 use ags_runtime::runtime::workflows::file_picker::{list_directory, FileEntry};
 use ratatui::layout::Rect;
 
@@ -23,6 +23,26 @@ const MIN_MODAL_HEIGHT: u16 = CHROME_ROWS + 1;
 const MAX_MODAL_WIDTH: u16 = 96;
 const MAX_HEIGHT_DIVISOR: u16 = 2;
 
+/// Reserved value for the synthetic "select this folder" row inserted only
+/// in `Directory` mode. A lone NUL byte can never appear in a real filename
+/// on Windows or Unix, so this can never collide with an entry produced by
+/// `list_directory` — and, being a single non-typable byte, it can never
+/// contain a user-typed filter substring either.
+///
+/// This constant is used as BOTH the `label` and `value` of the synthetic
+/// `OptionChoice` (see `entries_to_choices`), which matters for
+/// `PickerList::recompute`'s type-to-filter matching: giving the row an
+/// empty-of-real-content, identical label/value means the label branch can
+/// never match non-empty typed text, and `label == value` skips the
+/// (otherwise redundant) value branch entirely. Without this, a user typing
+/// e.g. "folder" — a substring of the friendly label text — would leave the
+/// synthetic row as the sole filtered match and hijack Enter into committing
+/// the browsed directory instead of falling through to the custom-value
+/// escape hatch. `FilePickerModal::render` substitutes `SELECT_HERE_LABEL`
+/// back in for display, since this raw sentinel is never shown as-is.
+const SELECT_HERE_VALUE: &str = "\u{0}";
+const SELECT_HERE_LABEL: &str = "\u{b7} Select this folder";
+
 /// Modal rect + list-viewport height for a given outer area.
 pub(crate) struct FilePickerLayout {
     pub modal: Rect,
@@ -33,6 +53,7 @@ pub(crate) struct FilePickerLayout {
 pub(crate) struct FilePickerModal {
     title: String,
     extensions: Option<Vec<String>>,
+    kind: FilePickerKind,
     current_dir: PathBuf,
     entries: Vec<FileEntry>,
     list: PickerList,
@@ -41,8 +62,8 @@ pub(crate) struct FilePickerModal {
     transient_message: Option<String>,
 }
 
-fn entries_to_choices(entries: &[FileEntry]) -> Vec<OptionChoice> {
-    entries
+fn entries_to_choices(entries: &[FileEntry], kind: FilePickerKind) -> Vec<OptionChoice> {
+    let mut choices: Vec<OptionChoice> = entries
         .iter()
         .map(|e| OptionChoice {
             label: if e.is_dir && e.name != ".." {
@@ -52,7 +73,26 @@ fn entries_to_choices(entries: &[FileEntry]) -> Vec<OptionChoice> {
             },
             value: e.name.clone(),
         })
-        .collect()
+        .collect();
+    if kind == FilePickerKind::Directory {
+        let insert_at = if entries.first().map(|e| e.name.as_str()) == Some("..") {
+            1
+        } else {
+            0
+        };
+        choices.insert(
+            insert_at,
+            OptionChoice {
+                // `label == value` (both the NUL sentinel) so this entry is
+                // exempt from type-to-filter matching — see the doc comment
+                // on `SELECT_HERE_VALUE`. `FilePickerModal::render`
+                // substitutes `SELECT_HERE_LABEL` back in for display.
+                label: SELECT_HERE_VALUE.to_string(),
+                value: SELECT_HERE_VALUE.to_string(),
+            },
+        );
+    }
+    choices
 }
 
 impl FilePickerModal {
@@ -60,12 +100,18 @@ impl FilePickerModal {
     /// read (the caller — `drive_inputs_panel_form`, Task 10 — is
     /// responsible for having already resolved a valid starting directory,
     /// falling back to CWD if the declared `start_dir` doesn't exist).
-    pub fn new(title: String, dir: PathBuf, extensions: Option<Vec<String>>) -> io::Result<Self> {
-        let entries = list_directory(&dir, extensions.as_deref())?;
-        let choices = entries_to_choices(&entries);
+    pub fn new(
+        title: String,
+        dir: PathBuf,
+        extensions: Option<Vec<String>>,
+        kind: FilePickerKind,
+    ) -> io::Result<Self> {
+        let entries = list_directory(&dir, extensions.as_deref(), kind)?;
+        let choices = entries_to_choices(&entries, kind);
         Ok(Self {
             title,
             extensions,
+            kind,
             current_dir: dir,
             list: PickerList::new(choices, None),
             entries,
@@ -94,8 +140,8 @@ impl FilePickerModal {
         extensions: Option<Vec<String>>,
         select: Option<&str>,
     ) -> io::Result<()> {
-        let entries = list_directory(&dir, extensions.as_deref())?;
-        let choices = entries_to_choices(&entries);
+        let entries = list_directory(&dir, extensions.as_deref(), self.kind)?;
+        let choices = entries_to_choices(&entries, self.kind);
         self.current_dir = dir;
         self.entries = entries;
         self.list = PickerList::new(choices, select);
@@ -179,6 +225,15 @@ impl FilePickerModal {
         self.extensions.as_ref()
     }
 
+    /// Whether the currently highlighted row is the synthetic "select this
+    /// folder" entry (only ever present in `Directory` mode). The Enter-key
+    /// handler in `fullscreen/interaction.rs` checks this before its normal
+    /// directory/file/no-match dispatch.
+    pub fn selected_is_directory_commit(&self) -> bool {
+        self.kind == FilePickerKind::Directory
+            && self.list.selected_value().as_deref() == Some(SELECT_HERE_VALUE)
+    }
+
     /// Whether the filter text is empty — used by the key loop to decide
     /// whether Backspace should pop a filter character or navigate up a
     /// directory level instead.
@@ -214,7 +269,12 @@ impl FilePickerModal {
         if let Some(msg) = &self.transient_message {
             return msg.clone();
         }
-        if self.entries.is_empty() {
+        // `self.list.choices` is the full universe of selectable rows: real
+        // entries plus (in `Directory` mode) the synthetic "select this
+        // folder" row, which is always present and selectable even when
+        // `entries` itself is empty — so "Empty directory" is only accurate
+        // when there is truly nothing to select.
+        if self.list.choices.is_empty() {
             return "Empty directory \u{00B7} Backspace up \u{00B7} Esc cancel".to_string();
         }
         if self.list.filtered.is_empty() && !self.list.filter_text.trim().is_empty() {
@@ -223,11 +283,20 @@ impl FilePickerModal {
                 self.list.filter_text.trim()
             );
         }
+        // Count the synthetic row on both sides of "N of M" so the total
+        // reflects the same universe as `filtered` (which includes it too
+        // when unfiltered) instead of undercounting it by one.
+        let total = self.entries.len()
+            + if self.kind == FilePickerKind::Directory {
+                1
+            } else {
+                0
+            };
         format!(
             "{} of {} \u{00B7} \u{2191}\u{2193} move \u{00B7} Enter open/select \u{00B7} \
              Backspace up \u{00B7} Tab jump to path \u{00B7} Esc cancel",
             self.list.filtered.len(),
-            self.entries.len()
+            total
         )
     }
 
@@ -298,7 +367,18 @@ impl FilePickerModal {
             self.list
                 .filtered
                 .iter()
-                .map(|&i| ListItem::new(self.list.choices[i].label.clone()))
+                .map(|&i| {
+                    let choice = &self.list.choices[i];
+                    // The synthetic row's stored label is the filter-exempt
+                    // sentinel (see `SELECT_HERE_VALUE`'s doc comment), not
+                    // display text — substitute the friendly label here.
+                    let label = if choice.value == SELECT_HERE_VALUE {
+                        SELECT_HERE_LABEL
+                    } else {
+                        choice.label.as_str()
+                    };
+                    ListItem::new(label)
+                })
                 .collect()
         };
         let list = List::new(items)
@@ -345,6 +425,7 @@ mod tests {
             "iconFile".to_string(),
             root.path().to_path_buf(),
             extensions,
+            ags_protocol::workflow::FilePickerKind::File,
         )
         .unwrap();
         let names: Vec<&str> = modal.entries.iter().map(|e| e.name.as_str()).collect();
@@ -354,10 +435,164 @@ mod tests {
     }
 
     #[test]
+    fn test_new_directory_mode_inserts_select_here_entry_after_dotdot() {
+        let root = setup_tree();
+        let sub = root.path().join("sub");
+        let mut modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            sub,
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        assert_eq!(modal.list.choices[0].label, "..");
+        // The stored label/value of the synthetic row is the filter-exempt
+        // sentinel, not display text (see `SELECT_HERE_VALUE`'s doc comment)
+        // — assert on `value` here, and confirm the friendly text still
+        // shows up at render time below.
+        assert_eq!(modal.list.choices[1].value, SELECT_HERE_VALUE);
+
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 24)).unwrap();
+        term.draw(|f| modal.render(f, f.area())).unwrap();
+        let buf: String = term
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(buf.contains("Select this folder"));
+    }
+
+    #[test]
+    fn test_entries_to_choices_inserts_select_here_at_index_zero_with_no_dotdot() {
+        // A hand-built entry slice with no ".." element directly exercises
+        // the filesystem-root case (`entries_to_choices` inserts at index 0
+        // when there's no parent to insert after), without needing a real
+        // filesystem root — `entries_to_choices` is a free function over a
+        // plain slice, so no directory listing is required.
+        let entries = vec![FileEntry {
+            name: "sub".to_string(),
+            path: PathBuf::from("/sub"),
+            is_dir: true,
+        }];
+        let choices =
+            entries_to_choices(&entries, ags_protocol::workflow::FilePickerKind::Directory);
+        assert_eq!(choices[0].value, SELECT_HERE_VALUE);
+        assert_eq!(choices[1].value, "sub");
+    }
+
+    #[test]
+    fn test_file_mode_never_shows_select_here_entry() {
+        let root = setup_tree();
+        let modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
+        assert!(
+            !modal
+                .list
+                .choices
+                .iter()
+                .any(|c| c.value == SELECT_HERE_VALUE),
+            "File mode must never show the select-here entry"
+        );
+    }
+
+    #[test]
+    fn test_directory_mode_filter_excludes_select_here_entry_from_matching() {
+        // Regression for: typing a filter substring of the synthetic row's
+        // friendly label (e.g. "folder", from "Select this folder") used to
+        // leave the synthetic row as the sole match, hijacking Enter into
+        // committing the browsed directory instead of falling through to the
+        // custom-value escape hatch (committing the typed path). None of
+        // `setup_tree`'s entries (`..`, `sub`, `icon.png`, `readme.txt`) is
+        // named "folder", so a correct fix must leave `filtered` empty here.
+        let root = setup_tree();
+        let mut modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        for c in "folder".chars() {
+            modal.push_char(c);
+        }
+        assert!(
+            modal.list.filtered.is_empty(),
+            "the synthetic row's label must never participate in type-to-filter matching"
+        );
+        assert_eq!(
+            modal.custom_value().as_deref(),
+            Some(root.path().join("folder").to_string_lossy().into_owned()).as_deref()
+        );
+    }
+
+    #[test]
+    fn test_selected_is_directory_commit_true_only_for_select_here_row() {
+        let root = setup_tree();
+        let mut modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        // Initial selection is index 0 ("..").
+        assert!(!modal.selected_is_directory_commit());
+        modal.move_down(); // -> "Select this folder"
+        assert!(modal.selected_is_directory_commit());
+        modal.move_down(); // -> "sub"
+        assert!(!modal.selected_is_directory_commit());
+    }
+
+    #[test]
+    fn test_selected_is_directory_commit_always_false_in_file_mode() {
+        let root = setup_tree();
+        let modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
+        assert!(!modal.selected_is_directory_commit());
+    }
+
+    #[test]
+    fn test_navigate_to_directory_mode_keeps_select_here_entry_after_drilling_in() {
+        let root = setup_tree();
+        let mut modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        modal
+            .navigate_to(root.path().join("sub"), None, None)
+            .expect("sub exists");
+        assert!(modal
+            .list
+            .choices
+            .iter()
+            .any(|c| c.value == SELECT_HERE_VALUE));
+    }
+
+    #[test]
     fn test_navigate_to_rebuilds_list_and_clears_filter() {
         let root = setup_tree();
-        let mut modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         modal.push_char('i');
         assert_eq!(modal.list.filter_text, "i");
         modal
@@ -377,8 +612,13 @@ mod tests {
         // unique within one directory listing and never contains the
         // directory's own path.
         let root = setup_tree();
-        let mut modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
 
         // A fragment of the temp directory's own name shouldn't match any
         // entry (none of "..", "sub", "icon.png", "readme.txt" contain it).
@@ -423,8 +663,13 @@ mod tests {
     #[test]
     fn test_navigate_to_can_preselect_an_entry_by_name() {
         let root = setup_tree();
-        let mut modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         modal
             .navigate_to(root.path().to_path_buf(), None, Some("icon.png"))
             .expect("re-navigating to the same dir succeeds");
@@ -435,8 +680,13 @@ mod tests {
     #[test]
     fn test_layout_none_when_too_small() {
         let root = setup_tree();
-        let modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         assert!(modal.layout(Rect::new(0, 0, 1, 1)).is_none());
     }
 
@@ -446,8 +696,13 @@ mod tests {
         // count — it should always claim the max available height so it
         // doesn't visibly resize as the user navigates or filters.
         let root = setup_tree();
-        let modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let area = Rect::new(0, 0, 100, 40);
         let l = modal.layout(area).expect("fits");
         let avail_h = area.height.saturating_sub(4);
@@ -458,8 +713,13 @@ mod tests {
     #[test]
     fn test_render_shows_breadcrumb_and_entries() {
         let root = setup_tree();
-        let mut modal =
-            FilePickerModal::new("iconFile".to_string(), root.path().to_path_buf(), None).unwrap();
+        let mut modal = FilePickerModal::new(
+            "iconFile".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
         let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 24)).unwrap();
         term.draw(|f| modal.render(f, f.area())).unwrap();
         let buf: String = term
@@ -472,5 +732,58 @@ mod tests {
         assert!(
             buf.contains(&root.path().to_string_lossy().to_string()) || buf.contains("icon.png")
         );
+    }
+
+    #[test]
+    fn test_footer_counts_select_here_entry_on_both_sides_of_the_ratio() {
+        // Directory mode only lists directories (see `list_directory`), so
+        // `setup_tree`'s real entries here are ".." + "sub" = 2; Directory
+        // mode adds the synthetic row on top, so the footer should read
+        // "3 of 3" unfiltered, not "3 of 2".
+        let root = setup_tree();
+        let modal = FilePickerModal::new(
+            "buildPath".to_string(),
+            root.path().to_path_buf(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        assert_eq!(modal.entries.len(), 2);
+        assert_eq!(modal.list.filtered.len(), 3);
+        assert_eq!(
+            modal.footer_text(),
+            "3 of 3 \u{00B7} \u{2191}\u{2193} move \u{00B7} Enter open/select \u{00B7} \
+             Backspace up \u{00B7} Tab jump to path \u{00B7} Esc cancel"
+        );
+    }
+
+    #[test]
+    fn test_footer_not_empty_directory_when_only_select_here_is_selectable() {
+        // A directory with zero real entries (no ".." — no parent — and no
+        // children, i.e. the filesystem-root case) still has the synthetic
+        // "select this folder" row in Directory mode — the footer must not
+        // claim the directory is empty when that row is selectable. Not
+        // portable to reach through a real temp directory (which always has
+        // a parent, so `list_directory` always yields a ".." entry), so this
+        // constructs the modal directly, same rationale as finding 3's
+        // `entries_to_choices` test above.
+        let entries: Vec<FileEntry> = vec![];
+        let choices =
+            entries_to_choices(&entries, ags_protocol::workflow::FilePickerKind::Directory);
+        let modal = FilePickerModal {
+            title: "buildPath".to_string(),
+            extensions: None,
+            kind: ags_protocol::workflow::FilePickerKind::Directory,
+            current_dir: PathBuf::from("/"),
+            list: PickerList::new(choices, None),
+            entries,
+            transient_message: None,
+        };
+        assert!(modal.entries.is_empty());
+        assert_ne!(
+            modal.footer_text(),
+            "Empty directory \u{00B7} Backspace up \u{00B7} Esc cancel"
+        );
+        assert!(modal.footer_text().starts_with("1 of 1"));
     }
 }

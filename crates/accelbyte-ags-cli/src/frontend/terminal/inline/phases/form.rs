@@ -974,6 +974,7 @@ mod tests {
             file_picker: Some(ags_protocol::workflow::FilePickerSpec {
                 extensions: Some(vec!["png".to_string()]),
                 start_dir: None,
+                kind: ags_protocol::workflow::FilePickerKind::File,
             }),
         }
     }

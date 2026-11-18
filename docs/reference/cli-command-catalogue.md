@@ -4,8 +4,8 @@ Auto-generated from `specs/*.json.gz` via `scripts/generate_cli_command_catalogu
 
 Lists every operation the CLI dispatches. Deprecated operations and the `internal` resource are excluded. Each row corresponds to a concrete `--api-scope` / `--api-version` combination.
 
-**Services:** 25
-**Operations:** 2002
+**Services:** 26
+**Operations:** 2025
 
 ## achievement
 
@@ -389,6 +389,38 @@ Lists every operation the CLI dispatches. Deprecated operations and the `interna
 | `user-records-protected` | `list` | admin | v1 | GET | `/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords` | Lists admin player record keys |
 | `user-records-protected` | `update` | admin | v1 | PUT | `/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/adminrecords/{key}` | Creates or replaces an admin player record |
 | `user-records-protected` | `update-concurrent` | admin | v1 | PUT | `/cloudsave/v1/admin/namespaces/{namespace}/users/{userId}/concurrent/adminrecords/{key}` | Creates or replaces an admin player record with optimistic concurrency control |
+
+## namespace-config
+
+- Spec name: `config`
+- Resources: 5
+- Operations: 23
+
+| Resource | Method | Scope | Version | HTTP | Path | Summary |
+|----------|--------|-------|---------|------|------|---------|
+| `account-profiles` | `create` | admin | v1 | POST | `/config/v1/admin/namespaces/{namespace}/configs/account` | Create Account Profile Related Config |
+| `account-profiles` | `get` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/configs/account/{configKey}` | Get Account Profile Related Config |
+| `account-profiles` | `update` | admin | v1 | PUT | `/config/v1/admin/namespaces/{namespace}/configs/account/{configKey}` | Update Account Profile Related Config |
+| `configs` | `create` | admin | v1 | POST | `/config/v1/admin/namespaces/{namespace}/configs` | Create a config |
+| `configs` | `delete` | admin | v1 | DELETE | `/config/v1/admin/namespaces/{namespace}/configs/{configKey}` | Delete a config |
+| `configs` | `get` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/configs/{configKey}` | Get a config |
+| `configs` | `get` | public | v1 | GET | `/config/v1/public/namespaces/{namespace}/configs/{configKey}` | Get a public config |
+| `configs` | `list` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/configs` | Get all configs |
+| `configs` | `list` | public | v1 | GET | `/config/v1/public/namespaces/{namespace}/configs` | Get all public configs |
+| `configs` | `update` | admin | v1 | PATCH | `/config/v1/admin/namespaces/{namespace}/configs/{configKey}` | Update a config |
+| `email-api-keys` | `create` | admin | v1 | POST | `/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts` | Add an API key account |
+| `email-api-keys` | `delete` | admin | v1 | DELETE | `/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts/{account}` | Delete an API key account |
+| `email-api-keys` | `list` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts` | Get all API key accounts |
+| `email-api-keys` | `list-linked-senders` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts/{account}/linkedsenders` | Get email senders that linked with API Key account |
+| `email-senders` | `create` | admin | v1 | POST | `/config/v1/admin/namespaces/{namespace}/emailsender` | Add email sender |
+| `email-senders` | `delete` | admin | v1 | DELETE | `/config/v1/admin/namespaces/{namespace}/emailsender` | Delete email sender |
+| `email-senders` | `get` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/emailsender` | Get email sender |
+| `email-senders` | `get-domain-authentication` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/emailsender/authentication` | Get email sender domain authentication |
+| `email-senders` | `update` | admin | v1 | PATCH | `/config/v1/admin/namespaces/{namespace}/emailsender` | Update email sender |
+| `email-senders` | `verify-domain` | admin | v1 | POST | `/config/v1/admin/namespaces/{namespace}/emailsender/authentication/verify` | Verify email sender domain authentication |
+| `email-templates` | `delete` | admin | v1 | DELETE | `/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates` | Delete email templates of an account |
+| `email-templates` | `get` | admin | v1 | GET | `/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates` | Get email templates of an account |
+| `email-templates` | `upsert` | admin | v1 | PUT | `/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates` | Create or update email templates of an account |
 
 ## csm
 

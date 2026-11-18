@@ -433,7 +433,11 @@ pub(crate) async fn execute_compiled_workflow(
     // so the workflow's real step count never affects the surface.
     let frontend_context = frontend_context.finalize_surface(RouteKind::Workflow, Shape::Multi);
     // Help exits before finalization, so a workflow command here is never meta.
-    crate::invocation::try_emit_first_run_hint(&frontend_context, false);
+    crate::invocation::try_emit_first_run_hint(
+        &frontend_context,
+        crate::invocation::HintCommand::Other,
+        flags.profile.as_deref(),
+    );
     let is_fullscreen_surface = matches!(
         frontend_context.surface_backend(),
         crate::invocation::context::PhaseBackend::FullscreenTerminalUi

@@ -3,6 +3,7 @@
 //! `options.rs`'s network-backed resolution, a local directory read is
 //! effectively instant and needs no async plumbing or cancellation handling.
 
+use ags_protocol::workflow::FilePickerKind;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -18,20 +19,28 @@ pub struct FileEntry {
     pub is_dir: bool,
 }
 
-/// List `dir`'s entries, filtered to files matching `extensions` (case-
-/// insensitive; `None` or empty = every file allowed) plus every
-/// subdirectory (never extension-filtered — a matching file might be inside
-/// one), excluding entries whose name starts with `'.'` (Unix dotfile
-/// convention). The Windows hidden-file attribute is not consulted — a file
-/// marked hidden but whose name does not start with `'.'` will appear in
-/// the listing. This is a deliberate simplification, not an oversight.
-/// Symlinks are resolved via metadata: a symlinked directory is listed as a
-/// directory, a symlinked file as a file. Unreadable or broken entries
-/// (including broken symlinks) are silently skipped rather than failing the
-/// whole listing. Sorted: `..` first (omitted only when `dir` has no
-/// parent — i.e. at a filesystem root), then directories alphabetically
-/// (case-insensitive), then files alphabetically (case-insensitive).
-pub fn list_directory(dir: &Path, extensions: Option<&[String]>) -> io::Result<Vec<FileEntry>> {
+/// List `dir`'s entries. In `FilePickerKind::File` mode: files matching
+/// `extensions` (case-insensitive; `None` or empty = every file allowed)
+/// plus every subdirectory (never extension-filtered — a matching file
+/// might be inside one). In `FilePickerKind::Directory` mode: subdirectories
+/// only — no file is ever returned, and `extensions` is not consulted at all
+/// (validated as absent at compile time for this mode; see
+/// `validate_file_pickers`). Both modes exclude entries whose name starts
+/// with `'.'` (Unix dotfile convention). The Windows hidden-file attribute is
+/// not consulted — a file marked hidden but whose name does not start with
+/// `'.'` will appear in the listing (file mode only). This is a deliberate
+/// simplification, not an oversight. Symlinks are resolved via metadata: a
+/// symlinked directory is listed as a directory, a symlinked file as a file.
+/// Unreadable or broken entries (including broken symlinks) are silently
+/// skipped rather than failing the whole listing. Sorted: `..` first
+/// (omitted only when `dir` has no parent — i.e. at a filesystem root), then
+/// directories alphabetically (case-insensitive), then files alphabetically
+/// (case-insensitive, file mode only).
+pub fn list_directory(
+    dir: &Path,
+    extensions: Option<&[String]>,
+    kind: FilePickerKind,
+) -> io::Result<Vec<FileEntry>> {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
 
@@ -59,7 +68,10 @@ pub fn list_directory(dir: &Path, extensions: Option<&[String]>) -> io::Result<V
                 path,
                 is_dir: true,
             });
-        } else if metadata.is_file() && extension_allowed(&path, extensions) {
+        } else if kind == FilePickerKind::File
+            && metadata.is_file()
+            && extension_allowed(&path, extensions)
+        {
             files.push(FileEntry {
                 name: name_str.to_string(),
                 path,
@@ -114,7 +126,7 @@ mod tests {
         fs::write(dir.path().join("icon.PNG"), b"").unwrap();
         fs::write(dir.path().join("readme.txt"), b"").unwrap();
         let extensions = vec!["png".to_string()];
-        let entries = list_directory(dir.path(), Some(&extensions)).unwrap();
+        let entries = list_directory(dir.path(), Some(&extensions), FilePickerKind::File).unwrap();
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"icon.PNG"));
         assert!(!names.contains(&"readme.txt"));
@@ -125,7 +137,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), b"").unwrap();
         fs::write(dir.path().join("b.bin"), b"").unwrap();
-        let entries = list_directory(dir.path(), None).unwrap();
+        let entries = list_directory(dir.path(), None, FilePickerKind::File).unwrap();
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"a.txt"));
         assert!(names.contains(&"b.bin"));
@@ -136,8 +148,54 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::create_dir(dir.path().join("assets.old")).unwrap(); // dir name has no allowed "extension"
         let extensions = vec!["png".to_string()];
-        let entries = list_directory(dir.path(), Some(&extensions)).unwrap();
+        let entries = list_directory(dir.path(), Some(&extensions), FilePickerKind::File).unwrap();
         assert!(entries.iter().any(|e| e.name == "assets.old" && e.is_dir));
+    }
+
+    #[test]
+    fn test_list_directory_directory_mode_hides_all_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("readme.txt"), b"").unwrap();
+        fs::create_dir(dir.path().join("sub")).unwrap();
+        let entries = list_directory(
+            dir.path(),
+            None,
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(!names.contains(&"readme.txt"));
+        assert!(names.contains(&"sub"));
+    }
+
+    #[test]
+    fn test_list_directory_directory_mode_ignores_extensions_filter() {
+        // Proves the mode controls file visibility, not the extensions filter:
+        // a matching extension is passed but still yields zero files.
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("icon.png"), b"").unwrap();
+        let extensions = vec!["png".to_string()];
+        let entries = list_directory(
+            dir.path(),
+            Some(&extensions),
+            ags_protocol::workflow::FilePickerKind::Directory,
+        )
+        .unwrap();
+        assert!(entries.iter().all(|e| e.is_dir));
+    }
+
+    #[test]
+    fn test_list_directory_file_mode_unchanged_behavior() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("readme.txt"), b"").unwrap();
+        let entries = list_directory(
+            dir.path(),
+            None,
+            ags_protocol::workflow::FilePickerKind::File,
+        )
+        .unwrap();
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"readme.txt"));
     }
 
     #[test]
@@ -145,7 +203,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join(".hidden"), b"").unwrap();
         fs::write(dir.path().join("visible.txt"), b"").unwrap();
-        let entries = list_directory(dir.path(), None).unwrap();
+        let entries = list_directory(dir.path(), None, FilePickerKind::File).unwrap();
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert!(!names.contains(&".hidden"));
         assert!(names.contains(&"visible.txt"));
@@ -160,7 +218,7 @@ mod tests {
         fs::create_dir(dir.join("aaa-dir")).unwrap();
         fs::write(dir.join("bbb-file.txt"), b"").unwrap();
         fs::write(dir.join("aaa-file.txt"), b"").unwrap();
-        let entries = list_directory(&dir, None).unwrap();
+        let entries = list_directory(&dir, None, FilePickerKind::File).unwrap();
         let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
             names,
@@ -181,7 +239,7 @@ mod tests {
         let sub = tmp.path().join("child");
         fs::create_dir(&sub).unwrap();
         fs::write(sub.join("file.txt"), b"").unwrap();
-        let entries = list_directory(&sub, None).unwrap();
+        let entries = list_directory(&sub, None, FilePickerKind::File).unwrap();
         assert!(
             entries.first().map(|e| e.name.as_str()) == Some(".."),
             "expected first entry to be \"..\" but got: {:?}",
@@ -202,7 +260,7 @@ mod tests {
         symlink(&target_dir, root.path().join("linked-dir")).unwrap();
         symlink(&target_file, root.path().join("linked-file.txt")).unwrap();
 
-        let entries = list_directory(root.path(), None).unwrap();
+        let entries = list_directory(root.path(), None, FilePickerKind::File).unwrap();
         let linked_dir = entries.iter().find(|e| e.name == "linked-dir").unwrap();
         let linked_file = entries
             .iter()

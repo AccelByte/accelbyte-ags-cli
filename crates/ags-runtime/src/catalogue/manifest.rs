@@ -104,6 +104,11 @@ pub(crate) const SERVICES: &[ServiceManifest] = &[
         description: "Matchmaking pools, rulesets, tickets, and backfill",
     },
     ServiceManifest {
+        internal: "config",
+        display: "namespace-config",
+        description: "Namespace config on the AGS backend: CORS, config values, and email senders",
+    },
+    ServiceManifest {
         internal: "platform",
         display: "platform",
         description: "Store, items, entitlements, wallets, payments, and IAP",
@@ -334,6 +339,32 @@ pub static RESOURCE_DESCRIPTIONS: &[(&str, &str, &str)] = &[
         "cloudsave",
         "user-records-protected",
         "Protected user records with restricted access",
+    ),
+    // config
+    (
+        "config",
+        "account-profiles",
+        "Account-profile-related namespace config values",
+    ),
+    (
+        "config",
+        "configs",
+        "Namespace-scoped config key-value pairs",
+    ),
+    (
+        "config",
+        "email-api-keys",
+        "Email sender API key accounts and linked senders",
+    ),
+    (
+        "config",
+        "email-senders",
+        "Email sender identities and domain authentication",
+    ),
+    (
+        "config",
+        "email-templates",
+        "Email templates for a namespace's email sender accounts",
     ),
     // csm
     ("csm", "app-ui", "App UI hosting and asset management"),
@@ -979,6 +1010,7 @@ mod new_service_description_tests {
         assert_eq!(internal_name("season-pass"), Some("seasonpass"));
         assert_eq!(internal_name("session-history"), Some("sessionhistory"));
         assert_eq!(internal_name("game-telemetry"), Some("gametelemetry"));
+        assert_eq!(internal_name("namespace-config"), Some("config"));
         assert_eq!(internal_name("ugc"), Some("ugc"));
     }
 
@@ -1013,6 +1045,7 @@ mod new_service_description_tests {
         assert_eq!(display_name("seasonpass"), Some("season-pass"));
         assert_eq!(display_name("sessionhistory"), Some("session-history"));
         assert_eq!(display_name("gametelemetry"), Some("game-telemetry"));
+        assert_eq!(display_name("config"), Some("namespace-config"));
         assert_eq!(display_name("ugc"), Some("ugc"));
     }
 
@@ -1020,6 +1053,21 @@ mod new_service_description_tests {
     #[test]
     fn test_display_name_unknown_returns_none() {
         assert_eq!(display_name("nonexistent"), None);
+    }
+
+    /// `SERVICES` is in CLI display order, which `ags --help` prints as-is and
+    /// `ags describe` re-sorts alphabetically; keeping the manifest sorted by
+    /// display name keeps the two listings in the same order.
+    #[test]
+    fn test_services_sorted_by_display_name() {
+        for pair in SERVICES.windows(2) {
+            assert!(
+                pair[0].display < pair[1].display,
+                "SERVICES must be sorted by display name: '{}' is listed before '{}'",
+                pair[0].display,
+                pair[1].display
+            );
+        }
     }
 
     /// Every service can round-trip from internal to display and back without data loss.

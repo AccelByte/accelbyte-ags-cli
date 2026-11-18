@@ -1,0 +1,465 @@
+{
+  "account-profiles": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/account",
+      "permissions": [],
+      "summary": "Create Account Profile Related Config",
+      "x_operation_id": "namespace-config/admin/account-profiles/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/account/{configKey}",
+      "permissions": [],
+      "summary": "Get Account Profile Related Config",
+      "x_operation_id": "namespace-config/admin/account-profiles/v1/get"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/account/{configKey}",
+      "permissions": [],
+      "summary": "Update Account Profile Related Config",
+      "x_operation_id": "namespace-config/admin/account-profiles/v1/update"
+    }
+  ],
+  "configs": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs",
+      "permissions": [],
+      "summary": "Create a config",
+      "x_operation_id": "namespace-config/admin/configs/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Delete a config",
+      "x_operation_id": "namespace-config/admin/configs/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "includeParentConfig",
+          "required": false
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Get a config",
+      "x_operation_id": "namespace-config/admin/configs/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/public/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Get a public config",
+      "x_operation_id": "namespace-config/public/configs/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs",
+      "permissions": [],
+      "summary": "Get all configs",
+      "x_operation_id": "namespace-config/admin/configs/v1/list"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/public/namespaces/{namespace}/configs",
+      "permissions": [],
+      "summary": "Get all public configs",
+      "x_operation_id": "namespace-config/public/configs/v1/list"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "configKey",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/configs/{configKey}",
+      "permissions": [],
+      "summary": "Update a config",
+      "x_operation_id": "namespace-config/admin/configs/v1/update"
+    }
+  ],
+  "email-api-keys": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts",
+      "permissions": [],
+      "summary": "Add an API key account",
+      "x_operation_id": "namespace-config/admin/email-api-keys/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "account",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts/{account}",
+      "permissions": [],
+      "summary": "Delete an API key account",
+      "x_operation_id": "namespace-config/admin/email-api-keys/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts",
+      "permissions": [],
+      "summary": "Get all API key accounts",
+      "x_operation_id": "namespace-config/admin/email-api-keys/v1/list"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "list-linked-senders",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "account",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "limit",
+          "required": false
+        },
+        {
+          "location": "query",
+          "name": "offset",
+          "required": false
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/apikeys/accounts/{account}/linkedsenders",
+      "permissions": [],
+      "summary": "Get email senders that linked with API Key account",
+      "x_operation_id": "namespace-config/admin/email-api-keys/v1/list-linked-senders"
+    }
+  ],
+  "email-senders": [
+    {
+      "has_request_body": true,
+      "http_method": "POST",
+      "method": "create",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender",
+      "permissions": [],
+      "summary": "Add email sender",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/create"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender",
+      "permissions": [],
+      "summary": "Delete email sender",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        },
+        {
+          "location": "query",
+          "name": "includeEmailTemplates",
+          "required": false
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender",
+      "permissions": [],
+      "summary": "Get email sender",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/get"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get-domain-authentication",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/authentication",
+      "permissions": [],
+      "summary": "Get email sender domain authentication",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/get-domain-authentication"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PATCH",
+      "method": "update",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender",
+      "permissions": [],
+      "summary": "Update email sender",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/update"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "POST",
+      "method": "verify-domain",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/authentication/verify",
+      "permissions": [],
+      "summary": "Verify email sender domain authentication",
+      "x_operation_id": "namespace-config/admin/email-senders/v1/verify-domain"
+    }
+  ],
+  "email-templates": [
+    {
+      "has_request_body": false,
+      "http_method": "DELETE",
+      "method": "delete",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "account",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates",
+      "permissions": [],
+      "summary": "Delete email templates of an account",
+      "x_operation_id": "namespace-config/admin/email-templates/v1/delete"
+    },
+    {
+      "has_request_body": false,
+      "http_method": "GET",
+      "method": "get",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "account",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates",
+      "permissions": [],
+      "summary": "Get email templates of an account",
+      "x_operation_id": "namespace-config/admin/email-templates/v1/get"
+    },
+    {
+      "has_request_body": true,
+      "http_method": "PUT",
+      "method": "upsert",
+      "parameters": [
+        {
+          "location": "path",
+          "name": "account",
+          "required": true
+        },
+        {
+          "location": "path",
+          "name": "namespace",
+          "required": true
+        }
+      ],
+      "path": "/config/v1/admin/namespaces/{namespace}/emailsender/accounts/{account}/emailtemplates",
+      "permissions": [],
+      "summary": "Create or update email templates of an account",
+      "x_operation_id": "namespace-config/admin/email-templates/v1/upsert"
+    }
+  ]
+}
